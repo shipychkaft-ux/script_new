@@ -21,8 +21,7 @@ end
 local startTick = tick()
 
 -- // GitHub repository to load files from
--- // ⚠️ Replace with your GitHub username and repo name after uploading files
-local GitHubRepo = "RAW_GITHUB_LINK" -- e.g. "https://raw.githubusercontent.com/YOUR_USERNAME/ManaV2ForRoblox/main/"
+local GitHubRepo = "https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/"
 
 local UserInputService = game:GetService("UserInputService")
 local TextChatService = game:GetService("TextChatService")
@@ -85,9 +84,6 @@ end
 
 do
     function Functions:RunFile(filepath)
-        if GitHubRepo == "https://raw.githubusercontent.com/YOUR_USERNAME/ManaV2ForRoblox/main/" or GitHubRepo == "https://raw.githubusercontent.com/ВАШ_ЛОГИН/ManaV2ForRoblox/main/" then
-            GitHubRepo = "https://raw.githubusercontent.com/Maanaaaa/ManaV2ForRoblox/main/"
-        end
         local req = requestfunc({
             Url = GitHubRepo .. filepath,
             Method = "GET"
