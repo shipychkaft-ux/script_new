@@ -364,7 +364,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local optionWindow = label:AddOption(1) -- gear: add entries
-        local inputLib = optionWindow:AddTextInput({
+        local inputLib = label:AddTextInput({
             Default = "",
             Placeholder = argstable.PlaceholderText or "Value",
             Numeric = argstable.Numeric or false,
