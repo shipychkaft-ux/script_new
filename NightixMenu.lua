@@ -672,8 +672,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         settings:AddLabel("Menu settings")
 
-        local scaleDropdown = settings:AddDropdown({
-            Name = "Menu Scale",
+        local scaleLabel = settings:AddLabel("Menu Scale")
+        local scaleDropdown = scaleLabel:AddDropdown({
             Default = "100%",
             Values = { "75%", "90%", "100%", "125%", "150%" },
             Size = 70,
@@ -685,8 +685,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         })
         scaleDropdown:SetValue("100%")
 
-        settings:AddLabel("Accent color")
-        settings:AddColorPicker({
+        local accentLabel = settings:AddLabel("Accent color")
+        accentLabel:AddColorPicker({
             Default = NeverLose.AccentColor,
             Callback = function(v)
                 NeverLose.AccentColor = v
