@@ -450,27 +450,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Options = {},
         }
 
-        local keybindLib
-        if type(label.AddKeybind) == "function" then
-            local keybindOk, keybindResult = pcall(function()
-                return label:AddKeybind({
-                    Default = ToggleTable.Keybind,
-                    Blacklist = { RightShift = true, Insert = true },
-                    Callback = function(v)
-                        if v == "RightShift" or v == "Insert" then
-                            ToggleTable.Keybind = "None"
-                        else
-                            ToggleTable.Keybind = v
-                        end
-                    end,
-                })
-            end)
-            if keybindOk then
-                keybindLib = keybindResult
-            end
-        end
-
-        keybindLib = keybindLib or {
+        local keybindLib = {
             GetValue = function()
                 return ToggleTable.Keybind
             end,
@@ -691,14 +671,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local settings = window.UserSettings
 
         settings:AddLabel("Menu settings")
-
-        local menuKeybind = settings:AddKeybind({
-            Default = guilibrary.GuiKeybind,
-            Blacklist = { Insert = true, None = true },
-            Callback = function(v)
-                guilibrary.GuiKeybind = v
-            end,
-        })
 
         local scaleDropdown = settings:AddDropdown({
             Name = "Menu Scale",
