@@ -619,7 +619,8 @@ Button.MouseButton1Click:Connect(function()
 end)
 
 UserInputService.InputBegan:Connect(function(Input)
-    if Input.KeyCode == Enum.KeyCode.RightShift then
+    local keybind = GuiLibrary.GuiKeybind or "RightShift"
+    if keybind ~= "None" and Input.KeyCode.Name == keybind then
         GuiLibrary:Toggle()
     end
 end)
