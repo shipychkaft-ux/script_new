@@ -450,20 +450,38 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Options = {},
         }
 
-        local keybindLib = label:AddKeybind({
-            Default = ToggleTable.Keybind,
-            Blacklist = { RightShift = true, Insert = true },
-            Callback = function(v)
-                if v == "RightShift" or v == "Insert" then
-                    if keybindLib then
-                        keybindLib:SetValue("None")
-                    end
+        local keybindLib
+        if type(label.AddKeybind) == "function" then
+            local keybindOk, keybindResult = pcall(function()
+                return label:AddKeybind({
+                    Default = ToggleTable.Keybind,
+                    Blacklist = { RightShift = true, Insert = true },
+                    Callback = function(v)
+                        if v == "RightShift" or v == "Insert" then
+                            ToggleTable.Keybind = "None"
+                        else
+                            ToggleTable.Keybind = v
+                        end
+                    end,
+                })
+            end)
+            if keybindOk then
+                keybindLib = keybindResult
+            end
+        end
+
+        keybindLib = keybindLib or {
+            GetValue = function()
+                return ToggleTable.Keybind
+            end,
+            SetValue = function(_, value)
+                if value == "RightShift" or value == "Insert" then
                     ToggleTable.Keybind = "None"
                 else
-                    ToggleTable.Keybind = v
+                    ToggleTable.Keybind = value or "None"
                 end
             end,
-        })
+        }
 
         local toggleLib = label:AddToggle({
             Default = ToggleTable.Enabled,
