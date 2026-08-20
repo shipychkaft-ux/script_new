@@ -13,24 +13,24 @@
 
 ### 1. Загрузите файлы на GitHub
 
-1. Перейдите на https://github.com и создайте новый репозиторий (например, `ManaV2ForRoblox`).
+1. Перейдите на https://github.com и создайте новый репозиторий (или используйте существующий `script_new`).
 2. Загрузите в репозиторий **все файлы** из этой папки:
-   - `GuiLibrary.lua`
-   - `MainScript.lua`
-   - `NightixMenu.lua`
-   - `Universal.lua`
-   - `espLibrary.lua`
-   - `playersHandler.lua`
-   - `toolHandler.lua`
-   - `loadstring.lua`
-   - `README.md`
+-   `GuiLibrary.lua`
+-   `MainScript.lua`
+-   `NightixMenu.lua`
+-   `Universal.lua`
+-   `espLibrary.lua`
+-   `playersHandler.lua`
+-   `toolHandler.lua`
+-   `loadstring.lua`
+-   `README.md`
 
 ### 2. Использование
 
 В Roblox-эксплоите (Synapse, Fluxus, KRNL и т.д.) выполните:
 
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/ВАШ_ЛОГИН/ManaV2ForRoblox/main/MainScript.lua"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/MainScript.lua"))()
 ```
 
 Либо используйте `loadstring.lua` из папки.

@@ -401,12 +401,13 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local catButtons = {}
     local function createCategoryButton(cat, index)
         local btn = Instance.new("TextButton", catPanel)
-        btn.Name = "Cat_" .. cat.Name
+        local catName = tostring(cat.Name or "Tab")
+        btn.Name = "Cat_" .. catName
         btn.BackgroundTransparency = 1
         btn.BorderSizePixel = 0
         btn.Position = UDim2.new(0, 3, 0, 3 + (index - 1) * 20)
         btn.Size = UDim2.new(0, 24, 0, 16)
-        btn.Text = cat.Icon or string.sub(cat.Name, 1, 1)
+        btn.Text = cat.Icon or string.sub(catName, 1, 1)
         btn.TextColor3 = guipallet.TextColor
         btn.TextSize = 10
         btn.Font = guipallet.Font
@@ -443,14 +444,14 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     end
 
     local function CreateTab(argstable)
-        local tabname = argstable.Name
+        local tabname = argstable.Name or "Tab"
         local color = argstable.Color or Color3.fromRGB(83, 214, 110)
         local tabicon = argstable.TabIcon
 
         local cat = {
             Name = tabname,
             Color = color,
-            Icon = string.sub(tabname, 1, 1),
+            Icon = string.sub(tostring(tabname), 1, 1),
             modules = {},
             Toggles = {},
             isOptionsTab = false,
@@ -673,13 +674,13 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     end
 
     local function CreateOptionsTab(argstable)
-        local tabname = argstable.Name
+        local tabname = argstable.Name or "Tab"
         local color = argstable.Color or Color3.fromRGB(255, 255, 255)
 
         local cat = {
             Name = tabname,
             Color = color,
-            Icon = string.sub(tabname, 1, 1),
+            Icon = string.sub(tostring(tabname), 1, 1),
             modules = {},
             Toggles = {},
             isOptionsTab = true,

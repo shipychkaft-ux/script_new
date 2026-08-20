@@ -3168,7 +3168,7 @@ function guilibrary:CreateWindow()
     end
 
     function guilibrary:CreateTab(argstable)
-        local tabname = argstable.Name
+        local tabname = argstable.Name or "Tab"
         local color = argstable.Color or Color3.fromRGB(83, 214, 110)
         local tabicon = argstable.TabIcon
         local tab = Instance.new("TextButton")
@@ -3751,7 +3751,7 @@ function guilibrary:CreateWindow()
         return tabtable
     end
     function guilibrary:CreateCustomTab(argstable)
-        local name = argstable.Name
+        local name = argstable.Name or "Tab"
         local color = argstable.Color or guilibrary.TextColor
         local tab = Instance.new("TextButton")
         local tabtext = Instance.new("TextLabel")
@@ -3873,7 +3873,7 @@ function guilibrary:CreateWindow()
 		end))
     end
     function guilibrary:CreateOptionsTab(argstable)
-        local tabname = argstable.Name
+        local tabname = argstable.Name or "Tab"
         local color = argstable.Color or Color3.fromRGB(255, 255, 255)
 
         --local container = Instance.new("Frame")
