@@ -678,7 +678,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Values = { "75%", "90%", "100%", "125%", "150%" },
             Size = 70,
             Callback = function(v)
-                local mult = (tonumber(v:gsub("%%", "")) or 100) / 100
+                local cleaned = v:gsub("%%", "")
+                local mult = (tonumber(cleaned) or 100) / 100
                 menuScale = UDim2.fromScale(NeverLose.Scales.Default.X.Scale * mult, NeverLose.Scales.Default.Y.Scale * mult)
                 window:SetSize(menuScale)
             end,
