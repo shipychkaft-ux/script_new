@@ -25,7 +25,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         Size = NeverLose.Scales.Default,
         ConfigFolder = "NightixConfigs",
         Enable3DRenderer = false,
-        Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
+        Keybind = "None", -- RightShift is handled by MainScript only
     })
 
     -- watermark
@@ -45,6 +45,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     guilibrary.UIScale = { Scale = 1 }
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
+    window.Keybind = "None"
 
     -- the library reveals the window ~0.25s after creation; hide it again
     task.delay(0.4, function()
@@ -88,9 +89,16 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             error("[NightixMenu]: unknown tab '" .. tostring(tabname) .. "'")
         end
         if not st.section then
-            st.section = st.tab:AddSection({ Name = "Modules", Position = "Auto" })
+            st.section = st.tab:AddSection({ Name = "Modules", Position = "left" })
         end
         return st.section
+    end
+
+    local function refreshSection(tabname)
+        local st = tabStates[tabname]
+        if st and st.section and st.section.Refresh then
+            st.section:Refresh()
+        end
     end
 
     local function registerOption(toggleName, tabName, name, api, otype)
@@ -148,6 +156,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             api:Set(def)
         end
 
+        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Slider")
     end
 
@@ -204,6 +213,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         api:Select(def)
 
+        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Dropdown")
     end
 
@@ -239,6 +249,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         api:Toggle(def)
 
+        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Toggle")
     end
 
@@ -282,6 +293,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         lib:SetValue(def)
         callback(def)
 
+        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "ColorSlider")
     end
 
@@ -319,6 +331,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         api:Set(def)
 
+        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "TextBox")
     end
 
@@ -339,6 +352,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Container = nil,
         }
 
+        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Button")
     end
 
@@ -412,6 +426,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             api:CreateListObject(v)
         end
 
+        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "TextList")
     end
 
@@ -439,7 +454,14 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Default = ToggleTable.Keybind,
             Blacklist = { RightShift = true, Insert = true },
             Callback = function(v)
-                ToggleTable.Keybind = v
+                if v == "RightShift" or v == "Insert" then
+                    if keybindLib then
+                        keybindLib:SetValue("None")
+                    end
+                    ToggleTable.Keybind = "None"
+                else
+                    ToggleTable.Keybind = v
+                end
             end,
         })
 
@@ -518,6 +540,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             API = ToggleTable,
             Options = ToggleTable.Options,
         }
+
+        refreshSection(tabName)
 
         return ToggleTable
     end
