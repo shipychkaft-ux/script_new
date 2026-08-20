@@ -574,42 +574,33 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         tabtable.Order = ObjectsToSave.Tabs and #ObjectsToSave.Tabs + 1 or 1
 
         if isOptionsTab then
-            function tabtable:CreateToggle(argstable)
-                return createOptionToggle(getSection(tabname), argstable, nil, tabname)
-            end
-        else
-            function tabtable:CreateToggle(argstable)
-                return createModuleToggle(tabname, argstable)
-            end
-        end
+            function ToggleTable:CreateSlider(argstable)
+    return createSlider(optionWindow, argstable, toggleName, nil)
+end
 
-        function tabtable:CreateSlider(argstable)
-            return createSlider(getSection(tabname), argstable, nil, tabname)
-        end
+function ToggleTable:CreateDropdown(argstable) -- ДОБАВЬТЕ ЭТОТ БЛОК
+    return createDropdown(optionWindow, argstable, toggleName, nil)
+end
 
-        function tabtable:CreateDropdown(argstable)
-            return createDropdown(getSection(tabname), argstable, nil, tabname)
-        end
+function ToggleTable:CreateColorSlider(argstable)
+    return createColorSlider(optionWindow, argstable, toggleName, nil)
+end
 
-        function tabtable:CreateColorSlider(argstable)
-            return createColorSlider(getSection(tabname), argstable, nil, tabname)
-        end
+function ToggleTable:CreateToggle(argstable)
+    return createOptionToggle(optionWindow, argstable, toggleName, nil)
+end
 
-        function tabtable:CreateButton(argstable)
-            return createButton(getSection(tabname), argstable, nil, tabname)
-        end
+function ToggleTable:CreateButton(argstable)
+    return createButton(optionWindow, argstable, toggleName, nil)
+end
 
-        function tabtable:CreateTextBox(argstable)
-            return createTextBox(getSection(tabname), argstable, nil, tabname)
-        end
+function ToggleTable:CreateTextBox(argstable)
+    return createTextBox(optionWindow, argstable, toggleName, nil)
+end
 
-        function tabtable:CreateTextList(argstable)
-            return createTextList(getSection(tabname), argstable, nil, tabname)
-        end
-
-        function tabtable:CreateDivider(DividerText)
-            return getSection(tabname):AddLabel(tostring(DividerText or ""))
-        end
+function ToggleTable:CreateTextList(argstable)
+    return createTextList(optionWindow, argstable, toggleName, nil)
+end
 
         ObjectsToSave.Tabs[tabname] = {
             Name = tabname,
