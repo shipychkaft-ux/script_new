@@ -1,4 +1,4 @@
--- Nightix-style menu for Mana V2 For Roblox, powered by the NeverLose UI library.
+-- Nightix menu for Roblox, powered by the NeverLose UI library.
 -- All Mana modules (Universal.lua) are exposed through the standard Mana API
 -- (CreateTab / CreateToggle / CreateSlider / ...). No module code is modified.
 
@@ -13,13 +13,15 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         error("[NightixMenu]: failed to load the NeverLose UI library")
     end
 
+    NeverLose.GlobalLogo = "rbxassetid://80320370259758"
+
     -- ------------------------------------------------------------------
     -- Window
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
         Logo = NeverLose.GlobalLogo,
         Name = "Nightix",
-        Content = "Mana V2 For Roblox",
+        Content = "Nightix",
         Size = NeverLose.Scales.Default,
         ConfigFolder = "NightixConfigs",
         Enable3DRenderer = false,
@@ -29,13 +31,13 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- watermark
     local Watermark = window:Watermark()
     Watermark:AddBlock("cube-vertexes", "Nightix")
-    Watermark:AddBlock("chevron-large-right", "Mana V2 For Roblox")
+    Watermark:AddBlock("chevron-large-right", "Nightix")
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
     Notification.new({
         Title = "Nightix",
-        Content = "Mana V2 For Roblox loaded",
+        Content = "Nightix loaded",
         Duration = 4,
     })
 
@@ -454,18 +456,18 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local optionWindow = label:AddOption(1) -- gear: module options
 
         function ToggleTable:Toggle(Silent, Bool)
-            local Bool = Bool or true
-            if ToggleTable.Enabled ~= Bool then
-                ToggleTable.Enabled = Bool
-                ToggleTable.Value = Bool
+            local nextValue = Bool == nil and true or Bool
+            if ToggleTable.Enabled ~= nextValue then
+                ToggleTable.Enabled = nextValue
+                ToggleTable.Value = nextValue
             end
             if not Silent and ToggleTable.Callback then
-                ToggleTable.Callback(Bool)
+                ToggleTable.Callback(nextValue)
             end
             if ToggleTable.Keybind and ToggleTable.Keybind ~= "none" and ToggleTable.Keybind ~= "None" then
                 guilibrary:playsound()
             end
-            toggleLib:SetValue(Bool)
+            toggleLib:SetValue(nextValue)
         end
 
         function ToggleTable:ReToggle(Silent)
