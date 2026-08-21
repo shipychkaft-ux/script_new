@@ -514,7 +514,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         end
 
         function ToggleTable:CreateTextList(argstable)
-            return createTextList(optionWindow, argstable, toggleName, nil)
+            return createTextList(getSection(tabName), argstable, toggleName, nil)
         end
 
         ObjectsToSave.Toggles[toggleName] = {
@@ -648,9 +648,16 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 menuInputConnection:Disconnect()
                 menuInputConnection = nil
             end
-            localPlayer.CameraMode = previousCameraMode
-            localPlayer.CameraMinZoomDistance = previousCameraMinZoomDistance
-            localPlayer.CameraMaxZoomDistance = previousCameraMaxZoomDistance
+            local restoreCameraMode = previousCameraMode
+            local restoreMinZoomDistance = previousCameraMinZoomDistance
+            local restoreMaxZoomDistance = previousCameraMaxZoomDistance
+            local restoreCamera = function()
+                localPlayer.CameraMode = restoreCameraMode
+                localPlayer.CameraMinZoomDistance = restoreMinZoomDistance
+                localPlayer.CameraMaxZoomDistance = restoreMaxZoomDistance
+            end
+            restoreCamera()
+            task.defer(restoreCamera)
             userInputService.MouseBehavior = previousMouseBehavior
             userInputService.MouseIconEnabled = previousMouseIconEnabled
             previousMouseBehavior = nil
