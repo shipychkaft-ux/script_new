@@ -51,6 +51,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local previousCameraMaxZoomDistance
     local previousCameraMode
     local menuInputConnection
+    local optionWindows = {}
 
     -- the library reveals the window ~0.25s after creation; hide it again
     task.delay(0.4, function()
@@ -458,9 +459,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         })
 
         local optionWindow = label:AddOption(1) -- gear: module options
+        table.insert(optionWindows, optionWindow)
 
         function ToggleTable:Toggle(Silent, Bool)
-            local Bool = Bool or true
+            local Bool = Bool == nil and not ToggleTable.Enabled or Bool == true
             if ToggleTable.Enabled ~= Bool then
                 ToggleTable.Enabled = Bool
                 ToggleTable.Value = Bool
@@ -516,6 +518,19 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         function ToggleTable:CreateTextList(argstable)
             return createTextList(getSection(tabName), argstable, toggleName, nil)
         end
+
+        table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+
+            local keybind = ToggleTable.Keybind
+            local pressed = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode.Name == keybind
+                or keybind == "M1B" and input.UserInputType == Enum.UserInputType.MouseButton1
+                or keybind == "M2B" and input.UserInputType == Enum.UserInputType.MouseButton2
+
+            if pressed then
+                ToggleTable:ReToggle(false)
+            end
+        end))
 
         ObjectsToSave.Toggles[toggleName] = {
             Name = toggleName,
@@ -644,6 +659,11 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             end)
             window:SetSize(menuScale)
         else
+            for _, optionWindow in ipairs(optionWindows) do
+                if optionWindow.Signal then
+                    optionWindow.Signal:SetValue(false)
+                end
+            end
             if menuInputConnection then
                 menuInputConnection:Disconnect()
                 menuInputConnection = nil
