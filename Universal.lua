@@ -2678,6 +2678,67 @@ runFunction(function()
     })
 end)
 
+runFunction(function()
+    local rainbowSkin = {Enabled = false}
+    local mode = {Value = "FullCharacter"}
+    local colorMode = {Value = "Random"}
+    local color = {Value = Color3.fromRGB(255, 255, 255)}
+    local delay = {Value = 0.1}
+    local newColor
+
+    rainbowSkin = Tabs.Render:CreateToggle({
+        Name = "RainbowSkin",
+        HoverText = "Makes your skin rainbow/random color.",
+        Callback = function(callback)
+            repeat
+                for _, part in next, getCharacter():GetDescendants() do
+                    if part:IsA("BasePart") then
+                        if mode.Value == "FullCharacter" then
+                            part.Color = (colorMode.Value == "Random") and Color3.new(math.random(), math.random(), math.random()) or color.Value
+                        else
+                            part.Color = (colorMode.Value == "Random") and Color3.new(math.random(), math.random(), math.random()) or color.Value
+                        end
+                    end
+                end
+                wait(delay.Value)
+            until not rainbowSkin.Enabled
+        end
+    })
+
+    mode = rainbowSkin:CreateDropdown({
+        Name = "Mode",
+        List = {"FullCharacter", "PerPart"},
+        Default = "PerPart",
+        Function = function(v) end
+    })
+
+    colorMode = rainbowSkin:CreateDropdown({
+        Name = "ColorMode",
+        List = {"Random", "Custom"},
+        Default = "Random",
+        Function = function(v)
+            if delay.MainObject then
+                delay.MainObject.Visible = v == "Random"
+            end
+        end
+    })
+
+    color = rainbowSkin:CreateColorSlider({
+        Name = "Color",
+        Default = Color3.fromRGB(255, 255, 255),
+        Function = function(v) end
+    })
+
+    delay = rainbowSkin:CreateSlider({
+        Name = "Delay",
+        Function = function(v) end,
+        Min = 0.1,
+        Max = 5,
+        Default = 0.1,
+        Round = 1
+    })
+end)
+
 --[[
 runFunction(function()
     --6018555426
@@ -2797,6 +2858,232 @@ runFunction(function()
         Default = 1000,
         Round = 0
     })
+end)
+
+runFunction(function()
+    local soundPlayer = {Enabled = false}
+    local mode = {Value = "Random"}
+    local sounds = {List = {}}
+    local volume = {Value = 1}
+    local sound
+    local current, max = 1, 1
+    local currentID
+
+    soundPlayer = Tabs.Render:CreateToggle({
+        Name = "SoundPlayer",
+        HoverText = "Plays music.",
+        Callback = function(callback)
+            repeat
+                if mode.Value == "Random" then
+                    currentID = #sounds.List > 0 and sounds.List[math.random(1, #sounds.List)] or "142376088"
+                elseif mode.Value == "Order" then
+                    max = #sounds.List
+                    currentID = sounds.List[current] or "142376088"
+                    current = current + 1
+                    if current > max then current = 1 end
+                end
+                if currentID and currentID ~= "" then
+                    if sound then
+                        sound:Stop()
+                        sound:Destroy()
+                    end
+
+                    sound = Instance.new("Sound")
+                    sound.SoundId = tonumber(currentID) and "rbxassetid://" .. currentID or currentID
+                    sound.Volume = volume.Value
+                    sound.Parent = workspace
+                    sound:Play()
+
+                    repeat task.wait() until sound.IsLoaded
+
+                    sound.Ended:Wait()
+                end
+            until not soundPlayer.Enabled
+            if not soundPlayer.Enabled and sound then
+                sound:Stop()
+                sound:Destroy()
+                sound = nil
+            end
+        end
+    })
+
+    mode = soundPlayer:CreateDropdown({
+        Name = "Mode",
+        List = {"Random", "Order"},
+        Default = "Random",
+        Function = function(v) end
+    })
+
+    sounds = soundPlayer:CreateTextList({
+        Name = "Sounds",
+        PlaceholderText = "sound id",
+        List = {},
+        Default = "",
+        Function = function(v) end
+    })
+
+    volume = soundPlayer:CreateSlider({
+        Name = "Volume",
+        Function = function(v)
+            if sound then
+                sound.Volume = v
+            end
+        end,
+        Min = 0,
+        Max = 1,
+        Default = 1,
+        Round = 1
+    })
+end)
+
+runFunction(function()
+    local spawnEsp = {Enabled = false}
+    local outline = {Value = true}
+    local outlineColor = {Value = Color3.fromRGB(255, 0, 0)}
+    local outlineTransparency = {Value = 0}
+    local fill = {Value = false}
+    local fillColor = {Value = Color3.fromRGB(255, 0, 0)}
+    local fillTransparency = {Value = 0}
+    local objects = {}
+    local connection
+
+    local function addHighlight(obj)
+        if obj:FindFirstChild("SpawnESP") then return end
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "SpawnESP"
+        highlight.Adornee = obj
+        highlight.Parent = obj
+        highlight.FillColor = fillColor.Value
+        highlight.FillTransparency = fill.Value and fillTransparency.Value or 1
+        highlight.OutlineColor = outlineColor.Value
+        highlight.OutlineTransparency = outline.Value and outlineTransparency.Value or 1
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        table.insert(objects, highlight)
+    end
+
+    spawnEsp = Tabs.Render:CreateToggle({
+        Name = "SpawnESP",
+        HoverText = "Highlights every spawn that has 0 transparency.",
+        Callback = function(callback)
+            if callback then
+                for _, obj in pairs(workspace:GetDescendants()) do
+                    if obj:IsA("SpawnLocation") then
+                        addHighlight(obj)
+                    end
+                end
+                connection = workspace.ChildAdded:Connect(function(child)
+                    if child:IsA("SpawnLocation") then
+                        addHighlight(child)
+                    end
+                end)
+            else
+                for _, obj in pairs(objects) do
+                    if obj and obj.Parent then
+                        obj:Destroy()
+                    end
+                end
+                table.clear(objects)
+                if connection then
+                    connection:Disconnect()
+                    connection = nil
+                end
+            end
+        end
+    })
+
+    outline = spawnEsp:CreateToggle({
+        Name = "Outline",
+        Default = true,
+        Function = function(v)
+            for _, obj in pairs(objects) do
+                if obj and obj.Parent then
+                    obj.OutlineTransparency = v and outlineTransparency.Value or 1
+                end
+            end
+            if outlineColor.Container then
+                outlineColor.Container.Visible = v
+            end
+            if outlineTransparency.Container then
+                outlineTransparency.Container.Visible = v
+            end
+        end
+    })
+
+    outlineColor = spawnEsp:CreateColorSlider({
+        Name = "Outline color",
+        Default = Color3.fromRGB(255, 0, 0),
+        Function = function(v)
+            for _, obj in pairs(objects) do
+                if obj and obj.Parent then
+                    obj.OutlineColor = v
+                end
+            end
+        end
+    })
+    outlineColor.Container.Visible = false
+
+    outlineTransparency = spawnEsp:CreateSlider({
+        Name = "Outline Transparency",
+        Function = function(v)
+            for _, obj in pairs(objects) do
+                if obj and obj.Parent then
+                    obj.OutlineTransparency = outline.Value and v or 1
+                end
+            end
+        end,
+        Min = 0,
+        Max = 1,
+        Default = 0,
+        Round = 1
+    })
+    outlineTransparency.Container.Visible = false
+
+    fill = spawnEsp:CreateToggle({
+        Name = "Fill",
+        Default = false,
+        Function = function(v)
+            for _, obj in pairs(objects) do
+                if obj and obj.Parent then
+                    obj.FillTransparency = v and fillTransparency.Value or 1
+                end
+            end
+            if fillColor.Container then
+                fillColor.Container.Visible = v
+            end
+            if fillTransparency.Container then
+                fillTransparency.Container.Visible = v
+            end
+        end
+    })
+
+    fillColor = spawnEsp:CreateColorSlider({
+        Name = "Fill color",
+        Default = Color3.fromRGB(255, 0, 0),
+        Function = function(v)
+            for _, obj in pairs(objects) do
+                if obj and obj.Parent then
+                    obj.FillColor = v
+                end
+            end
+        end
+    })
+    fillColor.Container.Visible = false
+
+    fillTransparency = spawnEsp:CreateSlider({
+        Name = "Fill Transparency",
+        Function = function(v)
+            for _, obj in pairs(objects) do
+                if obj and obj.Parent then
+                    obj.FillTransparency = fill.Value and v or 1
+                end
+            end
+        end,
+        Min = 0,
+        Max = 1,
+        Default = 0,
+        Round = 1
+    })
+    fillTransparency.Container.Visible = false
 end)
 
 runFunction(function()
@@ -4022,7 +4309,7 @@ runFunction(function()
     })
 end)
 
--- World tab (moved to Render)
+-- World tab
 runFunction(function()
     local antiVoid = {Enabled = false}
     local mode = {Value = "Jump"}
@@ -4109,7 +4396,7 @@ runFunction(function()
         end
     end
 
-    antiVoid = Tabs.Render:CreateToggle({
+    antiVoid = Tabs.World:CreateToggle({
         Name = "AntiVoid",
         HoverText = "Makes you unable to fall into the void.",
         Callback = function(callback)
@@ -4191,7 +4478,7 @@ runFunction(function()
     local atmosphere
     local old = {}
 
-    atmosphereModule = Tabs.Render:CreateToggle({
+    atmosphereModule = Tabs.World:CreateToggle({
         Name = "Atmopshere",
         HoverText = "Customizes the atmosphere of the game.",
         Callback = function(callback)
@@ -4320,7 +4607,7 @@ runFunction(function()
     local gravity = {Enabled = false}
     local value = {Value = 18}
     local oldGravity
-    gravity = Tabs.Render:CreateToggle({
+    gravity = Tabs.World:CreateToggle({
         Name = "Gravity",
         HoverText = "Changes the game gravity.",
         Callback = function(callback)
@@ -4363,7 +4650,7 @@ runFunction(function()
     local sunRaysObject
     local oldLightingObjects = {}
     local connection
-    customLighting = Tabs.Render:CreateToggle({
+    customLighting = Tabs.World:CreateToggle({
         Name = "Lighting",
         HoverText = "Customizes the lighting of the game.",
         Callback = function(callback)
@@ -4526,7 +4813,7 @@ runFunction(function()
     local skyObject
     local connection
 
-    customSky = Tabs.Render:CreateToggle({
+    customSky = Tabs.World:CreateToggle({
         Name = "Sky",
         HoverText = "Customizes the sky of the game.",
         Callback = function(callback)
@@ -4672,7 +4959,7 @@ runFunction(function()
     local function updateTime()
         Lighting.TimeOfDay = hours.Value..":"..minutes.Value..":"..seconds.Value
     end
-    timeOfDay = Tabs.Render:CreateToggle({
+    timeOfDay = Tabs.World:CreateToggle({
         Name = "TimeOfDay",
         HoverText = "Customizes the time of the game.",
         Callback = function(callback)

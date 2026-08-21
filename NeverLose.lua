@@ -5982,7 +5982,7 @@ function NeverLose:CreateWindow(Config)
 
 			local Frame = Instance.new("Frame")
 			local Content = Instance.new("TextLabel")
-			local Icon = Instance.new("TextLabel")
+			local Icon = Instance.new("ImageLabel")
 
 			Frame.Parent = Watermark
 			Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
