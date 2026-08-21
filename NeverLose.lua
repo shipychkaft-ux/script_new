@@ -6218,9 +6218,10 @@ function NeverLose:CreateNotification()
 		NotifyContent.ZIndex = 132
 		NotifyContent.Font = Enum.Font.GothamBold
 		NotifyContent.Text = Config.Content
+		NotifyContent.RichText = true
 		NotifyContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 		NotifyContent.TextSize = 12.000
-		NotifyContent.TextTransparency = 0.650
+		NotifyContent.TextTransparency = 0.200
 		NotifyContent.TextXAlignment = Enum.TextXAlignment.Left
 
 		local Size1 = TextService:GetTextSize(NotifyName.Text,NotifyName.TextSize,NotifyName.Font,Vector2.new(math.huge,math.huge));
