@@ -202,11 +202,6 @@ local Tabs = {
         Color = Color3.fromRGB(83, 214, 110),
         TabIcon = "MiscTabIcon.png" --"UtilityTabIcon",
     }),
-    World = GuiLibrary:CreateTab({
-        Name = "World",
-        Color = Color3.fromRGB(52, 28, 228), --52, 28, 228
-        TabIcon = "WorldTabIcon.png"
-    }),
     Settings = GuiLibrary:CreateOptionsTab({
         Name = "Settings",
         Color = Color3.fromRGB(240, 157, 62), --240, 157, 62

@@ -375,13 +375,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Placeholder = argstable.PlaceholderText or "Value",
             Numeric = argstable.Numeric or false,
             Size = 100,
-            Callback = function() end,
-        })
-        container:AddButton({
-            Name = "Add",
-            Icon = "circle-plus",
-            Callback = function()
-                local text = inputLib:GetValue()
+            Callback = function(text)
                 if text and text ~= "" then
                     api:CreateListObject(text)
                     inputLib:SetValue("")

@@ -2678,6 +2678,9 @@ runFunction(function()
     })
 end)
 
+-- RainbowSkin, SoundPlayer, and SpawnESP were removed from the Nightix build.
+-- The remaining Render modules continue below.
+--[[
 runFunction(function()
     local rainbowSkin = {Enabled = false}
     local mode = {Value = "FullCharacter"}
@@ -2859,7 +2862,9 @@ runFunction(function()
         Round = 0
     })
 end)
+]]
 
+if false then
 runFunction(function()
     local soundPlayer = {Enabled = false}
     local mode = {Value = "Random"}
@@ -2936,6 +2941,9 @@ runFunction(function()
     })
 end)
 
+end
+
+if false then
 runFunction(function()
     local spawnEsp = {Enabled = false}
     local outline = {Value = true}
@@ -3086,6 +3094,7 @@ runFunction(function()
     fillTransparency.Container.Visible = false
 end)
 
+if false then
 runFunction(function()
     local usernameHider = {Enabled = false}
     local mode = {Value = "DisplayName"}
@@ -3174,6 +3183,8 @@ runFunction(function()
     customName.Container.Visible = false
 end)
 
+end
+
 runFunction(function()
     local viewClip = {Enabled = false}
     viewClip = Tabs.Render:CreateToggle({
@@ -3228,6 +3239,8 @@ runFunction(function()
         Function = function(v) end
     })
 end)
+
+end
 
 runFunction(function()
     local antiFling = {Enabled = false}
