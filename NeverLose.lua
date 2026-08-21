@@ -5841,27 +5841,7 @@ function NeverLose:CreateWindow(Config)
 
 	local UserSettings = NeverLose:CreateOptionWindow(BottomFrame , BottomFrame.ZIndex + 13);
 	local reciveSignal;
-	NeverLose:CreateInput(BottomFrame , LPH_NO_VIRTUALIZE(function()
-		if reciveSignal then
-			reciveSignal:Disconnect();
-			reciveSignal = nil;	
-		end;
-
-		UserSettings.Signal:SetValue(true);
-
-		reciveSignal = UserInputService.InputBegan:Connect(function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-				if not NeverLose:IsMouseOverFrame(UserSettings.Root) and not NeverLose:IsMouseOverFrame(BottomFrame) and not NeverLose.IsMosueOverOtherFrame then
-					if reciveSignal then
-						reciveSignal:Disconnect();
-						reciveSignal = nil;	
-					end;
-
-					UserSettings.Signal:SetValue(false);
-				end
-			end
-		end);
-	end))
+	UserSettings.Signal:SetValue(false);
 
 	Window.UserSettings = UserSettings;
 

@@ -88,8 +88,9 @@ do
             Url = GitHubRepo .. filepath,
             Method = "GET"
         })
-        if isfile("NewMana/"..filepath) and shared.ManaDeveloper then
-            print("MEEEEEEE " .. filepath)
+        if betterisfile(filepath) then
+            return loadstring(readfile(filepath))()
+        elseif isfile("NewMana/"..filepath) and shared.ManaDeveloper then
             return loadstring(readfile("NewMana/" .. filepath))()
         elseif not betterisfile(filepath) and not shared.ManaDeveloper then -- auto update workspace files
             local content = req.Body
