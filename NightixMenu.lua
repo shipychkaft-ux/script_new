@@ -6,6 +6,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local Mana = shared.Mana
     local Functions = Mana.Functions
     local ObjectsToSave = guilibrary.ObjectsToSave
+    local localPlayer = game:GetService("Players").LocalPlayer
 
     -- Load the NeverLose UI library (Nightix-style UI)
     local NeverLose = Functions:RunFile("NeverLose.lua")
@@ -17,7 +18,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- Window
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
-        Logo = "rbxassetid://133760540075955",
+        Logo = "rbxassetid://80320370259758",
         Name = "Nightix",
         Content = "Nightix",
         Size = NeverLose.Scales.Default,
@@ -45,6 +46,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     guilibrary.Toggled = false
     local previousMouseBehavior
     local previousMouseIconEnabled
+    local previousCameraMinZoomDistance
+    local previousCameraMaxZoomDistance
 
     -- the library reveals the window ~0.25s after creation; hide it again
     task.delay(0.4, function()
@@ -614,21 +617,29 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         else
             newState = state and true or false
         end
-        if current ~= newState then
-            window:ToggleInterface()
-        end
+        if current == newState then return end
+
+        window:ToggleInterface()
         guilibrary.Toggled = window.Signal:GetValue()
         if guilibrary.Toggled then
             previousMouseBehavior = userInputService.MouseBehavior
             previousMouseIconEnabled = userInputService.MouseIconEnabled
+            previousCameraMinZoomDistance = localPlayer.CameraMinZoomDistance
+            previousCameraMaxZoomDistance = localPlayer.CameraMaxZoomDistance
+            localPlayer.CameraMinZoomDistance = 1
+            localPlayer.CameraMaxZoomDistance = 1
             userInputService.MouseBehavior = Enum.MouseBehavior.Default
             userInputService.MouseIconEnabled = true
             window:SetSize(menuScale)
-        elseif previousMouseBehavior then
+        else
+            localPlayer.CameraMinZoomDistance = previousCameraMinZoomDistance
+            localPlayer.CameraMaxZoomDistance = previousCameraMaxZoomDistance
             userInputService.MouseBehavior = previousMouseBehavior
             userInputService.MouseIconEnabled = previousMouseIconEnabled
             previousMouseBehavior = nil
             previousMouseIconEnabled = nil
+            previousCameraMinZoomDistance = nil
+            previousCameraMaxZoomDistance = nil
         end
     end
 
