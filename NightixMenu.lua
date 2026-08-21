@@ -52,6 +52,90 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local previousCameraMode
     local menuInputConnection
     local optionWindows = {}
+    local toggleNotifications = {}
+    local toggleOnSound = "rbxassetid://95856755098572"
+    local toggleOffSound = "rbxassetid://74014422539208"
+
+    local function showToggleNotification(name, enabled)
+        local notification = Instance.new("Frame")
+        local label = Instance.new("TextLabel")
+        local status = enabled and "on" or "off"
+
+        notification.AnchorPoint = Vector2.new(1, 0)
+        notification.BackgroundColor3 = Color3.fromRGB(20, 22, 27)
+        notification.BackgroundTransparency = 1
+        notification.BorderSizePixel = 0
+        notification.Size = UDim2.fromOffset(190, 26)
+        notification.ZIndex = 200
+        notification.Parent = NeverLose.ScreenGui
+
+        label.BackgroundTransparency = 1
+        label.Size = UDim2.fromScale(1, 1)
+        label.Font = Enum.Font.GothamMedium
+        label.Text = tostring(name) .. " " .. status
+        label.TextColor3 = enabled and Color3.fromRGB(100, 235, 125) or Color3.fromRGB(255, 95, 105)
+        label.TextSize = 13
+        label.TextXAlignment = Enum.TextXAlignment.Center
+        label.TextTransparency = 1
+        label.Parent = notification
+
+        table.insert(toggleNotifications, notification)
+
+        local function refreshPositions()
+            local maxVisible = math.max(1, math.floor((workspace.CurrentCamera.ViewportSize.Y * 0.3) / 31))
+            local index = 1
+            while index <= #toggleNotifications do
+                local item = toggleNotifications[index]
+                if index > maxVisible then
+                    local itemLabel = item:FindFirstChildOfClass("TextLabel")
+                    tweenService:Create(item, TweenInfo.new(0.2), {
+                        Position = item.Position + UDim2.fromOffset(45, 0),
+                        BackgroundTransparency = 1,
+                    }):Play()
+                    if itemLabel then
+                        tweenService:Create(itemLabel, TweenInfo.new(0.2), {TextTransparency = 1}):Play()
+                    end
+                    task.delay(0.2, function()
+                        if item.Parent then item:Destroy() end
+                    end)
+                    table.remove(toggleNotifications, index)
+                else
+                    index += 1
+                end
+            end
+
+            for index, item in ipairs(toggleNotifications) do
+                if item.Parent then
+                    item.Position = UDim2.new(1, 220, 0.8, -((index - 1) * 31))
+                    tweenService:Create(item, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+                        Position = UDim2.new(1, -15, 0.8, -((index - 1) * 31)),
+                        BackgroundTransparency = 0.15,
+                    }):Play()
+                    local itemLabel = item:FindFirstChildOfClass("TextLabel")
+                    if itemLabel then
+                        tweenService:Create(itemLabel, TweenInfo.new(0.2), {TextTransparency = 0}):Play()
+                    end
+                end
+            end
+        end
+
+        refreshPositions()
+        task.delay(2, function()
+            if notification.Parent then
+                tweenService:Create(notification, TweenInfo.new(0.25), {
+                    Position = notification.Position + UDim2.fromOffset(45, 0),
+                    BackgroundTransparency = 1,
+                }):Play()
+                tweenService:Create(label, TweenInfo.new(0.25), {TextTransparency = 1}):Play()
+                task.delay(0.25, function()
+                    local index = table.find(toggleNotifications, notification)
+                    if index then table.remove(toggleNotifications, index) end
+                    notification:Destroy()
+                    refreshPositions()
+                end)
+            end
+        end)
+    end
 
     -- the library reveals the window ~0.25s after creation; hide it again
     task.delay(0.4, function()
@@ -470,9 +554,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             if not Silent and ToggleTable.Callback then
                 ToggleTable.Callback(Bool)
             end
-            if ToggleTable.Keybind and ToggleTable.Keybind ~= "none" and ToggleTable.Keybind ~= "None" then
-                guilibrary:playsound()
-            end
+            guilibrary:playsound(Bool and toggleOnSound or toggleOffSound, 0.8)
+            showToggleNotification(ToggleTable.Name, Bool)
             toggleLib:SetValue(Bool)
         end
 

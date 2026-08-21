@@ -3651,19 +3651,15 @@ runFunction(function()
         SwimIdle = "swimidle",
         Swim = "swim"
     }
-    local oldAnimations = {
-        Animation1 = Animate.idle.Animation1.AnimationId,
-        Animation2 = Animate.idle.Animation2.AnimationId,
-        WalkAnim = Animate.walk.WalkAnim.AnimationId,
-        RunAnim = Animate.run.RunAnim.AnimationId,
-        JumpAnim = Animate.jump.JumpAnim.AnimationId,
-        FallAnim = Animate.fall.FallAnim.AnimationId,
-        ClimbAnim = Animate.climb.ClimbAnim.AnimationId,
-        SwimIdle = Animate.swimidle.SwimIdle.AnimationId,
-        Swim = Animate.swim.Swim.AnimationId
-    }
+    local oldAnimations = {}
+    local availableAnimations = {}
     for name, path in next, animations do
-        oldAnimations[name] = Animate:FindFirstChild(path):FindFirstChild(name).AnimationId
+        local animationFolder = Animate and Animate:FindFirstChild(path)
+        local animationObject = animationFolder and animationFolder:FindFirstChild(name)
+        if animationObject and animationObject:IsA("Animation") then
+            oldAnimations[name] = animationObject.AnimationId
+            table.insert(availableAnimations, {Name = name, Path = path})
+        end
     end
     customAnimations = Tabs.Utility:CreateToggle({
         Name = "CustomAnimations",
@@ -3681,8 +3677,9 @@ runFunction(function()
                 Animate.swimidle.SwimIdle.AnimationId = tonumber(swimIdleAnimation.Value) and "http://www.roblox.com/asset/?id=" .. swimIdleAnimation.Value or swimIdleAnimation.Value
                 Animate.swim.Swim.AnimationId = tonumber(swimAnimation.Value) and "http://www.roblox.com/asset/?id=" .. swimAnimation.Value or swimAnimation.Value
                 ]]
-                for name, path in next, animations do
-                    Animate:FindFirstChild(path):FindFirstChild(name).AnimationId = values[name].Value ~= "" and (tonumber(values[name].Value) and "http://www.roblox.com/asset/?id=" .. values[name].Value or values[name].Value) or oldAnimations[name]
+                for _, entry in ipairs(availableAnimations) do
+                    local animationObject = Animate:FindFirstChild(entry.Path):FindFirstChild(entry.Name)
+                    animationObject.AnimationId = values[entry.Name].Value ~= "" and (tonumber(values[entry.Name].Value) and "http://www.roblox.com/asset/?id=" .. values[entry.Name].Value or values[entry.Name].Value) or oldAnimations[entry.Name]
                 end
             else
                 --[[
@@ -3696,8 +3693,8 @@ runFunction(function()
                 Animate.swimidle.SwimIdle.AnimationId = oldAnimations.SwimIdleAnimation
                 Animate.swim.Swim.AnimationId = oldAnimations.SwimAnimation
                 ]]
-                for name, path in next, animations do
-                    Animate:FindFirstChild(path):FindFirstChild(name).AnimationId = oldAnimations[name]
+                for _, entry in ipairs(availableAnimations) do
+                    Animate:FindFirstChild(entry.Path):FindFirstChild(entry.Name).AnimationId = oldAnimations[entry.Name]
                 end
             end
         end
@@ -3766,10 +3763,10 @@ runFunction(function()
         Function = function(v) end,
     })
     ]]
-    for name, path in next, animations do
-        values[name] = customAnimations:CreateTextBox({
-            Name = name == "Animation1" and "Idle1" or name == "Animation2" and "Idle2" or name,
-            PlaceholderText = name.." ID",
+    for _, entry in ipairs(availableAnimations) do
+        values[entry.Name] = customAnimations:CreateTextBox({
+            Name = entry.Name == "Animation1" and "Idle1" or entry.Name == "Animation2" and "Idle2" or entry.Name,
+            PlaceholderText = entry.Name.." ID",
             DefaultValue = ""
         })
     end
