@@ -663,7 +663,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     end
 
     table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.KeyCode.Name == guilibrary.GuiKeybind then
+        if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == guilibrary.GuiKeybind then
             guilibrary:Toggle()
         end
     end))
@@ -689,8 +689,12 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
     -- the window keybind is handled by Mana (GuiLibrary:Toggle); the library's
     -- own handler never matches since the keybind is "None"
-    guilibrary.CreateTab = createTab
-    guilibrary.CreateOptionsTab = createOptionsTab
+    guilibrary.CreateTab = function(_, argstable)
+        return createTab(argstable, false)
+    end
+    guilibrary.CreateOptionsTab = function(_, argstable)
+        return createOptionsTab(argstable)
+    end
 
     guilibrary.NightixMenu = {
         Version = 2,
