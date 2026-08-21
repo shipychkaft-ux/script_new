@@ -1083,13 +1083,16 @@ function guilibrary:playsound(id, volume)
     if guilibrary.Sounds == true then
         local sound = Instance.new("Sound")
         sound.Parent = workspace
-        sound.SoundId = id
+        sound.SoundId = id or "rbxassetid://421058925"
         if volume then 
             sound.Volume = volume
         end
         sound:Play()
-        wait(sound.TimeLength + 2)
-        sound:Destroy()
+        task.delay(math.max(sound.TimeLength, 0.1) + 2, function()
+            if sound.Parent then
+                sound:Destroy()
+            end
+        end)
     end
 end
 

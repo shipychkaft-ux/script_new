@@ -5883,6 +5883,7 @@ function NeverLose:CreateWindow(Config)
 
 	function Window:ToggleInterface()
 		Window.Signal:SetValue(not Window.Signal:GetValue());
+		Window:SetRender(Window.Signal:GetValue());
 
 		if Window.__3DRender then
 			Window.Load3DBlock();
