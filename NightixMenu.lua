@@ -30,7 +30,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
     -- watermark
     local Watermark = window:Watermark()
-    Watermark:AddBlock("cube-vertexes", "Nightix | UID " .. tostring(localPlayer.DisplayName))
+    Watermark:AddBlock("rbxassetid://80320370259758", "Nightix | UID nick")
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
@@ -375,12 +375,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Placeholder = argstable.PlaceholderText or "Value",
             Numeric = argstable.Numeric or false,
             Size = 100,
-            Callback = function(text)
-                if text and text ~= "" then
-                    api:CreateListObject(text)
-                    inputLib:SetValue("")
-                end
-            end,
+            Callback = function() end,
         })
 
         local api = {
@@ -558,7 +553,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Movement = "mouse-scrollwheel",
             Render = "paint-brush",
             Utility = "wrench",
-            World = "globe",
             Settings = "gear",
             Profiles = "three-dots-horizontal",
             Friends = "person",

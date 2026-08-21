@@ -5910,7 +5910,7 @@ function NeverLose:CreateWindow(Config)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
 		Watermark.Position = UDim2.new(1, -10, 0, 10)
-		Watermark.Size = UDim2.new(0, 120, 0, 30)
+		Watermark.Size = UDim2.new(0, 120, 0, 36)
 		Watermark.ZIndex = 16
 
 		UICorner.CornerRadius = UDim.new(0, 25)
@@ -5940,7 +5940,7 @@ function NeverLose:CreateWindow(Config)
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(Watermark , SlowyTween , {
-				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 5, 0, 30)
+				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 5, 0, 36)
 			})
 		end));
 
@@ -5989,7 +5989,7 @@ function NeverLose:CreateWindow(Config)
 			Frame.BackgroundTransparency = 1.000
 			Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 			Frame.BorderSizePixel = 0
-			Frame.Size = UDim2.new(0, 50, 0, 30)
+			Frame.Size = UDim2.new(0, 50, 0, 36)
 
 			Content.Name = NeverLose.RandomString();
 			Content.Parent = Frame
@@ -5998,13 +5998,13 @@ function NeverLose:CreateWindow(Config)
 			Content.BackgroundTransparency = 1.000
 			Content.BorderColor3 = Color3.fromRGB(0, 0, 0)
 			Content.BorderSizePixel = 0
-			Content.Position = UDim2.new(0, 35, 0.5, 0)
-			Content.Size = UDim2.new(0, 1, 0, 25)
+			Content.Position = UDim2.new(0, 42, 0.5, 0)
+			Content.Size = UDim2.new(0, 1, 0, 30)
 			Content.ZIndex = 17
 			Content.Font = Enum.Font.GothamBold
 			Content.Text = Name
 			Content.TextColor3 = Color3.fromRGB(186, 186, 186)
-			Content.TextSize = 15.000
+			Content.TextSize = 18.000
 			Content.TextTransparency = 0.200
 			Content.TextXAlignment = Enum.TextXAlignment.Left
 
@@ -6015,26 +6015,23 @@ function NeverLose:CreateWindow(Config)
 			Icon.BackgroundTransparency = 1.000
 			Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
 			Icon.BorderSizePixel = 0
-			Icon.Position = UDim2.new(0, 10, 0.5, 0)
-			Icon.Size = UDim2.new(0, 20, 0, 20)
+			Icon.Position = UDim2.new(0, 12, 0.5, 0)
+			Icon.Size = UDim2.new(0, 24, 0, 24)
 			Icon.ZIndex = 17
-			Icon.FontFace = NeverLose.BuiltInBold;
-			Icon.Text = IconStr
-			Icon.TextColor3 = NeverLose.AccentColor
-			Icon.TextSize = 18.000
-			Icon.TextTransparency = 0.250
-			Icon.TextWrapped = true
+			Icon.Image = IconStr
+			Icon.ImageTransparency = 0.250
+			Icon.ScaleType = Enum.ScaleType.Fit
 
 			InnerBlock.Update = LPH_NO_VIRTUALIZE(function(value)
 				local size = TextService:GetTextSize(Content.Text , Content.TextSize,Content.Font,Vector2.new(math.huge,math.huge))
 
 				if InnerBlock.Visible then
 					NeverLose.PlayAnimate(Frame,VSlowTween,{
-						Size = UDim2.new(0, size.X + 35, 0, 30)
+						Size = UDim2.new(0, size.X + 42, 0, 36)
 					})
 				else
 					NeverLose.PlayAnimate(Frame,VSlowTween,{
-						Size = UDim2.new(0, 0, 0, 30)
+						Size = UDim2.new(0, 0, 0, 36)
 					})
 				end;
 			end);
@@ -6060,7 +6057,7 @@ function NeverLose:CreateWindow(Config)
 					})
 
 					NeverLose.PlayAnimate(Icon,SlowyTween , {
-						TextTransparency = 0.250
+						ImageTransparency = 0.250
 					})
 				else
 
@@ -6069,7 +6066,7 @@ function NeverLose:CreateWindow(Config)
 					})
 
 					NeverLose.PlayAnimate(Icon,SlowyTween , {
-						TextTransparency = 1
+						ImageTransparency = 1
 					})
 				end;
 			end);
