@@ -362,7 +362,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Size = 100,
             Callback = function() end,
         })
-        label:AddButton({
+        container:AddButton({
             Name = "Add",
             Icon = "circle-plus",
             Callback = function()
@@ -390,7 +390,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             callback(text)
 
             local itemLabel = container:AddLabel(text)
-            itemLabel:AddButton({
+            container:AddButton({
                 Name = "Remove",
                 Icon = "close",
                 Callback = function()
