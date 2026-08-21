@@ -5881,14 +5881,6 @@ function NeverLose:CreateWindow(Config)
 
 	Window:SetAccount();
 
-	NeverLose:AddSignal(UserInputService.InputBegan:Connect(LPH_NO_VIRTUALIZE(function(value,ISTYPING)
-		if Window.Keybind ~= "None" and value.UserInputType == Enum.UserInputType.Keyboard and (value.KeyCode == Window.Keybind or value.KeyCode.Name == Window.Keybind) then
-			if not ISTYPING then
-				Window:ToggleInterface()
-			end
-		end;
-	end)));
-
 	function Window:ToggleInterface()
 		Window.Signal:SetValue(not Window.Signal:GetValue());
 
