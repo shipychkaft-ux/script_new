@@ -169,7 +169,7 @@ local tweens = {
 guilibrary.Tweens = tweens
 
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "Mana"
+ScreenGui.Name = "Nightix"
 ScreenGui.DisplayOrder = 999
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.OnTopOfCoreBlur = true -- so if you even get kicked or banned you'll still see gui :)
@@ -567,7 +567,7 @@ function guilibrary:SaveConfig()
                 List = obj.Table.List
             }
         else
-            warn("[ManaV2ForRoblox/Guilibrary.lua]: can't save config from unknown object: "..obj.Type.." (objtype).")
+            warn("[Nightix/Guilibrary.lua]: can't save config from unknown object: "..obj.Type.." (objtype).")
             --warn("[ManaV2ForRoblox/Guilibrary.lua]: can't save config from unknown object: "..obj.Name or obj.Table.Name.."-"..obj.Type.." (name - obj).")
         end
     end
@@ -768,7 +768,7 @@ function guilibrary:LoadConfig()
             end)
         end
     else
-        warn("[ManaV2ForRoblox/GuiLibrary.lua]: an error occured while loading config: "..result..". \nIf this keeps happening report it to @mankacoder on discord.")
+        warn("[Nightix/GuiLibrary.lua]: an error occured while loading config: "..result..". \nIf this keeps happening report it to @mankacoder on discord.")
         guilibrary:CreateNotification("Profiles", "an error occured while loading config: "..result..".\nIf this keeps happening report it to @mankacoder on discord.", 15, false)
     end
 end
@@ -779,7 +779,7 @@ function guilibrary:switchProfile(profile)
     if isfile("NewMana/Config/"..game.PlaceId..profile..".json") then
         guilibrary.CurrentProfile = profile
     else
-        warn("[ManaV2ForRoblox/Guilibrary.lua]: Unable to load profile "..profile.." - not found, instead creating it.")
+        warn("[Nightix/Guilibrary.lua]: Unable to load profile "..profile.." - not found, instead creating it.")
         guilibrary:CreateNotification("Profiles", "Unable to load profile "..profile.." - not found, instead creating it.", 5, true)
         guilibrary.CurrentProfile = profile
         writefile("NewMana/Config/"..game.PlaceId..guilibrary.CurrentProfile..".json", "{}")

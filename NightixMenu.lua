@@ -1,4 +1,4 @@
--- Nightix-style menu for Mana V2 For Roblox, powered by the NeverLose UI library.
+-- Nightix menu powered by the NeverLose UI library.
 -- All Mana modules (Universal.lua) are exposed through the standard Mana API
 -- (CreateTab / CreateToggle / CreateSlider / ...). No module code is modified.
 
@@ -17,9 +17,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- Window
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
-        Logo = NeverLose.GlobalLogo,
+        Logo = "rbxassetid://133760540075955",
         Name = "Nightix",
-        Content = "Mana V2 For Roblox",
+        Content = "Nightix",
         Size = NeverLose.Scales.Default,
         ConfigFolder = "NightixConfigs",
         Enable3DRenderer = false,
@@ -29,13 +29,13 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- watermark
     local Watermark = window:Watermark()
     Watermark:AddBlock("cube-vertexes", "Nightix")
-    Watermark:AddBlock("chevron-large-right", "Mana V2 For Roblox")
+    Watermark:AddBlock("chevron-large-right", "Nightix")
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
     Notification.new({
         Title = "Nightix",
-        Content = "Mana V2 For Roblox loaded",
+        Content = "Nightix loaded",
         Duration = 4,
     })
 
@@ -43,6 +43,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     guilibrary.UIScale = { Scale = 1 }
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
+    local previousMouseBehavior
+    local previousMouseIconEnabled
 
     -- the library reveals the window ~0.25s after creation; hide it again
     task.delay(0.4, function()
@@ -617,9 +619,24 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         end
         guilibrary.Toggled = window.Signal:GetValue()
         if guilibrary.Toggled then
+            previousMouseBehavior = userInputService.MouseBehavior
+            previousMouseIconEnabled = userInputService.MouseIconEnabled
+            userInputService.MouseBehavior = Enum.MouseBehavior.Default
+            userInputService.MouseIconEnabled = true
             window:SetSize(menuScale)
+        elseif previousMouseBehavior then
+            userInputService.MouseBehavior = previousMouseBehavior
+            userInputService.MouseIconEnabled = previousMouseIconEnabled
+            previousMouseBehavior = nil
+            previousMouseIconEnabled = nil
         end
     end
+
+    table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.KeyCode.Name == guilibrary.GuiKeybind then
+            guilibrary:Toggle()
+        end
+    end))
 
     -- ------------------------------------------------------------------
     -- create window / clean up
