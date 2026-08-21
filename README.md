@@ -1,4 +1,4 @@
-# Nightix
+# Nightix — ManaV2ForRoblox Edition
 
 Чит-скрипт для Roblox с меню **Nightix** (портировано из Minecraft client Nightix 1.21.11).
 

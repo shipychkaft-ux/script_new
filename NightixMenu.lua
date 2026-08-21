@@ -1,4 +1,4 @@
--- Nightix menu for Roblox, powered by the NeverLose UI library.
+-- Nightix-style menu for Mana V2 For Roblox, powered by the NeverLose UI library.
 -- All Mana modules (Universal.lua) are exposed through the standard Mana API
 -- (CreateTab / CreateToggle / CreateSlider / ...). No module code is modified.
 
@@ -13,31 +13,29 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         error("[NightixMenu]: failed to load the NeverLose UI library")
     end
 
-    NeverLose.GlobalLogo = "rbxassetid://80320370259758"
-
     -- ------------------------------------------------------------------
     -- Window
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
         Logo = NeverLose.GlobalLogo,
         Name = "Nightix",
-        Content = "Nightix",
+        Content = "Mana V2 For Roblox",
         Size = NeverLose.Scales.Default,
         ConfigFolder = "NightixConfigs",
         Enable3DRenderer = false,
-        Keybind = "None", -- RightShift is handled by MainScript only
+        Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
     })
 
     -- watermark
     local Watermark = window:Watermark()
     Watermark:AddBlock("cube-vertexes", "Nightix")
-    Watermark:AddBlock("chevron-large-right", "Nightix")
+    Watermark:AddBlock("chevron-large-right", "Mana V2 For Roblox")
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
     Notification.new({
         Title = "Nightix",
-        Content = "Nightix loaded",
+        Content = "Mana V2 For Roblox loaded",
         Duration = 4,
     })
 
@@ -45,7 +43,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     guilibrary.UIScale = { Scale = 1 }
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
-    window.Keybind = "None"
 
     -- the library reveals the window ~0.25s after creation; hide it again
     task.delay(0.4, function()
@@ -89,16 +86,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             error("[NightixMenu]: unknown tab '" .. tostring(tabname) .. "'")
         end
         if not st.section then
-            st.section = st.tab:AddSection({ Name = "Modules", Position = "left" })
+            st.section = st.tab:AddSection({ Name = "Modules", Position = "Auto" })
         end
         return st.section
-    end
-
-    local function refreshSection(tabname)
-        local st = tabStates[tabname]
-        if st and st.section and st.section.Refresh then
-            st.section:Refresh()
-        end
     end
 
     local function registerOption(toggleName, tabName, name, api, otype)
@@ -156,7 +146,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             api:Set(def)
         end
 
-        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Slider")
     end
 
@@ -213,7 +202,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         api:Select(def)
 
-        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Dropdown")
     end
 
@@ -249,7 +237,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         api:Toggle(def)
 
-        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Toggle")
     end
 
@@ -293,7 +280,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         lib:SetValue(def)
         callback(def)
 
-        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "ColorSlider")
     end
 
@@ -331,7 +317,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         api:Set(def)
 
-        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "TextBox")
     end
 
@@ -352,7 +337,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Container = nil,
         }
 
-        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "Button")
     end
 
@@ -364,7 +348,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local optionWindow = label:AddOption(1) -- gear: add entries
-        local inputLib = label:AddTextInput({
+        local inputLib = optionWindow:AddTextInput({
             Default = "",
             Placeholder = argstable.PlaceholderText or "Value",
             Numeric = argstable.Numeric or false,
@@ -426,7 +410,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             api:CreateListObject(v)
         end
 
-        refreshSection(tabName)
         return registerOption(toggleName, tabName, name, api, "TextList")
     end
 
@@ -450,18 +433,13 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Options = {},
         }
 
-        local keybindLib = {
-            GetValue = function()
-                return ToggleTable.Keybind
+        local keybindLib = label:AddKeybind({
+            Default = ToggleTable.Keybind,
+            Blacklist = { RightShift = true, Insert = true },
+            Callback = function(v)
+                ToggleTable.Keybind = v
             end,
-            SetValue = function(_, value)
-                if value == "RightShift" or value == "Insert" then
-                    ToggleTable.Keybind = "None"
-                else
-                    ToggleTable.Keybind = value or "None"
-                end
-            end,
-        }
+        })
 
         local toggleLib = label:AddToggle({
             Default = ToggleTable.Enabled,
@@ -476,18 +454,18 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local optionWindow = label:AddOption(1) -- gear: module options
 
         function ToggleTable:Toggle(Silent, Bool)
-            local nextValue = Bool == nil and true or Bool
-            if ToggleTable.Enabled ~= nextValue then
-                ToggleTable.Enabled = nextValue
-                ToggleTable.Value = nextValue
+            local Bool = Bool or true
+            if ToggleTable.Enabled ~= Bool then
+                ToggleTable.Enabled = Bool
+                ToggleTable.Value = Bool
             end
             if not Silent and ToggleTable.Callback then
-                ToggleTable.Callback(nextValue)
+                ToggleTable.Callback(Bool)
             end
             if ToggleTable.Keybind and ToggleTable.Keybind ~= "none" and ToggleTable.Keybind ~= "None" then
                 guilibrary:playsound()
             end
-            toggleLib:SetValue(nextValue)
+            toggleLib:SetValue(Bool)
         end
 
         function ToggleTable:ReToggle(Silent)
@@ -538,8 +516,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             API = ToggleTable,
             Options = ToggleTable.Options,
         }
-
-        refreshSection(tabName)
 
         return ToggleTable
     end
@@ -672,22 +648,29 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         settings:AddLabel("Menu settings")
 
-        local scaleLabel = settings:AddLabel("Menu Scale")
-        local scaleDropdown = scaleLabel:AddDropdown({
+        local menuKeybind = settings:AddKeybind({
+            Default = guilibrary.GuiKeybind,
+            Blacklist = { Insert = true, None = true },
+            Callback = function(v)
+                guilibrary.GuiKeybind = v
+            end,
+        })
+
+        local scaleDropdown = settings:AddDropdown({
+            Name = "Menu Scale",
             Default = "100%",
             Values = { "75%", "90%", "100%", "125%", "150%" },
             Size = 70,
             Callback = function(v)
-                local cleaned = v:gsub("%%", "")
-                local mult = (tonumber(cleaned) or 100) / 100
+                local mult = (tonumber(v:gsub("%%", "")) or 100) / 100
                 menuScale = UDim2.fromScale(NeverLose.Scales.Default.X.Scale * mult, NeverLose.Scales.Default.Y.Scale * mult)
                 window:SetSize(menuScale)
             end,
         })
         scaleDropdown:SetValue("100%")
 
-        local accentLabel = settings:AddLabel("Accent color")
-        accentLabel:AddColorPicker({
+        settings:AddLabel("Accent color")
+        settings:AddColorPicker({
             Default = NeverLose.AccentColor,
             Callback = function(v)
                 NeverLose.AccentColor = v

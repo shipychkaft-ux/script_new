@@ -10,9 +10,9 @@ if shared.Mana then
     local Mana = shared.Mana
     if shared.ManaDeveloper then
         Mana.GuiLibrary:Destruct()
-        warn("[Nightix]: Already loaded but developer mode is enabled, so reinjecting.")
+        warn("[ManaV2ForRoblox]: Already loaded but developer mode is enabled, so reinjecting.")
     else
-        warn("[Nightix]: Already loaded.")
+        warn("[ManaV2ForRoblox]: Already loaded.")
         Mana.GuiLibrary:playsound("rbxassetid://421058925", 1)
         return
     end
@@ -171,7 +171,7 @@ local nightixOk, nightixErr = pcall(function()
     nightixMenu(GuiLibrary, GuiLibrary.OptionFunctions or {}, Mana.Connections, UserInputService, game:GetService("TweenService"), game:GetService("TextService"), Mouse, function(func) return coroutine.wrap(func)() end)
 end)
 if not nightixOk then
-    warn("[Nightix/MainScript.lua]: Failed to load NightixMenu. Error: " .. tostring(nightixErr))
+    warn("[ManaV2ForRoblox/MainScript.lua]: Failed to load NightixMenu, using default menu. Error: " .. tostring(nightixErr))
 end
 
 GuiLibrary:CreateWindow()
@@ -604,7 +604,7 @@ local Button = Instance.new("TextButton")
 local Corner = Instance.new("UICorner")
 Button.Name = "GuiButton"
 Button.Position = UDim2.new(0.12, 0, 0, -41)
-Button.Text = "Nightix"
+Button.Text = "Mana"
 Button.BackgroundColor3 = Color3.fromRGB(26, 25, 26)
 Button.TextColor3 = Color3.new(1, 1, 1)
 Button.Size = UDim2.new(0, 32, 0, 32)
@@ -620,12 +620,12 @@ end)
 
 UserInputService.InputBegan:Connect(function(Input)
     local keybind = GuiLibrary.GuiKeybind or "RightShift"
-    if keybind ~= "None" and Input.KeyCode == Enum.KeyCode.RightShift then
+    if keybind ~= "None" and Input.KeyCode.Name == keybind then
         GuiLibrary:Toggle()
     end
 end)
 
-print("[Nightix/MainScript.lua]: Loaded in " .. tostring(tick() - startTick) .. ".")
+print("[ManaV2ForRoblox/MainScript.lua]: Loaded in " .. tostring(tick() - startTick) .. ".")
 
 Functions:RunFile("Universal.lua")
 
@@ -634,7 +634,7 @@ local suc, res = pcall(function()
 end)
 
 if not suc then
-    warn("[Nightix/MainScript.lua]: an error occured while attempting to load game script: " .. res)
+    warn("[ManaV2ForRoblox/MainScript.lua]: an error occured while attempting to load game script: " .. res)
     GuiLibrary.CanLoadConfig = true
 end
 

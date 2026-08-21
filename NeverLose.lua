@@ -203,7 +203,7 @@ NeverLose.MainColor = Color3.fromRGB(8, 8, 13);
 NeverLose.RegisiteryColor = {};
 NeverLose.NameRegisitry = {};
 NeverLose.IsMosueOverOtherFrame = false;
-NeverLose.GlobalLogo = "rbxassetid://80320370259758";
+NeverLose.GlobalLogo = "rbxassetid://120358385035996";
 NeverLose.ImageColorMapping = "rbxassetid://4155801252";
 
 if getcustomasset then
@@ -4184,7 +4184,7 @@ function NeverLose:CreateWindow(Config)
 	LogoImage.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	LogoImage.BorderSizePixel = 0
 	LogoImage.Position = UDim2.new(0, 10, 0.5, 0)
-	LogoImage.Size = UDim2.new(0, 46, 0, 46)
+	LogoImage.Size = UDim2.new(0, 35, 0, 35)
 	LogoImage.ZIndex = 7
 	LogoImage.Image = Window.Logo
 	LogoImage.ImageColor3 = NeverLose.IconColor
@@ -4206,7 +4206,6 @@ function NeverLose:CreateWindow(Config)
 	WindowName.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowName.TextSize = 18.000
 	WindowName.TextXAlignment = Enum.TextXAlignment.Left
-	WindowName.Visible = false
 
 	WindowContent.Name = NeverLose.RandomString();
 	WindowContent.Parent = HeadFrame
@@ -4223,7 +4222,6 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.TextSize = 9.000
 	WindowContent.TextTransparency = 0.650
 	WindowContent.TextXAlignment = Enum.TextXAlignment.Left
-	WindowContent.Visible = false
 
 	LineFrame.Name = NeverLose.RandomString();
 	LineFrame.Parent = HeadFrame
@@ -5032,7 +5030,9 @@ function NeverLose:CreateWindow(Config)
 			UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 			UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-			local function updateSectionSize()
+			UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
+
+
 				if UIListLayout.AbsoluteContentSize.Y <= 1 then
 					NeverLose.PlayAnimate(SectionFrame , VSlowTween , {
 						Size = UDim2.new(1, -5, 0, 0)
@@ -5042,9 +5042,7 @@ function NeverLose:CreateWindow(Config)
 						Size = UDim2.new(1, -5, 0, UIListLayout.AbsoluteContentSize.Y + 19.5)
 					})
 				end;
-			end
-
-			UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(updateSectionSize));
+			end));
 
 			local Section = NeverLose:RegisiterItem(SectionHandler , Tab.Signal);
 
@@ -5076,11 +5074,8 @@ function NeverLose:CreateWindow(Config)
 				end;
 			end);
 
-			Section.Refresh = updateSectionSize;
-
 			Section.SetRender(Tab.Signal:GetValue());
 			Tab.Signal:Connect(Section.SetRender);
-			task.defer(updateSectionSize)
 
 			return Section;
 		end;
