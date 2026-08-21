@@ -4183,8 +4183,8 @@ function NeverLose:CreateWindow(Config)
 	LogoImage.BackgroundTransparency = 1.000
 	LogoImage.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	LogoImage.BorderSizePixel = 0
-	LogoImage.Position = UDim2.new(0, 7, 0.5, 0)
-	LogoImage.Size = UDim2.new(0, 42, 0, 42)
+	LogoImage.Position = UDim2.new(0, 3, 0.5, 0)
+	LogoImage.Size = UDim2.new(0, 48, 0, 48)
 	LogoImage.ZIndex = 7
 	LogoImage.Image = Window.Logo
 	LogoImage.ImageColor3 = NeverLose.IconColor
@@ -4202,7 +4202,7 @@ function NeverLose:CreateWindow(Config)
 	WindowName.Size = UDim2.new(0, 200, 0, 25)
 	WindowName.ZIndex = 7
 	WindowName.Font = Enum.Font.GothamBold
-	WindowName.Text = Window.Name
+	WindowName.Text = ""
 	WindowName.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowName.TextSize = 18.000
 	WindowName.TextXAlignment = Enum.TextXAlignment.Left
@@ -4213,11 +4213,11 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.BackgroundTransparency = 1.000
 	WindowContent.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	WindowContent.BorderSizePixel = 0
-	WindowContent.Position = UDim2.new(0, 55, 0, 25)
+	WindowContent.Position = UDim2.new(0, 55, 0, 15)
 	WindowContent.Size = UDim2.new(0, 200, 0, 15)
 	WindowContent.ZIndex = 7
 	WindowContent.Font = Enum.Font.GothamBold
-	WindowContent.Text = Window.Content
+	WindowContent.Text = "Nightix v.1.0.2"
 	WindowContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowContent.TextSize = 9.000
 	WindowContent.TextTransparency = 0.650

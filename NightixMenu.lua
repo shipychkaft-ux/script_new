@@ -7,6 +7,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local Functions = Mana.Functions
     local ObjectsToSave = guilibrary.ObjectsToSave
     local localPlayer = game:GetService("Players").LocalPlayer
+    local runService = game:GetService("RunService")
 
     -- Load the NeverLose UI library (Nightix-style UI)
     local NeverLose = Functions:RunFile("NeverLose.lua")
@@ -48,6 +49,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local previousMouseIconEnabled
     local previousCameraMinZoomDistance
     local previousCameraMaxZoomDistance
+    local previousCameraMode
+    local menuInputConnection
 
     -- the library reveals the window ~0.25s after creation; hide it again
     task.delay(0.4, function()
@@ -626,12 +629,28 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             previousMouseIconEnabled = userInputService.MouseIconEnabled
             previousCameraMinZoomDistance = localPlayer.CameraMinZoomDistance
             previousCameraMaxZoomDistance = localPlayer.CameraMaxZoomDistance
-            localPlayer.CameraMinZoomDistance = 1
-            localPlayer.CameraMaxZoomDistance = 1
+            previousCameraMode = localPlayer.CameraMode
+            localPlayer.CameraMode = Enum.CameraMode.Classic
+            localPlayer.CameraMinZoomDistance = 1.5
+            localPlayer.CameraMaxZoomDistance = 1.5
             userInputService.MouseBehavior = Enum.MouseBehavior.Default
             userInputService.MouseIconEnabled = true
+            menuInputConnection = runService.RenderStepped:Connect(function()
+                if guilibrary.Toggled then
+                    localPlayer.CameraMode = Enum.CameraMode.Classic
+                    localPlayer.CameraMinZoomDistance = 1.5
+                    localPlayer.CameraMaxZoomDistance = 1.5
+                    userInputService.MouseBehavior = Enum.MouseBehavior.Default
+                    userInputService.MouseIconEnabled = true
+                end
+            end)
             window:SetSize(menuScale)
         else
+            if menuInputConnection then
+                menuInputConnection:Disconnect()
+                menuInputConnection = nil
+            end
+            localPlayer.CameraMode = previousCameraMode
             localPlayer.CameraMinZoomDistance = previousCameraMinZoomDistance
             localPlayer.CameraMaxZoomDistance = previousCameraMaxZoomDistance
             userInputService.MouseBehavior = previousMouseBehavior
