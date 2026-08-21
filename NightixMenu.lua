@@ -355,15 +355,14 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local label = container:AddLabel(name)
         if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
-        local optionWindow = label:AddOption(1) -- gear: add entries
-        local inputLib = optionWindow:AddTextInput({
+        local inputLib = container:AddTextInput({
             Default = "",
             Placeholder = argstable.PlaceholderText or "Value",
             Numeric = argstable.Numeric or false,
             Size = 100,
             Callback = function() end,
         })
-        optionWindow:AddButton({
+        container:AddButton({
             Name = "Add",
             Icon = "circle-plus",
             Callback = function()
@@ -391,8 +390,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             callback(text)
 
             local itemLabel = container:AddLabel(text)
-            local removeWindow = itemLabel:AddOption(1) -- gear: remove entry
-            removeWindow:AddButton({
+            container:AddButton({
                 Name = "Remove",
                 Icon = "close",
                 Callback = function()
