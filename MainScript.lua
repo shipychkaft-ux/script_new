@@ -171,7 +171,11 @@ local nightixOk, nightixErr = pcall(function()
     nightixMenu(GuiLibrary, GuiLibrary.OptionFunctions or {}, Mana.Connections, UserInputService, game:GetService("TweenService"), game:GetService("TextService"), Mouse, function(func) return coroutine.wrap(func)() end)
 end)
 if not nightixOk then
-    warn("[Nightix/MainScript.lua]: Failed to load NightixMenu, using default menu. Error: " .. tostring(nightixErr))
+    error("[Nightix/MainScript.lua]: Failed to initialize NightixMenu before creating tabs: " .. tostring(nightixErr))
+end
+
+if type(GuiLibrary.CreateTab) ~= "function" or type(GuiLibrary.CreateOptionsTab) ~= "function" then
+    error("[Nightix/MainScript.lua]: NightixMenu did not register the tab API")
 end
 
 GuiLibrary:CreateWindow()
