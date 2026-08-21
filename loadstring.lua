@@ -1,5 +1,5 @@
-if isfile and isfile("MainScript.lua") then
-	loadstring(readfile("MainScript.lua"))()
-else
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/Maanaaaa/ManaV2ForRoblox/main/MainScript.lua"))()
+if not isfile or not isfile("MainScript.lua") then
+	error("[Nightix]: MainScript.lua was not found")
 end
+
+loadstring(readfile("MainScript.lua"))()
