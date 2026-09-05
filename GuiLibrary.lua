@@ -3216,18 +3216,7 @@ function guilibrary:CreateWindow()
                 
                 keybindConnection = userInputService.InputBegan:Connect(function(input)
                     local inputName = input.KeyCode.Name
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                        inputName = "MouseButton1"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
-                        inputName = "MouseButton2"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton3 then
-                        inputName = "MouseButton3"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton4 then
-                        inputName = "MouseButton4"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton5 then
-                        inputName = "MouseButton5"
-                    end
-                    if inputName == "MouseButton2" then
+                    if inputName == "Unknown" and input.UserInputType == Enum.UserInputType.MouseButton2 then
                         ToggleTable:UpdateKeybind(true)
                         isclicked = false
                         betterDisconnect(keybindConnection)
@@ -3314,16 +3303,8 @@ function guilibrary:CreateWindow()
             end))
             
             table.insert(connections, userInputService.InputBegan:Connect(function(input)
-                if shared.NightixAuraSyntheticInput then return end
-                if os.clock() < (shared.NightixAuraSyntheticUntil or 0) then return end
-                if oldkey and oldkey ~= "none" and not cooldown and not isclicked and not userInputService:GetFocusedTextBox() then
-                    local inputName = input.KeyCode.Name
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 then inputName="MouseButton1"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then inputName="MouseButton2"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton3 then inputName="MouseButton3"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton4 then inputName="MouseButton4"
-                    elseif input.UserInputType == Enum.UserInputType.MouseButton5 then inputName="MouseButton5" end
-                    if inputName == oldkey then ToggleTable:Toggle() end
+                if oldkey and oldkey ~= "none" and not cooldown and not isclicked and input.KeyCode.Name == oldkey and not userInputService:GetFocusedTextBox() then
+                    ToggleTable:Toggle()
                 end
             end))
 
