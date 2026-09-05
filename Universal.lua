@@ -507,13 +507,249 @@ end
 
 -- // Combat tab
 runFunction(function()
-    local attackAura={Enabled=false}; local range={Value=100}; local cps={Value=8}; local aimPart={Value="Голова"}; local teamCheck={Value=false}; local silentRotate={Value=true}; local fov={Value=360}; local aimSpeed={Value=12}; local currentTarget=nil; local oldAutoRotate=true
-    local function valid(plr) if not plr or plr==LocalPlayer or not isAlive(plr) or not isAlive() then return false end; if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team==LocalPlayer.Team then return false end; local r=getHumanoidRootPart(plr); local mr=getHumanoidRootPart(LocalPlayer); local h=getHumanoid(plr); return r and mr and h and h.Health>0 and (r.Position-mr.Position).Magnitude<=range.Value end
-    local function part(plr) local c=getCharacter(plr); return c and (c:FindFirstChild(aimPart.Value=="Голова" and "Head" or "HumanoidRootPart") or c:FindFirstChild("HumanoidRootPart")) end
-    local function acquire() local mr=getHumanoidRootPart(LocalPlayer); if not mr then return nil end; local best,score=nil,math.huge; local mousePos=UserInputService:GetMouseLocation(); for _,plr in ipairs(Players:GetPlayers()) do if valid(plr) then local a=part(plr); if a then local sp,on=Camera:WorldToViewportPoint(a.Position); local d=(a.Position-mr.Position).Magnitude; if on and d<=range.Value then local sd=(Vector2.new(sp.X,sp.Y)-mousePos).Magnitude; if sd<=fov.Value then local sc=sd+d*.15; if sc<score then best,score=plr,sc end end end end end end; return best end
-    local function aim(plr,dt) if not silentRotate.Value or not valid(plr) then return end; local r=getHumanoidRootPart(LocalPlayer); local a=part(plr); if not r or not a then return end; local flat=Vector3.new(a.Position.X-r.Position.X,0,a.Position.Z-r.Position.Z); if flat.Magnitude<.001 then return end; local targetYaw=math.atan2(-flat.X,-flat.Z); local _,yaw,_=r.CFrame:ToOrientation(); local diff=math.atan2(math.sin(targetYaw-yaw),math.cos(targetYaw-yaw)); local step=math.rad(math.max(1,aimSpeed.Value)*90)*math.max(dt or 1/60,1/240); r.CFrame=CFrame.new(r.Position)*CFrame.Angles(0,yaw+math.clamp(diff,-step,step),0) end
-    attackAura=Tabs.Combat:CreateToggle({Name="AttackAura",HoverText="Автоматически наводится на цель и атакует ЛКМ.",Callback=function(on) if on then local h=getHumanoid(LocalPlayer); oldAutoRotate=h and h.AutoRotate or true; if h then h.AutoRotate=false end; currentTarget=nil; RunLoops:BindToRenderStep("AttackAuraAim",function(dt) if attackAura.Enabled then if not valid(currentTarget) then currentTarget=acquire() end; if currentTarget then aim(currentTarget,dt) end end end); local lastClick=0; RunLoops:BindToHeartbeat("AttackAuraClick",function() if attackAura.Enabled and currentTarget and valid(currentTarget) and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() and mouse1click then local now=tick(); if now-lastClick>=1/math.max(1,cps.Value) then lastClick=now; pcall(mouse1click) end end end) else RunLoops:UnbindFromRenderStep("AttackAuraAim"); RunLoops:UnbindFromHeartbeat("AttackAuraClick"); currentTarget=nil; local h=getHumanoid(LocalPlayer); if h then h.AutoRotate=oldAutoRotate end end end})
-    range=attackAura:CreateSlider({Name="Дальность",Function=function() end,Min=1,Max=100,Default=100,Round=0}); cps=attackAura:CreateSlider({Name="CPS",Function=function() end,Min=1,Max=30,Default=8,Round=0}); fov=attackAura:CreateSlider({Name="FOV",Function=function() end,Min=10,Max=360,Default=360,Round=0}); aimSpeed=attackAura:CreateSlider({Name="Скорость наведения",Function=function() end,Min=1,Max=30,Default=12,Round=0}); aimPart=attackAura:CreateDropdown({Name="Часть наведения",Function=function() end,List={"Голова","Тело"},Default="Голова"}); teamCheck=attackAura:CreateToggle({Name="Проверка команды",Default=false,Function=function() end}); silentRotate=attackAura:CreateToggle({Name="Без поворота камеры",Default=true,Function=function() end}); shared.NightixAttackAuraTarget=function() return currentTarget end
+    local attackAura = {Enabled = false}
+    local range = {Value = 100}
+    local cps = {Value = 8}
+    local aimPart = {Value = "Голова"}
+    local teamCheck = {Value = false}
+    local silentRotate = {Value = false}
+    local fov = {Value = 360}
+    local aimSpeed = {Value = 12}
+    local currentTarget = nil
+    local oldAutoRotate = true
+
+    local function valid(plr)
+        if not plr or plr == LocalPlayer or not isAlive(plr) or not isAlive() then return false end
+        if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then return false end
+        local r = getHumanoidRootPart(plr)
+        local mr = getHumanoidRootPart(LocalPlayer)
+        local h = getHumanoid(plr)
+        return r and mr and h and h.Health > 0 and (r.Position - mr.Position).Magnitude <= range.Value
+    end
+
+    local function part(plr)
+        local c = getCharacter(plr)
+        if not c then return nil end
+        return c:FindFirstChild(aimPart.Value == "Голова" and "Head" or "HumanoidRootPart")
+            or c:FindFirstChild("HumanoidRootPart")
+    end
+
+    local function acquire()
+        local mr = getHumanoidRootPart(LocalPlayer)
+        if not mr then return nil end
+        local best, score = nil, math.huge
+        local mousePos = UserInputService:GetMouseLocation()
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if valid(plr) then
+                local a = part(plr)
+                if a then
+                    local sp, on = Camera:WorldToViewportPoint(a.Position)
+                    local d = (a.Position - mr.Position).Magnitude
+                    if on and d <= range.Value then
+                        local sd = (Vector2.new(sp.X, sp.Y) - mousePos).Magnitude
+                        if sd <= fov.Value then
+                            local sc = sd + d * 0.15
+                            if sc < score then
+                                best, score = plr, sc
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    local function aim(plr, dt, forceCamera)
+        if not valid(plr) then return end
+        local r = getHumanoidRootPart(LocalPlayer)
+        local a = part(plr)
+        if not r or not a then return end
+
+        local flat = Vector3.new(a.Position.X - r.Position.X, 0, a.Position.Z - r.Position.Z)
+        if flat.Magnitude < 0.001 then return end
+
+        local targetYaw = math.atan2(-flat.X, -flat.Z)
+        local _, yaw, _ = r.CFrame:ToOrientation()
+        local diff = math.atan2(math.sin(targetYaw - yaw), math.cos(targetYaw - yaw))
+        local step = math.rad(math.max(1, aimSpeed.Value) * 90) * math.max(dt or 1/60, 1/240)
+        local newYaw = yaw + math.clamp(diff, -step, step)
+
+        r.CFrame = CFrame.new(r.Position) * CFrame.Angles(0, newYaw, 0)
+
+        -- Roblox tools commonly resolve their hit from the mouse/camera ray.
+        -- Rotate the camera for a real hit instead of only rotating the body.
+        if forceCamera or not silentRotate.Value then
+            local camPos = Camera.CFrame.Position
+            Camera.CFrame = CFrame.lookAt(camPos, a.Position)
+        end
+    end
+
+    local function clickAttack()
+        -- Use both paths: mouse1click drives normal mouse/tool input while
+        -- Tool:Activate() covers tools that ignore synthetic mouse input.
+        if mouse1click then
+            pcall(mouse1click)
+        end
+        local character = LocalPlayer.Character
+        local tool = character and character:FindFirstChildOfClass("Tool")
+        if tool then
+            pcall(function() tool:Activate() end)
+        end
+    end
+
+    attackAura = Tabs.Combat:CreateToggle({
+        Name = "AttackAura",
+        HoverText = "Автоматически наводится на цель и атакует ЛКМ.",
+        Callback = function(on)
+            if on then
+                local h = getHumanoid(LocalPlayer)
+                oldAutoRotate = h and h.AutoRotate or true
+                if h then h.AutoRotate = false end
+                currentTarget = nil
+
+                RunLoops:BindToRenderStep("AttackAuraAim", function(dt)
+                    if not attackAura.Enabled then return end
+                    if not valid(currentTarget) then
+                        currentTarget = acquire()
+                    end
+                    if currentTarget then
+                        -- Camera aiming is intentionally forced so attacks are
+                        -- registered on the selected player, not merely beside them.
+                        aim(currentTarget, dt, true)
+                    end
+                end)
+
+                local lastClick = 0
+                RunLoops:BindToHeartbeat("AttackAuraClick", function()
+                    if attackAura.Enabled and currentTarget and valid(currentTarget)
+                        and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() then
+                        local now = tick()
+                        if now - lastClick >= 1 / math.max(1, cps.Value) then
+                            lastClick = now
+                            clickAttack()
+                        end
+                    end
+                end)
+            else
+                RunLoops:UnbindFromRenderStep("AttackAuraAim")
+                RunLoops:UnbindFromHeartbeat("AttackAuraClick")
+                currentTarget = nil
+                local h = getHumanoid(LocalPlayer)
+                if h then h.AutoRotate = oldAutoRotate end
+            end
+        end
+    })
+
+    range = attackAura:CreateSlider({Name="Дальность", Function=function() end, Min=1, Max=100, Default=100, Round=0})
+    cps = attackAura:CreateSlider({Name="CPS", Function=function() end, Min=1, Max=30, Default=8, Round=0})
+    fov = attackAura:CreateSlider({Name="FOV", Function=function() end, Min=10, Max=360, Default=360, Round=0})
+    aimSpeed = attackAura:CreateSlider({Name="Скорость наведения", Function=function() end, Min=1, Max=30, Default=12, Round=0})
+    aimPart = attackAura:CreateDropdown({Name="Часть наведения", Function=function() end, List={"Голова","Тело"}, Default="Голова"})
+    teamCheck = attackAura:CreateToggle({Name="Проверка команды", Default=false, Function=function() end})
+    silentRotate = attackAura:CreateToggle({Name="Без поворота камеры", Default=false, Function=function() end})
+
+    shared.NightixAttackAuraTarget = function()
+        return currentTarget
+    end
+end)
+
+-- TriggerBot: uses the same target/rotation path as AttackAura, but only
+-- attacks a player that is currently under the crosshair.
+runFunction(function()
+    local triggerBot = {Enabled = false}
+    local range = {Value = 100}
+    local cps = {Value = 10}
+    local aimSpeed = {Value = 20}
+    local teamCheck = {Value = false}
+    local lastClick = 0
+
+    local function validTarget(plr)
+        if not plr or plr == LocalPlayer or not isAlive(plr) or not isAlive() then return false end
+        if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then return false end
+        local root = getHumanoidRootPart(plr)
+        local me = getHumanoidRootPart(LocalPlayer)
+        local hum = getHumanoid(plr)
+        return root and me and hum and hum.Health > 0
+            and (root.Position - me.Position).Magnitude <= range.Value
+    end
+
+    local function targetUnderCursor()
+        local mousePos = UserInputService:GetMouseLocation()
+        local best, bestScore = nil, math.huge
+
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if validTarget(plr) then
+                local character = getCharacter(plr)
+                local head = character and character:FindFirstChild("Head")
+                local root = getHumanoidRootPart(plr)
+                local point = head or root
+                if point then
+                    local screen, visible = Camera:WorldToViewportPoint(point.Position)
+                    if visible then
+                        local distance2d = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
+                        if distance2d < bestScore then
+                            best, bestScore = plr, distance2d
+                        end
+                    end
+                end
+            end
+        end
+
+        -- A small cursor tolerance avoids TriggerBot firing through the world
+        -- at players that are merely somewhere on screen.
+        return best, bestScore
+    end
+
+    local function rotateTo(plr, dt)
+        local root = getHumanoidRootPart(plr)
+        local me = getHumanoidRootPart(LocalPlayer)
+        if not root or not me then return end
+        local flat = Vector3.new(root.Position.X-me.Position.X,0,root.Position.Z-me.Position.Z)
+        if flat.Magnitude < .001 then return end
+        local targetYaw = math.atan2(-flat.X,-flat.Z)
+        local _, yaw, _ = me.CFrame:ToOrientation()
+        local diff = math.atan2(math.sin(targetYaw-yaw), math.cos(targetYaw-yaw))
+        local step = math.rad(math.max(1, aimSpeed.Value)*90) * math.max(dt or 1/60,1/240)
+        me.CFrame = CFrame.new(me.Position) * CFrame.Angles(0, yaw + math.clamp(diff,-step,step), 0)
+        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, (getCharacter(plr):FindFirstChild("Head") or root).Position)
+    end
+
+    local function attack()
+        if mouse1click then pcall(mouse1click) end
+        local character = LocalPlayer.Character
+        local tool = character and character:FindFirstChildOfClass("Tool")
+        if tool then pcall(function() tool:Activate() end) end
+    end
+
+    triggerBot = Tabs.Combat:CreateToggle({
+        Name = "TriggerBot",
+        HoverText = "Автоматически атакует игрока под прицелом.",
+        Callback = function(on)
+            if on then
+                RunLoops:BindToRenderStep("TriggerBot", function(dt)
+                    if not triggerBot.Enabled or GuiLibrary.Toggled or UserInputService:GetFocusedTextBox() then return end
+                    local target, screenDistance = targetUnderCursor()
+                    if target and screenDistance <= 55 then
+                        rotateTo(target, dt)
+                        local now = tick()
+                        if now-lastClick >= 1/math.max(1,cps.Value) then
+                            lastClick = now
+                            attack()
+                        end
+                    end
+                end)
+            else
+                RunLoops:UnbindFromRenderStep("TriggerBot")
+            end
+        end
+    })
+
+    range = triggerBot:CreateSlider({Name="Дальность", Function=function(v) range.Value=v end, Min=1, Max=100, Default=100, Round=0})
+    cps = triggerBot:CreateSlider({Name="CPS", Function=function(v) cps.Value=v end, Min=1, Max=30, Default=10, Round=0})
+    aimSpeed = triggerBot:CreateSlider({Name="Скорость наведения", Function=function(v) aimSpeed.Value=v end, Min=1, Max=30, Default=20, Round=0})
+    teamCheck = triggerBot:CreateToggle({Name="Проверка команды", Default=false, Function=function(v) teamCheck.Value=v end})
 end)
 
 -- // Movement tab
@@ -1432,7 +1668,282 @@ runFunction(function()
     })
 end)
 
--- Target ESP: Catlavan modes + Ромб + 3D Circle
+-- Target ESP: only Ромб (4 variants) and Circle.
+runFunction(function()
+    local targetESP = {Enabled = false}
+    local mode = {Value = "Ромб"}
+    local diamond = {Value = "1"}
+    local size = {Value = 150}
+    local speed = {Value = 180}
+    local alpha = {Value = .2}
+    local circleRadius = {Value = 2.4}
+    local circleThickness = {Value = .09}
+    local circleGlow = {Value = 1.5}
+
+    local target
+    local sg
+    local img
+    local circlePart
+    local circleDecal
+    local circleBloom
+    local circleTrail
+
+    local diamonds = {
+        ["1"] = "113363639205880",
+        ["2"] = "132493106112220",
+        ["3"] = "108556924043797",
+        ["4"] = "139726405706582"
+    }
+
+    local CIRCLE_TEXTURE = "rbxassetid://107258187506657"
+
+    local function clearScreen()
+        if sg then pcall(function() sg:Destroy() end) end
+        sg, img = nil, nil
+    end
+
+    local function clearCircle()
+        if circlePart then pcall(function() circlePart:Destroy() end) end
+        circlePart = nil
+        circleDecal = nil
+        circleTrail = nil
+        -- Bloom is global; remove only the one created by this module.
+        if circleBloom then pcall(function() circleBloom:Destroy() end) end
+        circleBloom = nil
+    end
+
+    local function ensureCircle()
+        if circlePart and circlePart.Parent then return end
+
+        circlePart = Instance.new("Part")
+        circlePart.Name = "NightixTargetESPCircle"
+        circlePart.Anchored = true
+        circlePart.CanCollide = false
+        circlePart.CanQuery = false
+        circlePart.CanTouch = false
+        circlePart.CastShadow = false
+        circlePart.Transparency = 1
+        circlePart.Size = Vector3.new(0.05, 0.05, 0.05)
+        circlePart.Parent = workspace
+
+        -- A real 3D horizontal disk carries the supplied circle texture.
+        -- The disk is moved through the entire character height.
+        local mesh = Instance.new("CylinderMesh")
+        mesh.Scale = Vector3.new(2, 0.035, 2)
+        mesh.Parent = circlePart
+
+        circleDecal = Instance.new("Decal")
+        circleDecal.Name = "CircleTexture"
+        circleDecal.Texture = CIRCLE_TEXTURE
+        circleDecal.Face = Enum.NormalId.Top
+        circleDecal.Transparency = alpha.Value
+        circleDecal.Parent = circlePart
+
+        -- Real post-process glow (Bloom), not transparent duplicate rings.
+        circleBloom = Instance.new("BloomEffect")
+        circleBloom.Name = "NightixTargetESPCircleBloom"
+        circleBloom.Intensity = circleGlow.Value
+        circleBloom.Size = 24
+        circleBloom.Threshold = 0.65
+        circleBloom.Parent = Lighting
+
+        -- Short-lived particles use the same supplied texture to leave a
+        -- tight trail behind the moving ring. Bloom makes the trail glow.
+        circleTrail = Instance.new("ParticleEmitter")
+        circleTrail.Name = "CircleGlowTrail"
+        circleTrail.Texture = CIRCLE_TEXTURE
+        circleTrail.Rate = 0
+        circleTrail.Speed = NumberRange.new(0, 0)
+        circleTrail.Lifetime = NumberRange.new(.12, .22)
+        circleTrail.SpreadAngle = Vector2.new(0, 0)
+        circleTrail.LockedToPart = true
+        circleTrail.LightEmission = 1
+        circleTrail.LightInfluence = 0
+        circleTrail.Size = NumberSequence.new(1)
+        circleTrail.Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, .35),
+            NumberSequenceKeypoint.new(1, 1)
+        })
+        circleTrail.Parent = circlePart
+    end
+
+    local function updateCircle(t)
+        if not target or not isAlive(target) or not target.Character then
+            clearCircle()
+            return
+        end
+
+        local character = target.Character
+        local boxCFrame, boxSize = character:GetBoundingBox()
+        local bottomY = boxCFrame.Position.Y - boxSize.Y * .5
+        local topY = boxCFrame.Position.Y + boxSize.Y * .5
+        local height = math.max(.1, topY - bottomY)
+
+        ensureCircle()
+
+        -- Ping-pong from the exact bottom to the exact top and back.
+        local cycle = math.max(.05, speed.Value / 180)
+        local phase = (t * cycle) % 2
+        local progress = phase <= 1 and phase or 2 - phase
+        local eased = progress * progress * (3 - 2 * progress)
+        local y = bottomY + eased * height
+
+        circlePart.Position = Vector3.new(boxCFrame.Position.X, y, boxCFrame.Position.Z)
+        local diameter = math.max(.1, circleRadius.Value * 2)
+        circlePart.Size = Vector3.new(diameter, .05, diameter)
+
+        if circleDecal then
+            circleDecal.Transparency = math.clamp(alpha.Value, 0, 1)
+        end
+        if circleBloom then
+            circleBloom.Intensity = circleGlow.Value
+        end
+        if circleTrail then
+            circleTrail:Emit(1)
+        end
+    end
+
+    local function updateScreen()
+        if not target or not isAlive(target) then
+            clearScreen()
+            return
+        end
+
+        if not sg then
+            sg = Instance.new("ScreenGui")
+            sg.Name = "NightixTargetESP"
+            sg.IgnoreGuiInset = true
+            sg.ResetOnSpawn = false
+            sg.Parent = CoreGui
+
+            img = Instance.new("ImageLabel")
+            img.Name = "TargetImage"
+            img.AnchorPoint = Vector2.new(.5, .5)
+            img.BackgroundTransparency = 1
+            img.Parent = sg
+        end
+
+        local anchor = target.Character:FindFirstChild("Head") or getHumanoidRootPart(target)
+        if not anchor then img.Visible = false return end
+
+        local pos, onScreen = Camera:WorldToViewportPoint(anchor.Position)
+        img.Visible = onScreen
+        if not onScreen then return end
+
+        img.Size = UDim2.fromOffset(size.Value, size.Value)
+        img.Position = UDim2.fromOffset(pos.X, pos.Y)
+        img.Image = "rbxassetid://" .. diamonds[diamond.Value]
+        img.ImageTransparency = alpha.Value
+        img.Rotation = (tick() * speed.Value) % 360
+    end
+
+    local function findTarget()
+        local auraTarget = shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget()
+        if auraTarget and isAlive(auraTarget) then return auraTarget end
+
+        local me = getHumanoidRootPart(LocalPlayer)
+        if not me then return end
+        local best, bestDistance = nil, math.huge
+
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and isAlive(player) then
+                local root = getHumanoidRootPart(player)
+                if root then
+                    local distance = (root.Position - me.Position).Magnitude
+                    if distance < bestDistance then
+                        best, bestDistance = player, distance
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    targetESP = Tabs.Render:CreateToggle({
+        Name = "Target ESP",
+        HoverText = "Показывает Ромб или 3D Кольцо на цели.",
+        Callback = function(on)
+            if on then
+                RunLoops:BindToRenderStep("TargetESP", function()
+                    target = findTarget()
+                    if mode.Value == "Circle" then
+                        clearScreen()
+                        updateCircle(tick())
+                    else
+                        clearCircle()
+                        updateScreen()
+                    end
+                end)
+            else
+                RunLoops:UnbindFromRenderStep("TargetESP")
+                clearScreen()
+                clearCircle()
+                target = nil
+            end
+        end
+    })
+
+    mode = targetESP:CreateDropdown({
+        Name = "Режим",
+        List = {"Ромб", "Circle"},
+        Default = "Ромб",
+        Function = function(v)
+            mode.Value = v
+            if diamond.Container then diamond.Container.Visible = v == "Ромб" end
+            if size.Container then size.Container.Visible = v == "Ромб" end
+            if circleRadius.Container then circleRadius.Container.Visible = v == "Circle" end
+            if circleGlow.Container then circleGlow.Container.Visible = v == "Circle" end
+            if alpha.Container then alpha.Container.Visible = true end
+        end
+    })
+
+    diamond = targetESP:CreateDropdown({
+        Name = "Ромб",
+        List = {"1", "2", "3", "4"},
+        Default = "1",
+        Function = function(v) diamond.Value = v end
+    })
+
+    size = targetESP:CreateSlider({
+        Name = "Размер ромба",
+        Function = function(v) size.Value = v end,
+        Min = 60, Max = 300, Default = 150, Round = 0
+    })
+
+    speed = targetESP:CreateSlider({
+        Name = "Скорость",
+        Function = function(v) speed.Value = v end,
+        Min = 0, Max = 720, Default = 180, Round = 0
+    })
+
+    alpha = targetESP:CreateSlider({
+        Name = "Прозрачность",
+        Function = function(v) alpha.Value = v end,
+        Min = 0, Max = 1, Default = .2, Round = 2
+    })
+
+    circleRadius = targetESP:CreateSlider({
+        Name = "Радиус круга",
+        Function = function(v) circleRadius.Value = v end,
+        Min = 1, Max = 5, Default = 2.4, Round = 1
+    })
+
+    circleGlow = targetESP:CreateSlider({
+        Name = "Свечение круга",
+        Function = function(v)
+            circleGlow.Value = v
+            if circleBloom then circleBloom.Intensity = v end
+        end,
+        Min = 0, Max = 5, Default = 1.5, Round = 1
+    })
+
+    -- Only the mode-specific controls are shown.
+    diamond.Container.Visible = true
+    size.Container.Visible = true
+    circleRadius.Container.Visible = false
+    circleGlow.Container.Visible = false
+end)
+
 runFunction(function()
     local targetESP = {Enabled = false}
     local mode = {Value = "Vortex"}
