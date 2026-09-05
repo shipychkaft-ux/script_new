@@ -124,67 +124,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         return api
     end
 
-    -- Display-only Russian labels. Internal feature/option names stay unchanged.
-    local RUSSIAN_LABELS = {
-        ["AttackAura"] = "Attack Aura", ["Range"] = "Дистанция", ["CPS"] = "CPS", ["FOV"] = "FOV",
-        ["Aim Part"] = "Что таргетить", ["Head"] = "Голова", ["HumanoidRootPart"] = "Тело",
-        ["Team Check"] = "Проверка команды", ["Silent Rotation"] = "Тихая наводка",
-        ["Aim Speed"] = "Скорость наведения", ["Target ESP"] = "Таргет ESP",
-        ["Target ESP Mode"] = "Режим таргет ESP", ["Size"] = "Размер",
-        ["Opacity"] = "Прозрачность", ["Rotation Speed"] = "Скорость вращения",
-        ["Mode"] = "Режим", ["Speed"] = "Скорость", ["SpinSpeed"] = "Скорость вращения",
-        ["Spin X"] = "Вращение по X", ["Spin Y"] = "Вращение по Y", ["Spin Z"] = "Вращение по Z",
-        ["Normal"] = "Обычный", ["Velocity"] = "Скорость", ["CFrame"] = "Позиция",
-        ["Username"] = "Никнейм", ["DisplayName"] = "Отображаемое имя", ["Name Mode"] = "Режим имени",
-        ["Name Color"] = "Цвет имени", ["Team Color"] = "Цвет команды", ["Health"] = "Здоровье",
-        ["Distance"] = "Дистанция", ["Max Distance"] = "Максимальная дистанция",
-        ["Sky Selection"] = "Выбор неба", ["Dune sky"] = "Dune sky", ["Celestial"] = "Celestial",
-        ["Day"] = "Day", ["Space"] = "Space", ["Luminar"] = "Luminar",
-        ["Gravity"] = "Гравитация", ["Hours"] = "Часы", ["Minutes"] = "Минуты", ["Seconds"] = "Секунды",
-        ["Jump Speed"] = "Скорость прыжка", ["Walk Climb"] = "Ходьба по стенам", ["Target Strafe"] = "Обход цели",
-        ["AutoJump"] = "Автопрыжок", ["Jump Mode"] = "Режим прыжка", ["Power"] = "Сила",
-        ["Vertical Speed"] = "Вертикальная скорость", ["Fly Speed"] = "Скорость полёта",
-        ["Noclip"] = "Прохождение сквозь стены", ["TP to Spawn Location"] = "Телепорт к спавну",
-        ["Transparency"] = "Прозрачность", ["Outline"] = "Контур", ["Outline color"] = "Цвет контура",
-        ["Outline Transparency"] = "Прозрачность контура", ["Fill"] = "Заливка", ["Fill color"] = "Цвет заливки",
-        ["Fill Transparency"] = "Прозрачность заливки", ["Volume"] = "Громкость", ["Sounds"] = "Звуки",
-        ["Rate"] = "Количество", ["Delay"] = "Задержка", ["Duration"] = "Длительность",
-        ["Bloom Intensity"] = "Интенсивность свечения", ["SunRays Spread"] = "Рассеивание лучей",
-        ["Brightness"] = "Яркость", ["Shadow Softness"] = "Мягкость теней", ["Color"] = "Цвет",
-        ["Decay"] = "Затухание", ["Density"] = "Плотность", ["Glare"] = "Блик", ["Haze"] = "Туман",
-        ["Offset"] = "Смещение", ["PosCheckDelay"] = "Задержка проверки позиции",
-        ["AutoWalk"] = "Автоходьба", ["ClickTP"] = "Телепорт по клику", ["Fly"] = "Полёт", ["Fly Target"] = "Полёт к цели",
-        ["Phase"] = "Фаза", ["ViewClip"] = "Камера сквозь объекты", ["FullBright"] = "Полная яркость",
-        ["ESP"] = "ESP", ["SpawnESP"] = "ESP спавнов", ["Arrows"] = "Стрелки", ["Sphere"] = "Сфера",
-        ["Breadcrumbs"] = "Следы", ["Crosshair"] = "Прицел", ["FOV Changer"] = "Изменение FOV",
-        ["KeyStrokes"] = "Нажатия клавиш", ["RainbowSkin"] = "Радужная кожа", ["Snowing"] = "Снег",
-        ["SoundPlayer"] = "Проигрыватель звуков", ["UsernameHider"] = "Скрытие никнейма",
-        ["AntiVoid"] = "Анти-бездонность", ["AntiFling"] = "Анти-флинг", ["AntiKick"] = "Анти-кик",
-        ["AutoClickDetector"] = "Автоклик по детекторам", ["GodMode"] = "Бессмертие", ["NoFall"] = "Нет урона от падения",
-        ["Reset Character"] = "Сброс персонажа", ["Rejoin"] = "Переподключение", ["ServerHop"] = "Смена сервера",
-        ["KeyboardMode"] = "Режим клавиатуры", ["AutoJump"] = "Автопрыжок", ["No Animation"] = "Без анимации",
-        ["Bounce Force"] = "Сила отскока", ["Text Position"] = "Позиция текста",
-        ["Mouse Buttons"] = "Кнопки мыши", ["Bind Display"] = "Отображение бинда",
-    }
-    local RUSSIAN_HINTS = {
-        ["Makes you walk faster."] = "Увеличивает скорость передвижения.",
-        ["Targets a nearby player, silently rotates the character and spams LMB for testing."] = "Выбирает игрока в радиусе, выполняет тихую наводку и кликает только при наличии цели.",
-        ["Rotates the character without writing to Camera.CFrame."] = "Вращает персонажа, не изменяя камеру игрока.",
-        ["Adds nametag above every player."] = "Показывает тег игрока над его персонажем.",
-        ["Customizes the sky of the game."] = "Позволяет выбрать готовое небо.",
-        ["Customizes the atmosphere of the game."] = "Изменяет атмосферу и возвращает её после выключения.",
-        ["Automatically walks forward for you."] = "Автоматически идёт вперёд.",
-        ["Changes the game gravity."] = "Изменяет гравитацию.",
-        ["Changes camera zooming."] = "Изменяет дальность приближения камеры.",
-        ["Changes your field of view."] = "Изменяет поле зрения камеры.",
-        ["Makes everything brigher."] = "Делает игру ярче.",
-        ["Makes you walk through walls."] = "Позволяет проходить сквозь стены.",
-        ["Makes you fly.\nFPS based, recommended FPS is 60."] = "Позволяет летать. Рекомендуется 60 FPS.",
-        ["Shows people through walls."] = "Показывает игроков сквозь стены.",
-        ["Makes it snow in game."] = "Добавляет снег в игру.",
-        ["Plays music."] = "Воспроизводит музыку.",
-    }
-
     -- ------------------------------------------------------------------
     -- option creators (shared by module toggles and option tabs)
     -- ------------------------------------------------------------------
@@ -197,23 +136,29 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local round = argstable.Round or 0
         local callback = argstable.Callback or argstable.Function or function() end
 
-        local displayName = argstable.DisplayName or RUSSIAN_LABELS[name] or name
-        local label = container:AddLabel(displayName)
-        if argstable.HoverText then label:ToolTip(RUSSIAN_HINTS[tostring(argstable.HoverText)] or tostring(argstable.HoverText)) end
-
-        local api = {
-            Name = name, Value = def, Min = min, Max = max, Round = round,
-            Callback = callback, MainObject = label.Root, Container = label.Root,
-        }
+        local label = container:AddLabel(name)
+        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local lib = label:AddSlider({
-            Default = def, Min = min, Max = max, Rounding = round,
-            Type = argstable.Type or "", Size = 100,
-            Callback = function(v)
-                api.Value = roundValue(clampValue(v, min, max), round)
-                callback(api.Value)
-            end,
+            Default = def,
+            Min = min,
+            Max = max,
+            Rounding = round,
+            Type = argstable.Type or "",
+            Size = 100,
+            Callback = callback,
         })
+
+        local api = {
+            Name = name,
+            Value = def,
+            Min = min,
+            Max = max,
+            Round = round,
+            Callback = callback,
+            MainObject = label.Root,
+            Container = label.Root,
+        }
 
         function api:Set(value, CanOverride)
             local v = CanOverride and value or roundValue(clampValue(value, min, max), round)
@@ -221,7 +166,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             lib:SetValue(v)
         end
 
-        api:Set(def)
+        if def then
+            api:Set(def)
+        end
+
         return registerOption(toggleName, tabName, name, api, "Slider")
     end
 
@@ -235,9 +183,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         end
         local callback = argstable.Callback or argstable.Function or function() end
 
-        local displayName = argstable.DisplayName or RUSSIAN_LABELS[name] or name
-        local label = container:AddLabel(displayName)
-        if argstable.HoverText then label:ToolTip(RUSSIAN_HINTS[tostring(argstable.HoverText)] or tostring(argstable.HoverText)) end
+        local label = container:AddLabel(name)
+        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local api = {
             Name = name,
@@ -253,25 +200,16 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             api.List[v] = v
         end
 
-        local displayList = {}
-        local displayToInternal = {}
-        for i, v in ipairs(list) do
-            local shown = RUSSIAN_LABELS[tostring(v)] or tostring(v)
-            displayList[i] = shown
-            displayToInternal[shown] = v
-        end
-        local displayDef = RUSSIAN_LABELS[tostring(def)] or def
         local lib = label:AddDropdown({
-            Name = displayName,
-            Default = displayDef,
+            Name = name,
+            Default = def,
             Size = 100,
             Callback = function(v)
-                local internal = displayToInternal[v] or v
-                api.Value = internal
-                callback(internal)
+                api.Value = v
+                callback(v)
             end,
         })
-        lib:SetValues(displayList)
+        lib:SetValues(list)
 
         function api:Select(option)
             if option == nil then return end
@@ -282,7 +220,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             end
             if opt then
                 api.Value = opt
-                lib:SetValue(RUSSIAN_LABELS[tostring(opt)] or opt)
+                lib:SetValue(opt)
             end
         end
 
@@ -296,9 +234,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local def = argstable.Default or argstable.DefaultValue or false
         local callback = argstable.Callback or argstable.Function or function() end
 
-        local displayName = argstable.DisplayName or RUSSIAN_LABELS[name] or name
-        local label = container:AddLabel(displayName)
-        if argstable.HoverText then label:ToolTip(RUSSIAN_HINTS[tostring(argstable.HoverText)] or tostring(argstable.HoverText)) end
+        local label = container:AddLabel(name)
+        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local api = {
             Name = name,
@@ -337,9 +274,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local def = argstable.Default or argstable.DefaultValue or Color3.fromRGB(255, 255, 255)
         local callback = argstable.Callback or argstable.Function or function() end
 
-        local displayName = argstable.DisplayName or RUSSIAN_LABELS[name] or name
-        local label = container:AddLabel(displayName)
-        if argstable.HoverText then label:ToolTip(RUSSIAN_HINTS[tostring(argstable.HoverText)] or tostring(argstable.HoverText)) end
+        local label = container:AddLabel(name)
+        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local api = {
             Name = name,
@@ -352,12 +288,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         local lib = label:AddColorPicker({
             Default = def,
-            Callback = function(v)
-                api.Value = v
-                local h, s2, v2 = v:ToHSV()
-                api.RelativeTable = {h, s2, v2}
-                callback(v)
-            end,
+            Callback = callback,
         })
 
         function api:Set(hueValue, satValue, valValue, rainbow, load)
@@ -386,9 +317,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local def = tostring(argstable.Value or argstable.Default or argstable.DefaultValue or "")
         local callback = argstable.Callback or argstable.Function or function() end
 
-        local displayName = argstable.DisplayName or RUSSIAN_LABELS[name] or name
-        local label = container:AddLabel(displayName)
-        if argstable.HoverText then label:ToolTip(RUSSIAN_HINTS[tostring(argstable.HoverText)] or tostring(argstable.HoverText)) end
+        local label = container:AddLabel(name)
+        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local api = {
             Name = name,
@@ -423,9 +353,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local name = tostring(argstable.Name or "Button")
         local callback = argstable.Callback or argstable.Function or function() end
 
-        local displayName = argstable.DisplayName or RUSSIAN_LABELS[name] or name
         local lib = container:AddButton({
-            Name = displayName,
+            Name = name,
             Icon = argstable.Icon or "chevron-large-right",
             Callback = callback,
         })
@@ -444,9 +373,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local name = tostring(argstable.Name or "List"):gsub("%s+$", "")
         local callback = argstable.Callback or argstable.Function or function() end
 
-        local displayName = argstable.DisplayName or RUSSIAN_LABELS[name] or name
-        local label = container:AddLabel(displayName)
-        if argstable.HoverText then label:ToolTip(RUSSIAN_HINTS[tostring(argstable.HoverText)] or tostring(argstable.HoverText)) end
+        local label = container:AddLabel(name)
+        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
         local itemObjects = {}
 
         local inputLib = label:AddTextInput({
@@ -551,7 +479,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local toggleName = tostring(argstable.Name or "Toggle")
         local section = getSection(tabName)
         local label = section:AddLabel(toggleName)
-        if argstable.HoverText then label:ToolTip(RUSSIAN_HINTS[tostring(argstable.HoverText)] or tostring(argstable.HoverText)) end
+        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
         local ToggleTable = {
             Name = toggleName,
@@ -681,7 +609,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 or (keybind == "M3B" or keybind == "MouseButton3") and input.UserInputType == Enum.UserInputType.MouseButton3
 
             if pressed then
-                ToggleTable:SetEnabled(not ToggleTable.Enabled, false)
+                ToggleTable:ReToggle(false)
             end
         end))
 
