@@ -2504,8 +2504,15 @@ function OptionFunctions:CreateToggle(argstable)
     end
 
     function toggleapi:ReToggle()
-        toggleapi:Toggle()
-        toggleapi:Toggle()
+        -- Reconfigure an already-enabled module without racing two spawned callbacks.
+        if not toggleapi.Enabled then return end
+        toggleapi.Enabled = false
+        toggleapi.Value = false
+        callback(false)
+        toggleapi.Enabled = true
+        toggleapi.Value = true
+        callback(true)
+        ActiveFrame.BackgroundColor3 = ((guipallet.ThemeMode == "Default" and tab:FindFirstChild("tabName").TextColor3) or guipallet.ToggleColor2)
     end
 
     toggleapi:Toggle(value)

@@ -506,412 +506,109 @@ local function betterDisconnect(connection)
 end
 
 -- // Combat tab
+-- Single test combat module. Legacy AimAssist/AutoClicker/Reach were removed.
 runFunction(function()
-    local aimAssist = {Enabled = false}
-    local aimPart = {Value = "Head"}
-    local held = {Value = "RMB"}
-    local smoothness = {Value = 100}
-    local circle = {Value = false}
-    local circleTransparency = {Value = 0}
-    local circleFilled = {Value = false}
-    local fov = {Value = 70}
-    local highlightTarget = {Value = false}
-    local highlightMode = {Value = "AimPart"}
-    local highlightOutline = {Value = false}
-    local highlightOutlineColor = {Value = "255, 255, 255"}
-    local highlightOutlineTransparency = {Value = 0}
-    local highlightFill = {Value = false}
-    local highlightFillColor = {Value = "255, 255, 255"}
-    local highlightFillTransparency = {Value = 0}
-    local highlightTeamColor = {Value = false}
-    local firstCamCheck = {Value = false}
-    local wallCheck = {Value = false}
+    local attackAura = {Enabled = false}
+    local range = {Value = 100}
+    local cps = {Value = 8}
+    local aimPart = {Value = "HumanoidRootPart"}
     local teamCheck = {Value = false}
-    local autoFire = {Value = false}
-    local toolCheck = {Value = false}
-    local circleObj
-    local CircleUpdateConnection
-    local MouseClicked
-    local connection
-    local leftConnection
-    local rightConnection
-    local highlight
-    local espLibrary = espLibrary:create("AimAssist")
-    espLibrary.Mode = "Highlight"
+    local silentRotate = {Value = true}
+    local fov = {Value = 360}
+    local loopId = 0
+    local oldAutoRotate = true
 
-    local function fireShoot(ToolCheck)
-        local Player = getClosestPlayerToMouse(fov.Value, teamCheck.Value, aimPart.Value, wallCheck.Value)
-        if ToolCheck and toolHandler.currentTool == nil then return end
+    local function getTarget()
+        local best, bestScreenDistance
+        local mousePos = UserInputService:GetMouseLocation()
+        local localRoot = getHumanoidRootPart(LocalPlayer)
+        if not localRoot then return nil end
 
-        if mouse1click and (isrbxactive and isrbxactive() or iswindowactive and iswindowactive()) then
-            if Player then
-                if CanClick() and GuiLibrary.Toggled == false and not UserInputService:GetFocusedTextBox() then
-                    if MouseClicked then mouse1release() else mouse1press() end
-                    MouseClicked = not MouseClicked
-                else
-                    if MouseClicked then mouse1release() end
-                    MouseClicked = false
-                end
-            else
-                if MouseClicked then mouse1release() end
-                MouseClicked = false
-            end
-        end
-    end
-
-    local function UpdateCircle()
-        if circle.Value then
-            if not circleObj then
-                circleObj = Drawing.new("Circle")
-                circleObj.Filled = circleFilled.Value
-                circleObj.Thickness = 3
-                circleObj.Radius = fov.Value
-                circleObj.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                circleObj.Visible = true
-                circleObj.Transparency = circleTransparency.Value
-
-                CircleUpdateConnection = Camera:GetPropertyChangedSignal("ViewportSize"):Connect(function()
-                    circleObj.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                end)
-            end
-        else
-            if circleObj then
-                circleObj:Destroy()
-                circleObj = nil
-            end
-            if CircleUpdateConnection then
-                CircleUpdateConnection:Disconnect()
-            end
-        end
-    end
-
-    local function highlightAimTarget(plr, obj)
-        if highlightTarget.Value then
-            espLibrary:updateEspObject(plr, obj)
-        else
-            espLibrary:removeAllEspObjects()
-        end
-    end
-
-    aimAssist = Tabs.Combat:CreateToggle({
-        Name = "AimAssist",
-        HoverText = "Automatically aims at the closest player to your mouse.",
-        Callback = function(callback)
-            if callback then
-                RunService:BindToRenderStep("AimAssist", Enum.RenderPriority.Camera.Value + 1, function()
-                    local leftConnection = held.Value == "LMB" and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)
-                    local rightConnection = held.Value == "RMB" and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-
-                    if rightConnection or leftConnection then
-                        if firstCamCheck.Value and getHead().LocalTransparencyModifier ~= 1 then return end
-                        local plr = getClosestPlayerToMouse(fov.Value, teamCheck.Value, aimPart.Value, wallCheck.Value)
-                        if plr and isAlive(plr, aimPart.Value == "Head") then
-                            AimAt(plr, smoothness.Value, aimPart.Value)
-                            if autoFire.Value then fireShoot(toolCheck.Value) end
-                            --[[if highlightTarget.Value then
-                                highlightAimTarget(plr, highlightMode.Value == "AimPart" and plr.Character:FindFirstChild(aimPart.Value) or plr.Character)
-                            end]]
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= LocalPlayer and isAlive(plr) then
+                local character = getCharacter(plr)
+                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+                local root = character and character:FindFirstChild("HumanoidRootPart")
+                local part = character and character:FindFirstChild(aimPart.Value)
+                local sameTeam = teamCheck.Value and plr.Team == LocalPlayer.Team
+                if humanoid and humanoid.Health > 0 and root and part and not sameTeam then
+                    local distance = (root.Position - localRoot.Position).Magnitude
+                    local screen, onScreen = Camera:WorldToViewportPoint(part.Position)
+                    if onScreen and distance <= range.Value then
+                        local screenDistance = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
+                        if screenDistance <= fov.Value and (not bestScreenDistance or screenDistance < bestScreenDistance) then
+                            best, bestScreenDistance = plr, screenDistance
                         end
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    local function silentRotateTo(target)
+        if not silentRotate.Value or not isAlive(target) or not isAlive() then return end
+        local root = getHumanoidRootPart(LocalPlayer)
+        local targetRoot = getHumanoidRootPart(target)
+        if not root or not targetRoot then return end
+        local delta = targetRoot.Position - root.Position
+        local flat = Vector3.new(delta.X, 0, delta.Z)
+        if flat.Magnitude > 0.001 then
+            root.CFrame = CFrame.lookAt(root.Position, root.Position + flat.Unit)
+        end
+    end
+
+    attackAura = Tabs.Combat:CreateToggle({
+        Name = "AttackAura",
+        HoverText = "Targets a nearby player, silently rotates the character and spams LMB for testing.",
+        Callback = function(enabled)
+            loopId += 1
+            local myLoop = loopId
+            if enabled then
+                local humanoid = getHumanoid(LocalPlayer)
+                oldAutoRotate = humanoid and humanoid.AutoRotate or true
+                if humanoid then humanoid.AutoRotate = false end
+                RunLoops:BindToRenderStep("AttackAuraAim", function()
+                    if not attackAura.Enabled then return end
+                    local target = getTarget()
+                    if target and silentRotate.Value then
+                        -- Preserve the user's actual camera orientation. The character
+                        -- can rotate toward the target without moving the PC view.
+                        local cameraFrame = Camera.CFrame
+                        silentRotateTo(target)
+                        Camera.CFrame = cameraFrame
+                    end
+                end)
+                task.spawn(function()
+                    while attackAura.Enabled and myLoop == loopId do
+                        if mouse1click and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() then
+                            pcall(mouse1click)
+                        end
+                        task.wait(1 / math.max(1, cps.Value))
                     end
                 end)
             else
-                betterDisconnect(connection)
-                espLibrary:removeAllEspObjects()
-                RunService:UnbindFromRenderStep("AimAssist")
+                RunLoops:UnbindFromRenderStep("AttackAuraAim")
+                local humanoid = getHumanoid(LocalPlayer)
+                if humanoid then humanoid.AutoRotate = oldAutoRotate end
             end
         end
     })
 
-    aimPart = aimAssist:CreateDropdown({
-        Name = "Aim Part",
-        Function = function(v) end,
-        List = {"Head", "HumanoidRootPart"},
-        Default = "Head",
+    range = attackAura:CreateSlider({
+        Name = "Range", Function = function() end, Min = 1, Max = 100, Default = 100, Round = 0
     })
-
-    held = aimAssist:CreateDropdown({
-        Name = "Mouse Held",
-        Function = function(v) end,
-        List = {"LMB", "RMB"},
-        Default = "RMB",
+    cps = attackAura:CreateSlider({
+        Name = "CPS", Function = function() end, Min = 1, Max = 30, Default = 8, Round = 0
     })
-
-    smoothness = aimAssist:CreateSlider({
-        Name = "Smoothness",
-        Function = function(v) end,
-        Min = 1,
-        Max = 100,
-        Default = 10,
-        Round = 0,
+    fov = attackAura:CreateSlider({
+        Name = "FOV", Function = function() end, Min = 10, Max = 360, Default = 360, Round = 0
     })
-
-    fov = aimAssist:CreateSlider({
-        Name = "Fov",
-        Function = function(v) end,
-        Min = 1,
-        Max = 120,
-        Default = 70,
-        Round = 0,
+    aimPart = attackAura:CreateDropdown({
+        Name = "Aim Part", Function = function() end, List = {"Head", "HumanoidRootPart"}, Default = "HumanoidRootPart"
     })
-
-    circle = aimAssist:CreateToggle({
-        Name = "FOV Circle",
-        Default = false,
-        Function = function(v)
-            if circleTransparency.MainObject then circleTransparency.MainObject.Visible = v end
-            if circleFilled.MainObject then circleFilled.MainObject.Visible = v end
-            if v then UpdateCircle() end
-        end
-    })
-
-    circleTransparency = aimAssist:CreateSlider({
-        Name = "Circle Transparency",
-        Function = function(v) UpdateCircle() end,
-        Min = 0,
-        Max = 1,
-        Default = 0,
-        Round = 1,
-    })
-
-    circleFilled = aimAssist:CreateToggle({
-        Name = "Circle Filled",
-        Default = false,
-        Function = function(v) UpdateCircle() end
-    })
-
-    --[[
-    highlightTarget = aimAssist:CreateToggle({
-        Name = "Highlight Target",
-        Default = false,
-        Callback = function(v)
-            if highlightMode.MainObject then highlightMode.MainObject.Visible = v end
-            if highlightOutline.MainObject then highlightOutline.MainObject.Visible = v end
-            if highlightFill.MainObject then highlightFill.MainObject.Visible = v end
-            if highlightTeamColor.MainObject then highlightTeamColor.MainObject.Visible = v end
-        end
-    })
-
-    highlightMode = aimAssist:CreateDropdown({
-        Name = "Highlight Mode",
-        Function = function(v)
-            if aimAssist.Enabled then aimAssist:ReToggle(true) end
-        end,
-        List = {"AimPart", "AimTarget"},
-        Default = "AimPart",
-    })
-    highlightMode.MainObject.Visible = false
-
-    highlightOutline = aimAssist:CreateToggle({
-        Name = "Outline",
-        Default = false,
-        Function = function(v)
-            if highlightOutlineColor.MainObject then highlightOutlineColor.MainObject.Visible = v end
-            if highlightOutlineTransparency.MainObject then highlightOutlineTransparency.MainObject.Visible = v end
-            espLibrary.outline = v
-        end
-    })
-    highlightOutline.MainObject.Visible = false
-
-    highlightOutlineColor = aimAssist:CreateColorSlider({
-        Name = "Outline Color",
-        Value = Color3.fromRGB(255, 255, 255),
-        Function = function(v)
-            espLibrary.outlineColor = v
-        end
-    })
-    highlightOutlineColor.MainObject.Visible = false
-
-    highlightOutlineTransparency = aimAssist:CreateSlider({
-        Name = "Outline Transparency",
-        Function = function(v)
-            espLibrary.outlineTransparency = v
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 0,
-        Round = 1,
-    })
-    highlightOutlineTransparency.MainObject.Visible = false
-
-    highlightFill = aimAssist:CreateToggle({
-        Name = "Fill",
-        Default = false,
-        Function = function(v)
-            if highlightFillColor.MainObject then highlightFillColor.MainObject.Visible = v end
-            if highlightFillTransparency.MainObject then highlightFillTransparency.MainObject.Visible = v end
-            espLibrary.fill = v
-        end
-    })
-    highlightFill.MainObject.Visible = false
-
-    highlightFillColor = aimAssist:CreateColorSlider({
-        Name = "Fill Color",
-        Value = Color3.fromRGB(255, 255, 255),
-        Function = function(v)
-            espLibrary.fillColor = v
-        end
-    })
-    highlightFillColor.MainObject.Visible = false
-
-    highlightFillTransparency = aimAssist:CreateSlider({
-        Name = "Fill Transparency",
-        Function = function(v)
-            espLibrary.fillTransparency = v
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 0,
-        Round = 1,
-    })
-    highlightFillTransparency.MainObject.Visible = false
-
-    highlightTeamColor = aimAssist:CreateToggle({
-        Name = "Team Color",
-        Default = false,
-        Function = function(v) end
-    })
-    highlightTeamColor.MainObject.Visible = false
-    ]]
-
-    firstCamCheck = aimAssist:CreateToggle({
-        Name = "1st Person Check",
-        Default = false,
-        Function = function(v) end
-    })
-
-    teamCheck = aimAssist:CreateToggle({
-        Name = "Team Check",
-        Default = false,
-        Function = function(v) end
-    })
-
-    wallCheck = aimAssist:CreateToggle({
-        Name = "Wall Check",
-        Default = false,
-        Function = function(v) end
-    })
-
-    autoFire = aimAssist:CreateToggle({
-        Name = "Auto Fire",
-        Default = false,
-        Function = function(v)
-            if toolCheck.MainObject then toolCheck.MainObject.Visible = v end
-        end
-    })
-
-    toolCheck = aimAssist:CreateToggle({
-        Name = "Tool Check",
-        Default = false,
-        Function = function(v) end
-    })
-    toolCheck.MainObject.Visible = false
-end)
-
-
-runFunction(function()
-    local autoClicker = {Enabled = false}
-    local mode = {Value = "Click"}
-    local cps = {Value = 15}
-
-    local autoClicker = Tabs.Combat:CreateToggle({
-        Name = "AutoClicker",
-        HoverText = "Automatically clicks for you.",
-        Callback = function(callback)
-            if callback then
-                spawn(function()
-                    repeat
-                        if mode.Value == "Click" or mode.Value == "RightClick" then
-                            if mouse1click and (isrbxactive and isrbxactive() or iswindowactive and iswindowactive()) then
-                                if GuiLibrary.Toggled == false and not UserInputService:GetFocusedTextBox() then
-                                    local ClickFunction = (mode.Value == "Click" and mouse1click or mouse2click)
-                                    ClickFunction()
-                                end
-                            end
-                        elseif mode.Value == "Tool" then
-                            if toolHandler.currentTool ~= nil and CurrentTool:IsA("Tool") and CanClick() then
-                                toolHandler.currentTool:Active()
-                            end
-                        end
-                        wait(1 / cps.Value)
-                    until not autoClicker.Enabled
-                end)
-            end
-        end
-    })
-
-    mode = autoClicker:CreateDropdown({
-        Name = "Mode",
-        Function = function(v) end,
-        List = {"Click", "RightClick", "Tool"},
-        Default = "Click"
-    })
-
-    cps = autoClicker:CreateSlider({
-        Name = "CPS",
-        Function = function() end,
-        Min = 0,
-        Max = 20,
-        Default = 13,
-        Round = 0
-    })
-end)
-
-runFunction(function()
-    local reach = {Enabled = false}
-    local expandPart = {Value = "Head"}
-    local expand = {Value = 0}
-    local connection
-
-    local function updatePlayer(plr)
-        if plr == LocalPlayer then return end
-        if isAlive(plr, expandPart.Value == "Head") and isPlayerTargetable(plr, true) then
-            local humanoidRootPart = getHumanoidRootPart(plr)
-            if expandPart.Value == "HumanoidRootPart" then
-                getHumanoidRootPart(plr).Size = Vector3.new(2 * (expand.Value / 10), 2 * (expand.Value / 10), 1 * (expand.Value / 10))
-            elseif expandPart.Value == "Head" then
-                getHead(plr).Size = Vector3.new((expand.Value / 10), (expand.Value / 10), (expand.Value / 10))
-            end
-        end
-    end
-
-    reach = Tabs.Combat:CreateToggle({
-        Name = "Reach",
-        HoverText = "Expands hitboxes of other players.",
-        Callback = function(callback)
-            if callback then
-                for _, plr in next, Players:GetPlayers() do
-                    updatePlayer(plr)
-                end
-                connection = Players.PlayerAdded:Connect(function(plr)
-                    updatePlayer(plr)
-                end)
-            else
-                if connection then
-                    connection:Disconnect()
-                end
-                for _, plr in next, Players:GetPlayers() do
-                    if plr == LocalPlayer then return end
-                    getHumanoidRootPart(plr).Size = Vector3.new(2, 2, 1)
-                    getHead(plr).Size = Vector3.new(1, 1, 1)
-                end
-            end
-        end
-    })
-
-    expandPart = reach:CreateDropdown({
-        Name = "Expand Part",
-        Function = function(v) end,
-        List = {"HumanoidRootPart", "Head"},
-        Default = "HumanoidRootPart"
-    })
-
-    expand = reach:CreateSlider({
-        Name = "Expand Size",
-        Min = 1,
-        Max = 20,
-        Round = 1, 
-        Function = function(v) end,
-    })
+    teamCheck = attackAura:CreateToggle({Name = "Team Check", Default = false, Function = function() end})
+    silentRotate = attackAura:CreateToggle({Name = "Silent Rotation", Default = true, Function = function() end})
 end)
 
 -- // Movement tab
@@ -1462,100 +1159,75 @@ runFunction(function()
         HoverText = "Makes you walk faster.",
         Callback = function(callback)
             if callback then
-                local currentHumanoid = getHumanoid(LocalPlayer)
-                local currentCharacter = getCharacter(LocalPlayer)
-                savedWalkSpeed = currentHumanoid and currentHumanoid.WalkSpeed or PlayerWalkSpeed
-                savedJumpPower = currentHumanoid and currentHumanoid.JumpPower or PlayerJumpPower
-                savedUseJumpPower = currentHumanoid and currentHumanoid.UseJumpPower
-                local currentAnimate = currentCharacter and currentCharacter:FindFirstChild("Animate")
-                savedAnimateDisabled = currentAnimate and currentAnimate.Disabled or false
+                local humanoid = getHumanoid(LocalPlayer)
+                local character = getCharacter(LocalPlayer)
+                savedWalkSpeed = humanoid and humanoid.WalkSpeed or PlayerWalkSpeed
+                savedJumpPower = humanoid and humanoid.JumpPower or PlayerJumpPower
+                savedUseJumpPower = humanoid and humanoid.UseJumpPower
+                local animate = character and character:FindFirstChild("Animate")
+                savedAnimateDisabled = animate and animate.Disabled or false
 
+                betterDisconnect(connection)
+                betterDisconnect(connection2)
                 connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
                     if input.KeyCode == Enum.KeyCode.LeftShift and not gameProcessed then
                         holdingShift = true
                     end
                 end)
-                connection2 = UserInputService.InputEnded:Connect(function(input, gameProcessed)
-                    if input.KeyCode == Enum.KeyCode.LeftShift and not gameProcessed then
-                        holdingShift = false
-                    end
+                connection2 = UserInputService.InputEnded:Connect(function(input)
+                    if input.KeyCode == Enum.KeyCode.LeftShift then holdingShift = false end
                 end)
-                RunLoops:BindToHeartbeat("Speed", function(Delta)
-                    if isAlive() and (not shiftHold.Value or (shiftHold.Value and holdingShift)) then
-                        local humanoid = getHumanoid(LocalPlayer)
-                        local humanoidRootPart = getHumanoidRootPart(LocalPlayer)
-                        if not humanoid or not humanoidRootPart then return end
-                        local moveDirection = humanoid.MoveDirection
-                        local VelocityX = humanoidRootPart.Velocity.X
-                        local VelocityZ = humanoidRootPart.Velocity.Z
 
-                        if jumpPower.Value > humanoid.JumpPower then
-                            humanoid.JumpPower = jumpPower.Value
-                            humanoid.UseJumpPower = true
-                        end
+                RunLoops:BindToHeartbeat("Speed", function(dt)
+                    if not isAlive() or (shiftHold.Value and not holdingShift) then return end
+                    local hum = getHumanoid(LocalPlayer)
+                    local root = getHumanoidRootPart(LocalPlayer)
+                    if not hum or not root then return end
 
-                        --[[cant make this to work normally + with auto jump
-                        if mode.Value == "AssemblyAngularVelocity" then
-                            humanoidRootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
-                            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(moveDirection.X * value.Value, 0, moveDirection.Z * value.Value) --* Delta
-                        elseif mode.Value == "AssemblyLinearVelocity" then
-                            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(moveDirection.X * value.Value, 0, moveDirection.Z * value.Value) * Delta
-                        elseif mode.Value == "LinearVelocity" then
-                            linearVelocity = linearVelocity or Instance.new("LinearVelocity", humanoidRootPart)
-                            linearVelocity.VelocityConstraintMode = Enum.VelocityConstraintMode.Line
-                            linearVelocity.Attachment0 = humanoidRootPart:FindFirstChildWhichIsA("Attachment")
-                            linearVelocity.MaxForce = math.huge
-                            linearVelocity.LineDirection = moveDirection
-                            linearVelocity.LineVelocity = (moveDirection.X ~= 0 and moveDirection.Z ~= 0) and speed.Value or 0
-                        else]]
-
-                        if mode.Value == "Velocity" then
-                            -- Velocity is measured in studs/second; multiplying by
-                            -- Delta here made the old implementation almost inert.
-                            local desired = moveDirection * value.Value
-                            local current = humanoidRootPart.AssemblyLinearVelocity
-                            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(desired.X, current.Y, desired.Z)
+                    hum.JumpPower = jumpPower.Value
+                    hum.UseJumpPower = true
+                    local direction = hum.MoveDirection
+                    if direction.Magnitude > 0.01 then
+                        direction = direction.Unit
+                        if mode.Value == "Normal" then
+                            hum.WalkSpeed = value.Value
+                        elseif mode.Value == "Velocity" then
+                            -- Direct displacement is used here because some experiences
+                            -- overwrite AssemblyLinearVelocity every frame.
+                            -- This keeps the configured speed deterministic.
+                            root.CFrame = root.CFrame + direction * value.Value * math.max(dt, 1 / 240)
                         elseif mode.Value == "CFrame" then
-                            local MoveDirection = (moveDirection * value.Value) * Delta
-                            humanoidRootPart.CFrame = humanoidRootPart.CFrame + Vector3.new(MoveDirection.X, 0, MoveDirection.Z)
-                        elseif mode.Value == "Normal" then
-                            humanoid.WalkSpeed = value.Value
+                            root.CFrame = root.CFrame + direction * value.Value * math.max(dt, 1 / 240)
                         end
+                    elseif mode.Value == "Normal" then
+                        hum.WalkSpeed = value.Value
+                    end
 
-                        if autoJump.Value and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
-                            if jumpMode.Value == "Normal" then
-                                humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
-                            else
-                                local current = humanoidRootPart.AssemblyLinearVelocity
-                                humanoidRootPart.AssemblyLinearVelocity = Vector3.new(current.X, autoJumpPower.Value, current.Z)
-                            end
-                        end
-
-                        if noAnim.Value then
-                            local animate = Character:FindFirstChild("Animate")
-                            if animate then animate.Disabled = true end
-                        end
-                        if linearVelocity then
-                            linearVelocity:Destroy()
+                    if autoJump.Value and hum.FloorMaterial ~= Enum.Material.Air and direction.Magnitude > 0.01 then
+                        if jumpMode.Value == "Normal" then
+                            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                        else
+                            local current = root.AssemblyLinearVelocity
+                            root.AssemblyLinearVelocity = Vector3.new(current.X, autoJumpPower.Value, current.Z)
                         end
                     end
+
+                    local anim = getCharacter(LocalPlayer):FindFirstChild("Animate")
+                    if anim then anim.Disabled = noAnim.Value end
                 end)
             else
                 RunLoops:UnbindFromHeartbeat("Speed")
-                local currentHumanoid = getHumanoid(LocalPlayer)
-                if currentHumanoid then
-                    currentHumanoid.WalkSpeed = savedWalkSpeed or PlayerWalkSpeed
-                    currentHumanoid.JumpPower = savedJumpPower or PlayerJumpPower
-                    if savedUseJumpPower ~= nil then
-                        currentHumanoid.UseJumpPower = savedUseJumpPower
-                    end
+                local hum = getHumanoid(LocalPlayer)
+                if hum then
+                    hum.WalkSpeed = savedWalkSpeed or PlayerWalkSpeed
+                    hum.JumpPower = savedJumpPower or PlayerJumpPower
+                    if savedUseJumpPower ~= nil then hum.UseJumpPower = savedUseJumpPower end
                 end
-                local animate = getCharacter():FindFirstChild("Animate")
-                if animate then animate.Disabled = savedAnimateDisabled or false end
+                local anim = getCharacter(LocalPlayer):FindFirstChild("Animate")
+                if anim then anim.Disabled = savedAnimateDisabled or false end
                 betterDisconnect(connection)
                 betterDisconnect(connection2)
-                connection = nil
-                connection2 = nil
+                connection, connection2 = nil, nil
                 holdingShift = false
             end
         end
@@ -1581,7 +1253,7 @@ runFunction(function()
         end,
         Min = 0,
         Max = 200,
-        Default = 16,
+        Default = 50,
         Round = 0
     })
 
@@ -1655,91 +1327,50 @@ end)
 
 runFunction(function()
     local spinBot = {Enabled = false}
-    local mode = {Value = "Velocity"}
-    local spinBotSpeed = {Value = 20}
+    local spinBotSpeed = {Value = 360}
     local spinBotX = {Value = false}
-    local spinBotY = {Value = false}
+    local spinBotY = {Value = true}
     local spinBotZ = {Value = false}
-    local velocityX
-    local velocityY
-    local velocityZ
-    local angularX
-    local angularY
-    local angularZ
-    local angularVelocity = Instance.new("AngularVelocity")
+    local oldAutoRotate = true
+
     spinBot = Tabs.Movement:CreateToggle({
         Name = "SpinBot",
-        HoverText = "Makes your character spin.\nDoesn't work in first person.",
-        Callback = function(callback)
-            if callback then
-                RunLoops:BindToHeartbeat("SpinBot", function()
-                    if isAlive() then
-                        local humanoid = getHumanoid(LocalPlayer)
-                        local humanoidRootPart = getHumanoidRootPart(LocalPlayer)
-                        local oldVelocity = humanoidRootPart.AssemblyAngularVelocity
-                        velocityX = (spinBotX.Value and spinBotSpeed.Value) or oldVelocity.X
-                        velocityY = (spinBotY.Value and spinBotSpeed.Value) or oldVelocity.Y
-                        velocityZ = (spinBotZ.Value and spinBotSpeed.Value) or oldVelocity.Z
-                        angularX = (spinBotX.Value and math.huge) or 0
-                        angularY = (spinBotY.Value and math.huge) or 0
-                        angularZ = (spinBotZ.Value and math.huge) or 0
-
-                        humanoid.AutoRotate = false
-                        if mode.Value == "RotVelocity" then
-                            humanoidRootPart.RotVelocity = Vector3.new(velocityX, velocityY, velocityZ)
-                        --[[
-                        elseif mode.Value == "AngularVelocity" then
-                            angularVelocity.Parent = humanoidRootPart
-                            angularVelocity.MaxTorque = Vector3.new(angularX, angularY, angularZ)
-                            angularVelocity.AngularVelocity = Vector3.new(velocityX, velocityY, velocityZ)
-                        ]]
-                        elseif mode.Value == "AssemblyAngularVelocity" then
-                            humanoidRootPart.AssemblyAngularVelocity = Vector3.new(velocityX, velocityY, velocityZ)
-                        end
-                    end
+        HoverText = "Rotates the character without writing to Camera.CFrame.",
+        Callback = function(enabled)
+            if enabled then
+                local humanoid = getHumanoid(LocalPlayer)
+                oldAutoRotate = humanoid and humanoid.AutoRotate or true
+                if humanoid then humanoid.AutoRotate = false end
+                RunLoops:BindToHeartbeat("SpinBot", function(dt)
+                    local root = getHumanoidRootPart(LocalPlayer)
+                    if not root then return end
+                    local x = spinBotX.Value and 1 or 0
+                    local y = spinBotY.Value and 1 or 0
+                    local z = spinBotZ.Value and 1 or 0
+                    if x == 0 and y == 0 and z == 0 then return end
+                    local step = math.rad(spinBotSpeed.Value) * math.max(dt, 1 / 240)
+                    root.CFrame = root.CFrame * CFrame.Angles(step * x, step * y, step * z)
                 end)
             else
-                getHumanoid(LocalPlayer).AutoRotate = true
                 RunLoops:UnbindFromHeartbeat("SpinBot")
+                local humanoid = getHumanoid(LocalPlayer)
+                if humanoid then humanoid.AutoRotate = oldAutoRotate end
             end
         end
     })
 
-    mode = spinBot:CreateDropdown({
-        Name = "Mode",
-        Function = function(v) end,
-        List = {"RotVelocity", "AssemblyAngularVelocity"}, --"AngularVelocity",
-        Default = "AssemblyAngularVelocity"
-    })
-
     spinBotSpeed = spinBot:CreateSlider({
         Name = "SpinSpeed",
-        Function = function(v) end,
+        Function = function() end,
         Min = 1,
-        Max = 100,
-        Default = 20,
+        Max = 3600,
+        Default = 360,
         Round = 0
     })
-
-    spinBotX = spinBot:CreateToggle({
-        Name = "Spin X",
-        Default = false,
-        Function = function(v) end
-    })
-
-    spinBotY = spinBot:CreateToggle({
-        Name = "Spin Y",
-        Default = false,
-        Function = function(v) end
-    })
-
-    spinBotZ = spinBot:CreateToggle({
-        Name = "Spin Z",
-        Default = false,
-        Function = function(v) end
-    })
+    spinBotX = spinBot:CreateToggle({Name = "Spin X", Default = false, Function = function() end})
+    spinBotY = spinBot:CreateToggle({Name = "Spin Y", Default = true, Function = function() end})
+    spinBotZ = spinBot:CreateToggle({Name = "Spin Z", Default = false, Function = function() end})
 end)
-
 
 -- // Render tab
 runFunction(function()
@@ -2334,14 +1965,10 @@ runFunction(function()
                 Lighting.FogEnd = 100000
                 Lighting.GlobalShadows = false
                 Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+                betterDisconnect(connection)
                 changed = false
                 connection = Lighting.Changed:Connect(function()
-                    if not changed and callback then
-                        params.Brightness = Lighting.Brightness
-                        params.ClockTime = Lighting.ClockTime
-                        params.FogEnd = Lighting.FogEnd
-                        params.GlobalShadows = Lighting.GlobalShadows
-                        params.OutdoorAmbient = Lighting.OutdoorAmbient
+                    if callback and not changed then
                         changed = true
                         Lighting.Brightness = 2
                         Lighting.ClockTime = 14
@@ -2351,14 +1978,14 @@ runFunction(function()
                         changed = false
                     end
                 end)
-                table.insert(connections, connection)
             else
-                if connection then
-                    connection:Disconnect()
-                end
+                betterDisconnect(connection)
+                connection = nil
+                changed = true
                 for Name, Value in pairs(params) do
                     Lighting[Name] = Value
                 end
+                changed = false
             end
         end
     })  
@@ -2610,12 +2237,21 @@ runFunction(function()
         end
     end
 
+    local nameTagConnections = {}
+    local function clearNameTagConnections()
+        for _, conn in ipairs(nameTagConnections) do
+            betterDisconnect(conn)
+        end
+        table.clear(nameTagConnections)
+    end
+
     nameTags = Tabs.Render:CreateToggle({
         Name = "NameTags",
         HoverText = "Adds nametag above every player.",
         Callback = function(callback)
             if callback then
-                table.insert(connections, Players.PlayerRemoving:Connect(function(plr) -- note: here connections is a new table, not accross this whole script
+                clearNameTagConnections()
+                table.insert(nameTagConnections, Players.PlayerRemoving:Connect(function(plr)
                     CleanupPlayerNameTag(plr)
                 end))
                 lastFullUpdate = 0
@@ -2627,7 +2263,7 @@ runFunction(function()
                             if plr ~= LocalPlayer then
                                 if isAlive(plr) and (not billboardGuis[plr.Name] or not billboardGuis[plr.Name].Parent) then
                                     CreateNameTag(plr)
-                                    table.insert(connections, plr.CharacterRemoving:Connect(function()
+                                    table.insert(nameTagConnections, plr.CharacterRemoving:Connect(function()
                                         CleanupPlayerNameTag(plr)
                                     end))
                                 elseif (not isAlive(plr)) and billboardGuis[plr.Name] then
@@ -2646,9 +2282,7 @@ runFunction(function()
                 end)
             else
                 RunLoops:UnbindFromRenderStep("NameTags")
-                for _, connection in next, connections do
-                    betterDisconnect(connection)
-                end
+                clearNameTagConnections()
                 CleanupAllNameTags()
             end
         end
@@ -3258,8 +2892,10 @@ runFunction(function()
                     end
                 end
             else
+                betterDisconnect(connection)
+                connection = nil
                 if getconnections then
-                    for i,v in next, getconnections(LocalPlayer.Idled) do
+                    for _, v in next, getconnections(LocalPlayer.Idled) do
                         v:Enable()
                     end
                 end
@@ -3421,33 +3057,26 @@ end)
 
 runFunction(function()
     local antiKick = {Enabled = false}
-	local first = false
+    local installed = false
     local oldNameCall
     antiKick = Tabs.Utility:CreateToggle({
         Name = "AntiKick",
-        HoverText = "Removes client sided kicks.\nRequires hookmetamethod function.",
-        Callback = function(callback) 
-            if callback then
-                if hookmetamethod then
-                    oldNameCall = hookmetamethod(game, "__namecall", function(Self, ...)
-                        local NameCallMethod = getnamecallmethod()
-        
-                        if tostring(string.lower(NameCallMethod)) == "kick" and callback and not first then
-                            GuiLibrary:CreateNotification("AntiKick", "Detected kick attempt.", 7, "Warning")
-                            return nil
-                        end
-        
-                        return oldNameCall(Self, ...)
-                    end)
-                    if not first then
-                        first = true
-                    end
-                else
-                    GuiLibrary:CreateNotification("AntiKick", "Missing hookmetamethod function.", 10, "Error")
-                    antiKick:Toggle(true)
-                    return
-                end
+        HoverText = "Removes client sided kicks. Requires hookmetamethod function.",
+        Callback = function(enabled)
+            if not hookmetamethod then
+                if enabled then GuiLibrary:CreateNotification("AntiKick", "Missing hookmetamethod function.", 10, "Error") end
+                return
             end
+            if installed then return end
+            oldNameCall = hookmetamethod(game, "__namecall", function(Self, ...)
+                local method = tostring(string.lower(getnamecallmethod()))
+                if method == "kick" and antiKick.Enabled then
+                    GuiLibrary:CreateNotification("AntiKick", "Detected kick attempt.", 7, "Warning")
+                    return nil
+                end
+                return oldNameCall(Self, ...)
+            end)
+            installed = true
         end
     })
 end)
@@ -4647,7 +4276,7 @@ runFunction(function()
                 oldGravity = workspace.Gravity
                 workspace.Gravity = value.Value
             else
-                workspace.Gravity = oldGravity
+                if oldGravity ~= nil then workspace.Gravity = oldGravity end
             end
         end
     })
@@ -4687,65 +4316,44 @@ runFunction(function()
         HoverText = "Customizes the lighting of the game.",
         Callback = function(callback)
             if callback then
-                Lighting.ShadowSoftness = shadowSoftness.Value
-                Lighting.Brightness = brightness.Value
-                for i,v in pairs(Lighting:GetChildren()) do
-					if v:IsA("BloomEffect") or v:IsA("SunRaysEffect") then
-						table.insert(oldLightingObjects, v)
-						v.Parent = game
-					end
-				end
-                bloomObject = Instance.new("BloomEffect")
-                bloomObject.Name = "BloomObject"
-                bloomObject.Parent = Lighting
-                bloomObject.Intensity = bloomIntensity.Value
-                bloomObject.Size = bloomSize.Value
-                
-                sunRaysObject = Instance.new("SunRaysEffect")
-                sunRaysObject.Name = "SunRaysObject"
-                sunRaysObject.Parent = Lighting
-                sunRaysObject.Intensity = sunRaysIntensity.Value
-                sunRaysObject.Spread = spread.Value
-
-                connection = Lighting.LightingChanged:Connect(function()
-                    if Lighting:FindFirstChild("BloomObject") then
-                        local BloomObject = Lighting:FindFirstChild("BloomObject")
-                        BloomObject.Parent = Lighting
-                        BloomObject.Intensity = bloomIntensity.Value
-                        BloomObject.Size = bloomSize.Value
-                    else
-                        bloomObject = Instance.new("BloomEffect")
-                        bloomObject.Name = "BloomObject"
-                        bloomObject.Parent = Lighting
-                        bloomObject.Intensity = bloomIntensity.Value
-                        bloomObject.Size = bloomSize.Value
+                betterDisconnect(connection)
+                table.clear(oldLightingObjects)
+                oldLighting.ShadowSoftness = Lighting.ShadowSoftness
+                oldLighting.Brightness = Lighting.Brightness
+                for _, v in ipairs(Lighting:GetChildren()) do
+                    if (v:IsA("BloomEffect") or v:IsA("SunRaysEffect")) and v.Name ~= "BloomObject" and v.Name ~= "SunRaysObject" then
+                        table.insert(oldLightingObjects, v)
+                        v.Parent = nil
                     end
+                end
 
-                    if Lighting:FindFirstChild("SunRaysObject") then
-                        local sunRaysObject = Lighting:FindFirstChild("SunRaysObject")
-                        sunRaysObject = Instance.new("SunRaysEffect")
-                        sunRaysObject.Name = "SunRaysObject"
-                        sunRaysObject.Parent = Lighting
-                        sunRaysObject.Intensity = sunRaysIntensity.Value
-                        sunRaysObject.Spread = spread.Value
-                    else
-                        sunRaysObject = Instance.new("SunRaysEffect")
-                        sunRaysObject.Name = "SunRaysObject"
-                        sunRaysObject.Parent = Lighting
-                        sunRaysObject.Intensity = sunRaysIntensity.Value
-                        sunRaysObject.Spread = spread.Value
-                    end
-                end)
-            else
-                connection:Disconnect()
-                Lighting.ShadowSoftness = oldLighting.ShadowSoftness
-                Lighting.Brightness = oldLighting.Brightness
                 if bloomObject then bloomObject:Destroy() end
                 if sunRaysObject then sunRaysObject:Destroy() end
-				for i,v in pairs(oldLightingObjects) do
-					v.Parent = Lighting
-				end
-				table.clear(oldLightingObjects)
+                bloomObject = Instance.new("BloomEffect")
+                bloomObject.Name = "BloomObject"
+                bloomObject.Intensity = bloomIntensity.Value
+                bloomObject.Size = bloomSize.Value
+                bloomObject.Parent = Lighting
+
+                sunRaysObject = Instance.new("SunRaysEffect")
+                sunRaysObject.Name = "SunRaysObject"
+                sunRaysObject.Intensity = sunRaysIntensity.Value
+                sunRaysObject.Spread = spread.Value
+                sunRaysObject.Parent = Lighting
+
+                Lighting.ShadowSoftness = shadowSoftness.Value
+                Lighting.Brightness = brightness.Value
+            else
+                betterDisconnect(connection)
+                connection = nil
+                if bloomObject then bloomObject:Destroy(); bloomObject = nil end
+                if sunRaysObject then sunRaysObject:Destroy(); sunRaysObject = nil end
+                Lighting.ShadowSoftness = oldLighting.ShadowSoftness
+                Lighting.Brightness = oldLighting.Brightness
+                for _, v in ipairs(oldLightingObjects) do
+                    if v and v.Parent == nil then v.Parent = Lighting end
+                end
+                table.clear(oldLightingObjects)
             end
         end
     })
@@ -4779,7 +4387,7 @@ runFunction(function()
     sunRaysIntensity = customLighting:CreateSlider({
         Name = "SunRays Intensity",
         Function = function(v) 
-            if customLighting.Enabled then
+            if customLighting.Enabled and sunRaysObject then
                 sunRaysObject.Intensity = v
             end
         end,
@@ -4792,7 +4400,7 @@ runFunction(function()
     spread = customLighting:CreateSlider({
         Name = "SunRays Spread",
         Function = function(v) 
-            if customLighting.Enabled then
+            if customLighting.Enabled and sunRaysObject then
                 sunRaysObject.Spread = v
             end
         end,
@@ -4805,7 +4413,7 @@ runFunction(function()
     bloomIntensity = customLighting:CreateSlider({
         Name = "Bloom Intensity",
         Function = function(v) 
-            if customLighting.Enabled then
+            if customLighting.Enabled and bloomObject then
                 bloomObject.Intensity = v
             end
         end,
@@ -4818,7 +4426,7 @@ runFunction(function()
     bloomSize = customLighting:CreateSlider({
         Name = "Bloom Intensity",
         Function = function(v) 
-            if customLighting.Enabled then
+            if customLighting.Enabled and bloomObject then
                 bloomObject.Size = v
             end
         end,
@@ -4845,51 +4453,48 @@ runFunction(function()
     local skyObject
     local connection
 
+    local function applySky()
+        if not skyObject or skyObject.Parent ~= Lighting then return end
+        skyObject.Name = "SkyObject"
+        skyObject.SkyboxBk = "rbxassetid://" .. back.Value
+        skyObject.SkyboxDn = "rbxassetid://" .. down.Value
+        skyObject.SkyboxFt = "rbxassetid://" .. front.Value
+        skyObject.SkyboxLf = "rbxassetid://" .. left.Value
+        skyObject.SkyboxRt = "rbxassetid://" .. right.Value
+        skyObject.SkyboxUp = "rbxassetid://" .. up.Value
+        skyObject.SunTextureId = "rbxassetid://" .. sun.Value
+        skyObject.MoonTextureId = "rbxassetid://" .. moon.Value
+        skyObject.SunAngularSize = sunSize.Value
+        skyObject.MoonAngularSize = moonSize.Value
+    end
+
     customSky = Tabs.World:CreateToggle({
         Name = "Sky",
         HoverText = "Customizes the sky of the game.",
         Callback = function(callback)
             if callback then
-                for _, v in pairs(Lighting:GetChildren()) do
+                betterDisconnect(connection)
+                table.clear(oldSkyObjects)
+                for _, v in ipairs(Lighting:GetChildren()) do
                     if v:IsA("PostEffect") or (v:IsA("Sky") and v.Name ~= "SkyObject") then
                         table.insert(oldSkyObjects, v)
-                        v.Parent = game
+                        v.Parent = nil
                     end
                 end
-
+                if skyObject then skyObject:Destroy() end
                 skyObject = Instance.new("Sky")
                 skyObject.Name = "SkyObject"
                 skyObject.Parent = Lighting
-                skyObject.SkyboxBk = "rbxassetid://" .. back.Value
-                skyObject.SkyboxDn = "rbxassetid://" .. down.Value
-                skyObject.SkyboxFt = "rbxassetid://" .. front.Value
-                skyObject.SkyboxLf = "rbxassetid://" .. left.Value
-                skyObject.SkyboxRt = "rbxassetid://" .. right.Value
-                skyObject.SkyboxUp = "rbxassetid://" .. up.Value
-                skyObject.SunTextureId = "rbxassetid://" .. sun.Value
-                skyObject.MoonTextureId = "rbxassetid://" .. moon.Value
-                skyObject.SunAngularSize = sunSize.Value
-                skyObject.MoonAngularSize = moonSize.Value
-
+                applySky()
                 connection = skyObject.Changed:Connect(function()
-                    skyObject.Name = "SkyObject"
-                    skyObject.Parent = Lighting
-                    skyObject.SkyboxBk = "rbxassetid://" .. back.Value
-                    skyObject.SkyboxDn = "rbxassetid://" .. down.Value
-                    skyObject.SkyboxFt = "rbxassetid://" .. front.Value
-                    skyObject.SkyboxLf = "rbxassetid://" .. left.Value
-                    skyObject.SkyboxRt = "rbxassetid://" .. right.Value
-                    skyObject.SkyboxUp = "rbxassetid://" .. up.Value
-                    skyObject.SunTextureId = "rbxassetid://" .. sun.Value
-                    skyObject.MoonTextureId = "rbxassetid://" .. moon.Value
-                    skyObject.SunAngularSize = sunSize.Value
-                    skyObject.MoonAngularSize = moonSize.Value
+                    if customSky.Enabled then applySky() end
                 end)
             else
                 betterDisconnect(connection)
-                if skyObject then skyObject:Destroy() end
-                for _, v in pairs(oldSkyObjects) do
-                    v.Parent = Lighting
+                connection = nil
+                if skyObject then skyObject:Destroy(); skyObject = nil end
+                for _, v in ipairs(oldSkyObjects) do
+                    if v and v.Parent == nil then v.Parent = Lighting end
                 end
                 table.clear(oldSkyObjects)
             end
@@ -4998,10 +4603,11 @@ runFunction(function()
             if callback then
                 oldTime = Lighting.TimeOfDay
                 updateTime()
-                connection = Lighting.Changed:Connect(updateTime())
+                connection = Lighting.Changed:Connect(updateTime)
             else
-                Lighting.TimeOfDay = oldTime
                 betterDisconnect(connection)
+                connection = nil
+                if oldTime then Lighting.TimeOfDay = oldTime end
             end
         end
     })
