@@ -3216,31 +3216,29 @@ function guilibrary:CreateWindow()
                 
                 keybindConnection = userInputService.InputBegan:Connect(function(input)
                     local inputName = input.KeyCode.Name
-                    if inputName == "Unknown" and input.UserInputType == Enum.UserInputType.MouseButton2 then
+                    if input.UserInputType == Enum.UserInputType.MouseButton3 then
+                        inputName = "MouseButton3"
+                    elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
                         ToggleTable:UpdateKeybind(true)
                         isclicked = false
                         betterDisconnect(keybindConnection)
+                        return
                     elseif inputName == "Unknown" then
                         return
-                    elseif inputName ~= "Unknown" and inputName ~= oldkey then
-                        ToggleTable:UpdateKeybind(false, inputName)
-                        isclicked = false
-                        cooldown = true
-                        task.spawn(function()
-                            task.wait(0.5)
-                            cooldown = false
-                        end)
-                        betterDisconnect(keybindConnection)
-                    elseif inputName == oldkey then
-                        ToggleTable:UpdateKeybind(false)
-                        isclicked = false
-                        cooldown = true
-                        task.spawn(function()
-                            task.wait(0.5)
-                            cooldown = false
-                        end)
-                        betterDisconnect(keybindConnection)
                     end
+
+                    if inputName ~= oldkey then
+                        ToggleTable:UpdateKeybind(false, inputName)
+                    else
+                        ToggleTable:UpdateKeybind(false)
+                    end
+                    isclicked = false
+                    cooldown = true
+                    task.spawn(function()
+                        task.wait(0.5)
+                        cooldown = false
+                    end)
+                    betterDisconnect(keybindConnection)
                 end)
             end))
 
@@ -3303,7 +3301,11 @@ function guilibrary:CreateWindow()
             end))
             
             table.insert(connections, userInputService.InputBegan:Connect(function(input)
-                if oldkey and oldkey ~= "none" and not cooldown and not isclicked and input.KeyCode.Name == oldkey and not userInputService:GetFocusedTextBox() then
+                local inputName = input.KeyCode.Name
+                if input.UserInputType == Enum.UserInputType.MouseButton3 then
+                    inputName = "MouseButton3"
+                end
+                if oldkey and oldkey ~= "none" and not cooldown and not isclicked and inputName == oldkey and not userInputService:GetFocusedTextBox() then
                     ToggleTable:Toggle()
                 end
             end))
