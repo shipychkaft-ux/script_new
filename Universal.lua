@@ -505,21 +505,40 @@ local function betterDisconnect(connection)
     end
 end
 
+-- Shared combat state used by Attack Aura and Target ESP.
+local AttackAuraState = {
+    Enabled = false,
+    Target = nil,
+}
+
+local function safeIsTargetValid(player)
+    return player and player ~= LocalPlayer and player.Parent == Players and isAlive(player) and getHumanoid(player) and getHumanoid(player).Health > 0
+end
+
 -- // Combat tab
--- Single test combat module. Legacy AimAssist/AutoClicker/Reach were removed.
 runFunction(function()
     local attackAura = {Enabled = false}
     local range = {Value = 100}
     local cps = {Value = 8}
-    local aimPart = {Value = "HumanoidRootPart"}
+    local aimPart = {Value = "Голова"}
     local teamCheck = {Value = false}
     local silentRotate = {Value = true}
-    local fov = {Value = 360}
-    local loopId = 0
-    local oldAutoRotate = true
+    local aimSpeed = {Value = 18}
+    local fov = {Value = 2000}
+    local neckTransform
+    local aimConnection
+    local clickLoopId = 0
+
+    local function getAimPart(character)
+        if aimPart.Value == "Голова" then
+            return character and (character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart"))
+        end
+        return character and character:FindFirstChild("HumanoidRootPart")
+    end
 
     local function getTarget()
-        local best, bestScreenDistance
+        local best
+        local bestScore = math.huge
         local mousePos = UserInputService:GetMouseLocation()
         local localRoot = getHumanoidRootPart(LocalPlayer)
         if not localRoot then return nil end
@@ -529,15 +548,21 @@ runFunction(function()
                 local character = getCharacter(plr)
                 local humanoid = character and character:FindFirstChildOfClass("Humanoid")
                 local root = character and character:FindFirstChild("HumanoidRootPart")
-                local part = character and character:FindFirstChild(aimPart.Value)
+                local part = getAimPart(character)
                 local sameTeam = teamCheck.Value and plr.Team == LocalPlayer.Team
                 if humanoid and humanoid.Health > 0 and root and part and not sameTeam then
                     local distance = (root.Position - localRoot.Position).Magnitude
-                    local screen, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and distance <= range.Value then
-                        local screenDistance = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
-                        if screenDistance <= fov.Value and (not bestScreenDistance or screenDistance < bestScreenDistance) then
-                            best, bestScreenDistance = plr, screenDistance
+                    if distance <= range.Value then
+                        local screen, onScreen = Camera:WorldToViewportPoint(part.Position)
+                        local screenDistance = onScreen and (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude or math.huge
+                        -- FOV is screen-space pixels. A large value means the aura can
+                        -- select targets even when they are not directly under the cursor.
+                        if onScreen and screenDistance > fov.Value then
+                            continue
+                        end
+                        local score = distance + screenDistance * 0.15
+                        if score < bestScore then
+                            best, bestScore = plr, score
                         end
                     end
                 end
@@ -546,69 +571,201 @@ runFunction(function()
         return best
     end
 
-    local function silentRotateTo(target)
-        if not silentRotate.Value or not isAlive(target) or not isAlive() then return end
-        local root = getHumanoidRootPart(LocalPlayer)
-        local targetRoot = getHumanoidRootPart(target)
-        if not root or not targetRoot then return end
-        local delta = targetRoot.Position - root.Position
-        local flat = Vector3.new(delta.X, 0, delta.Z)
-        if flat.Magnitude > 0.001 then
-            root.CFrame = CFrame.lookAt(root.Position, root.Position + flat.Unit)
+    local function findNeck(character)
+        if not character then return nil end
+        local head = character:FindFirstChild("Head")
+        if head then
+            local n = head:FindFirstChild("Neck")
+            if n and n:IsA("Motor6D") then return n end
+        end
+        for _, obj in ipairs(character:GetDescendants()) do
+            if obj:IsA("Motor6D") and obj.Name == "Neck" then
+                return obj
+            end
+        end
+        return nil
+    end
+
+    local function restoreNeck()
+        if neckTransform and neckTransform.Neck and neckTransform.Neck.Parent then
+            pcall(function() neckTransform.Neck.Transform = neckTransform.Transform end)
+        end
+        neckTransform = nil
+    end
+
+    local function silentlyAimAt(target, dt)
+        if not silentRotate.Value or not safeIsTargetValid(target) then
+            restoreNeck()
+            return
+        end
+        local character = getCharacter(LocalPlayer)
+        local head = character and character:FindFirstChild("Head")
+        local targetPart = getAimPart(getCharacter(target))
+        local neck = findNeck(character)
+        if not head or not targetPart or not neck then return end
+
+        if not neckTransform or neckTransform.Neck ~= neck then
+            neckTransform = {Neck = neck, Transform = neck.Transform}
+        end
+
+        -- Rotate only the local neck Motor6D. Camera.CFrame is never touched,
+        -- so the player can freely move the physical view while the avatar aims.
+        local direction = targetPart.Position - head.Position
+        if direction.Magnitude < 0.001 then return end
+        local localDirection = head.CFrame:VectorToObjectSpace(direction.Unit)
+        local yaw = math.atan2(-localDirection.X, -localDirection.Z)
+        local pitch = math.asin(math.clamp(localDirection.Y, -1, 1))
+        local desired = CFrame.Angles(pitch, yaw, 0)
+        local alpha = math.clamp((aimSpeed.Value / 20) * math.max(dt, 1/240), 0, 1)
+        neck.Transform = neck.Transform:Lerp(desired, alpha)
+    end
+
+    local function doTestClick()
+        if UserInputService:GetFocusedTextBox() then return end
+        if mouse1click then
+            pcall(mouse1click)
+        elseif mouse1press and mouse1release then
+            pcall(mouse1press)
+            task.wait(0.01)
+            pcall(mouse1release)
         end
     end
 
     attackAura = Tabs.Combat:CreateToggle({
         Name = "AttackAura",
-        HoverText = "Targets a nearby player, silently rotates the character and spams LMB for testing.",
+        HoverText = "Выбирает игрока в радиусе, тихо наводит голову и кликает только при наличии цели.",
         Callback = function(enabled)
-            loopId += 1
-            local myLoop = loopId
+            AttackAuraState.Enabled = enabled
+            AttackAuraState.Target = nil
+            clickLoopId += 1
+            local thisLoop = clickLoopId
+            restoreNeck()
             if enabled then
-                local humanoid = getHumanoid(LocalPlayer)
-                oldAutoRotate = humanoid and humanoid.AutoRotate or true
-                if humanoid then humanoid.AutoRotate = false end
-                RunLoops:BindToRenderStep("AttackAuraAim", function()
+                betterDisconnect(aimConnection)
+                aimConnection = RunService.RenderStepped:Connect(function(dt)
                     if not attackAura.Enabled then return end
                     local target = getTarget()
-                    if target and silentRotate.Value then
-                        -- Preserve the user's actual camera orientation. The character
-                        -- can rotate toward the target without moving the PC view.
-                        local cameraFrame = Camera.CFrame
-                        silentRotateTo(target)
-                        Camera.CFrame = cameraFrame
+                    AttackAuraState.Target = target
+                    if target then
+                        silentlyAimAt(target, dt)
+                    else
+                        restoreNeck()
                     end
                 end)
                 task.spawn(function()
-                    while attackAura.Enabled and myLoop == loopId do
-                        if mouse1click and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() then
-                            pcall(mouse1click)
+                    while attackAura.Enabled and thisLoop == clickLoopId do
+                        local target = AttackAuraState.Target
+                        if safeIsTargetValid(target) and not GuiLibrary.Toggled then
+                            doTestClick()
                         end
                         task.wait(1 / math.max(1, cps.Value))
                     end
                 end)
             else
-                RunLoops:UnbindFromRenderStep("AttackAuraAim")
-                local humanoid = getHumanoid(LocalPlayer)
-                if humanoid then humanoid.AutoRotate = oldAutoRotate end
+                betterDisconnect(aimConnection)
+                aimConnection = nil
+                restoreNeck()
             end
         end
     })
 
-    range = attackAura:CreateSlider({
-        Name = "Range", Function = function() end, Min = 1, Max = 100, Default = 100, Round = 0
-    })
-    cps = attackAura:CreateSlider({
-        Name = "CPS", Function = function() end, Min = 1, Max = 30, Default = 8, Round = 0
-    })
-    fov = attackAura:CreateSlider({
-        Name = "FOV", Function = function() end, Min = 10, Max = 360, Default = 360, Round = 0
-    })
-    aimPart = attackAura:CreateDropdown({
-        Name = "Aim Part", Function = function() end, List = {"Head", "HumanoidRootPart"}, Default = "HumanoidRootPart"
-    })
+    range = attackAura:CreateSlider({Name = "Range", Function = function() end, Min = 1, Max = 100, Default = 100, Round = 0})
+    cps = attackAura:CreateSlider({Name = "CPS", Function = function() end, Min = 1, Max = 30, Default = 8, Round = 0})
+    fov = attackAura:CreateSlider({Name = "FOV", Function = function() end, Min = 10, Max = 2000, Default = 2000, Round = 0})
+    aimSpeed = attackAura:CreateSlider({Name = "Aim Speed", Function = function() end, Min = 1, Max = 60, Default = 18, Round = 0})
+    aimPart = attackAura:CreateDropdown({Name = "Aim Part", Function = function() end, List = {"Голова", "Тело"}, Default = "Голова"})
     teamCheck = attackAura:CreateToggle({Name = "Team Check", Default = false, Function = function() end})
     silentRotate = attackAura:CreateToggle({Name = "Silent Rotation", Default = true, Function = function() end})
+end)
+
+-- // Target ESP synchronized with Attack Aura
+runFunction(function()
+    local targetESP = {Enabled = false}
+    local targetESPMode = {Value = "Кольцо"}
+    local targetESPSize = {Value = 150}
+    local targetESPRotation = {Value = 240}
+    local targetESPTransparency = {Value = 0.2}
+    local targetESPTextureId = "113363639205880"
+    local screenGui
+    local frame
+    local image
+    local renderConnection
+
+    local function destroyESP()
+        betterDisconnect(renderConnection)
+        renderConnection = nil
+        if screenGui then screenGui:Destroy() end
+        screenGui, frame, image = nil, nil, nil
+    end
+
+    local function ensureESP()
+        if screenGui and screenGui.Parent then return end
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "Nightix_TargetESP"
+        screenGui.ResetOnSpawn = false
+        screenGui.IgnoreGuiInset = true
+        screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        screenGui.Parent = CoreGui
+
+        frame = Instance.new("Frame")
+        frame.BackgroundTransparency = 1
+        frame.Size = UDim2.fromOffset(targetESPSize.Value, targetESPSize.Value)
+        frame.AnchorPoint = Vector2.new(0.5, 0.5)
+        frame.Parent = screenGui
+
+        image = Instance.new("ImageLabel")
+        image.Name = "TargetESPTexture"
+        image.BackgroundTransparency = 1
+        image.Size = UDim2.fromScale(1, 1)
+        image.Image = "rbxassetid://" .. targetESPTextureId
+        image.ScaleType = Enum.ScaleType.Fit
+        image.ImageTransparency = targetESPTransparency.Value
+        image.Parent = frame
+    end
+
+    local function startESP()
+        ensureESP()
+        betterDisconnect(renderConnection)
+        renderConnection = RunService.RenderStepped:Connect(function(dt)
+            if not targetESP.Enabled then return end
+            local target = AttackAuraState.Target
+            if not safeIsTargetValid(target) then
+                frame.Visible = false
+                return
+            end
+            local character = getCharacter(target)
+            local part = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+            if not part then frame.Visible = false return end
+            local pos, onScreen = Camera:WorldToViewportPoint(part.Position + Vector3.new(0, 0.35, 0))
+            if not onScreen then frame.Visible = false return end
+            local localRoot = getHumanoidRootPart(LocalPlayer)
+            local root = getHumanoidRootPart(target)
+            local distance = localRoot and root and (root.Position - localRoot.Position).Magnitude or 0
+            local scale = math.clamp(1 - distance / 250, 0.45, 1.15)
+            frame.Size = UDim2.fromOffset(math.floor(targetESPSize.Value * scale), math.floor(targetESPSize.Value * scale))
+            frame.Position = UDim2.fromOffset(pos.X, pos.Y)
+            image.Rotation = (image.Rotation + targetESPRotation.Value * dt) % 360
+            image.ImageTransparency = targetESPTransparency.Value
+            frame.Visible = true
+        end)
+    end
+
+    targetESP = Tabs.Render:CreateToggle({
+        Name = "Target ESP",
+        HoverText = "Показывает ESP на текущей цели AttackAura.",
+        Callback = function(enabled)
+            if enabled then
+                startESP()
+            else
+                destroyESP()
+            end
+        end
+    })
+
+    targetESPMode = targetESP:CreateDropdown({Name = "Target ESP Mode", List = {"Кольцо"}, Default = "Кольцо", Function = function() end})
+    targetESPSize = targetESP:CreateSlider({Name = "Size", Min = 60, Max = 300, Default = 150, Round = 0, Function = function(v) if frame then frame.Size = UDim2.fromOffset(v, v) end end})
+    targetESPRotation = targetESP:CreateSlider({Name = "Rotation Speed", Min = 0, Max = 1000, Default = 240, Round = 0, Function = function() end})
+    targetESPTransparency = targetESP:CreateSlider({Name = "Opacity", Min = 0, Max = 1, Default = 0.2, Round = 2, Function = function(v) if image then image.ImageTransparency = v end end})
 end)
 
 -- // Movement tab
@@ -808,7 +965,7 @@ runFunction(function()
             if speed.Container then speed.Container.Visible = v == "CFrame" end
         end,
         List = {"AssemblyAngularVelocity", "AssemblyLinearVelocity", "LinearVelocity", "Velocity", "CFrame"},
-        Default = "Velocity"
+        Default = "CFrame"
     })
 
     speed = fly:CreateSlider({
@@ -1139,7 +1296,7 @@ end)
 runFunction(function()
     local speed = {Enabled = false}
     local mode = {Value = "Normal"}
-    local value = {Value = 16}
+    local value = {Value = 50}
     local autoJump = {Value = false}
     local jumpMode = {Value = "Normal"}
     local autoJumpPower = {Value = 25}
@@ -1240,8 +1397,8 @@ runFunction(function()
                 speed:ReToggle(true)
             end
         end,
-        List = {"Velocity", "CFrame", "Normal"}, -- "AssemblyAngularVelocity", "AssemblyLinearVelocity", "LinearVelocity", "Velocity", "CFrame", "Normal"}
-        Default = "Velocity"
+        List = {"Velocity", "CFrame", "Normal"},
+        Default = "CFrame"
     })
 
     value = speed:CreateSlider({
@@ -1327,7 +1484,7 @@ end)
 
 runFunction(function()
     local spinBot = {Enabled = false}
-    local spinBotSpeed = {Value = 360}
+    local spinBotSpeed = {Value = 3600}
     local spinBotX = {Value = false}
     local spinBotY = {Value = true}
     local spinBotZ = {Value = false}
@@ -1364,7 +1521,7 @@ runFunction(function()
         Function = function() end,
         Min = 1,
         Max = 3600,
-        Default = 360,
+        Default = 3600,
         Round = 0
     })
     spinBotX = spinBot:CreateToggle({Name = "Spin X", Default = false, Function = function() end})
@@ -2090,269 +2247,183 @@ runFunction(function()
     })
 end)
 
--- Made by Wowzers
+-- NameTags (Catlavan textures, Nightix layout)
 runFunction(function()
     local nameTags = {Enabled = false}
     local mode = {Value = "Username"}
     local color = {Value = Color3.fromRGB(255, 255, 255)}
     local teamColor = {Value = false}
-    local showHP = {Value = false}
-    local showDistance = {Value = false}
+    local showHP = {Value = true}
+    local showDistance = {Value = true}
     local maxDistance = {Value = 1000}
-    local billboardGuis = {}
-    local connections = {}
     local nameTagsFolder = Instance.new("Folder")
-    nameTagsFolder.Name = "NameTagsFolder"
-    nameTagsFolder.Parent = CoreGui or workspace
+    nameTagsFolder.Name = "NightixNameTags"
+    nameTagsFolder.Parent = CoreGui
+    local tags = {}
     local connections = {}
-    local lastFullUpdate
 
-    for _, existing in pairs(CoreGui:GetChildren()) do
-        if existing.Name == "NameTagsFolder" and existing ~= nameTagsFolder then
-            existing:Destroy()
-        end
-    end
-
-    local function CleanupPlayerNameTag(plr)
-        local playerName = typeof(plr) == "string" and plr or plr.Name
-
-        if billboardGuis[playerName] then
-            if billboardGuis[playerName].Parent then
-                billboardGuis[playerName]:Destroy()
-            end
-            billboardGuis[playerName] = nil
-        end
-    end
-
-    local textLabelProps = {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 1, 0),
-        Font = Enum.Font.SourceSansBold,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextSize = 16,
-        TextStrokeTransparency = 0.4,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        RichText = true,
-        Name = "NameTagText"
+    local PLAYER_TAG_TEXTURES = {
+        {Tag="PLAYER",TextureID="140236044026269"},{Tag="HERO",TextureID="127002800309506"},{Tag="TITAN",TextureID="134843752675046"},
+        {Tag="AVENGER",TextureID="71302292878701"},{Tag="OVERLORD",TextureID="88585651545459"},{Tag="MAGISTER",TextureID="110867334154262"},
+        {Tag="IMPERATOR",TextureID="80606954169385"},{Tag="DRAGON",TextureID="79287164231461"},{Tag="BULL",TextureID="91052874400723"},
+        {Tag="TIGER",TextureID="85717131337525"},{Tag="HYDRA",TextureID="87340940587655"},{Tag="GOD",TextureID="129833510107130"},
+        {Tag="DRACULA",TextureID="116834158567096"},{Tag="VAMPIRE",TextureID="108060614998853"},{Tag="COBRA",TextureID="78374975451119"},
+        {Tag="BUNNY",TextureID="105061794643167"},{Tag="RABBIT",TextureID="131480990813454"},{Tag="D.HELPER",TextureID="91525598231558"},
+        {Tag="HELPER",TextureID="112984845954589"},{Tag="ST.HELPER",TextureID="101737357191924"},{Tag="ML.ADMIN",TextureID="97788308066161"},
+        {Tag="ADMIN",TextureID="134585969653987"},{Tag="ML.MODER",TextureID="78572257955779"},{Tag="MODER",TextureID="128754918157182"},
+        {Tag="ST.MODER",TextureID="113180841063297"},{Tag="GL.MODER",TextureID="100270436810905"}
     }
+    local playerTags = {}
 
-    local function CreateNameTag(plr)
-        if not isAlive(plr, true) then
-            return nil
-        end
-
-        CleanupPlayerNameTag(plr)
-
-        local billboardGui = Instance.new("BillboardGui")
-        local textLabel = Instance.new("TextLabel")
-
-        billboardGui.Name = "NameTag_" .. plr.Name
-        billboardGui.Adornee = plr.Character.Head
-        billboardGui.AlwaysOnTop = true
-        billboardGui.Size = UDim2.new(0, 200, 0, 50)
-        billboardGui.StudsOffset = Vector3.new(0, 1.2, 0)
-        billboardGui.MaxDistance = maxDistance.Value
-        billboardGui.Parent = nameTagsFolder
-
-        for prop, value in pairs(textLabelProps) do
-            textLabel[prop] = value
-        end
-        textLabel.Parent = billboardGui
-
-        billboardGuis[plr.Name] = billboardGui
-        return billboardGui
+    local function disconnectAll()
+        for _, c in ipairs(connections) do betterDisconnect(c) end
+        table.clear(connections)
     end
 
-    local function UpdateNameTag(plr)
-        if not isAlive(plr) then return end
-
-        local billboardGui = billboardGuis[plr.Name]
-        if not billboardGui or not billboardGui.Parent then return end
-
-        local character = getCharacter(plr)
-        local humanoid = getHumanoid(plr)
-        local humanoidRootPart = getHumanoidRootPart(plr)
-        local localHumanoidRootPart = getHumanoidRootPart()
-
-        local textLabel = billboardGui:FindFirstChild("NameTagText")
-        if not textLabel then return end
-
-        local nameText = mode.Value == "Username" and plr.Name or plr.DisplayName
-        local parts = {}
-
-        table.insert(parts, string.format("<font color=\"rgb(%d, %d, %d)\">%s</font>",
-            color.RawColorTable.R,
-            color.RawColorTable.G,
-            color.RawColorTable.B,
-        nameText))
-
-        if showHP.Value then
-            local health = math.floor(humanoid.Health)
-            local maxHealth = math.floor(humanoid.MaxHealth)
-            local healthColor = ConvertHealthToColor(health, maxHealth)
-            local color = teamColor and plr.Team and plr.TeamColor or color.Value
-
-            table.insert(parts, string.format(" <font color=\"rgb(%d,%d,%d)\">%d HP</font>", 
-                math.floor(healthColor.R * 255), 
-                math.floor(healthColor.G * 255), 
-                math.floor(healthColor.B * 255), 
-            health))
-        end
-
-        if showDistance.Value and isAlive() then
-            local distance = math.floor((localHumanoidRootPart.Position - humanoidRootPart.Position).Magnitude)
-            table.insert(parts, string.format(" [%dm]", distance))
-        end
-
-        textLabel.Text = table.concat(parts)
-
-        if showDistance.Value and isAlive() then
-            local distance = (localHumanoidRootPart.Position - humanoidRootPart.Position).Magnitude
-            local scaleFactor = math.clamp(1 - (distance / maxDistance.Value) * 0.5, 0.5, 1)
-            if math.abs(textLabel.TextSize - (16 * scaleFactor)) > 0.5 then
-                textLabel.TextSize = 16 * scaleFactor
-            end
-        end
+    local function destroyTag(player)
+        local data = tags[player]
+        if not data then return end
+        if data.Gui then data.Gui:Destroy() end
+        betterDisconnect(data.Connection)
+        tags[player] = nil
     end
 
-    local function UpdateAllNameTags()
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and isAlive(plr) then
-                if billboardGuis[plr.Name] and billboardGuis[plr.Name].Parent then
-                    UpdateNameTag(plr)
-                else
-                    CreateNameTag(plr)
-                end
-            end
+    local function getTagData(player)
+        if not playerTags[player] then
+            playerTags[player] = PLAYER_TAG_TEXTURES[math.random(1, #PLAYER_TAG_TEXTURES)]
         end
+        return playerTags[player]
     end
 
-    local function CleanupAllNameTags()
-        for name, gui in pairs(billboardGuis) do
-            if gui and gui.Parent then
-                gui:Destroy()
-            end
-            billboardGuis[name] = nil
-        end
+    local function createTag(player)
+        if player == LocalPlayer or not player.Character then return end
+        local head = player.Character:FindFirstChild("Head")
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        if not head or not root or not humanoid or humanoid.Health <= 0 then return end
+        destroyTag(player)
+
+        local gui = Instance.new("ScreenGui")
+        gui.Name = "NightixNameTag_" .. player.Name
+        gui.ResetOnSpawn = false
+        gui.IgnoreGuiInset = true
+        gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        gui.Parent = nameTagsFolder
+
+        -- 16px texture height + 1px above and below = 18px rectangle.
+        local frame = Instance.new("Frame")
+        frame.Name = "TagFrame"
+        frame.Size = UDim2.fromOffset(180, 18)
+        frame.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+        frame.BackgroundTransparency = 0.12
+        frame.BorderSizePixel = 0
+        frame.Parent = gui
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 2)
+        corner.Parent = frame
+        local stroke = Instance.new("UIStroke")
+        stroke.Thickness = 0.5
+        stroke.Transparency = 0.55
+        stroke.Color = Color3.fromRGB(255,255,255)
+        stroke.Parent = frame
+
+        local tag = Instance.new("ImageLabel")
+        tag.Name = "AssetTag"
+        tag.Size = UDim2.fromOffset(64, 16)
+        tag.Position = UDim2.new(0, 2, 0.5, -8)
+        tag.BackgroundTransparency = 1
+        tag.Image = "rbxassetid://" .. getTagData(player).TextureID
+        tag.ScaleType = Enum.ScaleType.Fit
+        tag.ResampleMode = Enum.ResamplerMode.Pixelated
+        tag.Parent = frame
+
+        local nameLabel = Instance.new("TextLabel")
+        nameLabel.Name = "Name"
+        nameLabel.BackgroundTransparency = 1
+        nameLabel.Position = UDim2.fromOffset(68, 0)
+        nameLabel.Size = UDim2.new(1, -70, 1, 0)
+        nameLabel.Font = Enum.Font.GothamBold
+        nameLabel.TextSize = 13
+        nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        nameLabel.TextColor3 = color.Value
+        nameLabel.TextStrokeTransparency = 0.45
+        nameLabel.Parent = frame
+
+        local info = Instance.new("TextLabel")
+        info.Name = "Info"
+        info.BackgroundTransparency = 1
+        info.AnchorPoint = Vector2.new(1,0)
+        info.Position = UDim2.new(1,-3,0,0)
+        info.Size = UDim2.new(0,0,1,0)
+        info.AutomaticSize = Enum.AutomaticSize.X
+        info.Font = Enum.Font.Gotham
+        info.TextSize = 11
+        info.TextXAlignment = Enum.TextXAlignment.Right
+        info.TextColor3 = Color3.fromRGB(205,205,205)
+        info.TextStrokeTransparency = 0.5
+        info.Parent = frame
+
+        local connection = RunService.RenderStepped:Connect(function()
+            if not nameTags.Enabled or not player.Parent then destroyTag(player) return end
+            local character = player.Character
+            local h = character and character:FindFirstChild("Head")
+            local r = character and character:FindFirstChild("HumanoidRootPart")
+            local hum = character and character:FindFirstChildOfClass("Humanoid")
+            local localRoot = getHumanoidRootPart(LocalPlayer)
+            if not h or not r or not hum or hum.Health <= 0 or not localRoot then gui.Enabled = false return end
+            local distance = (r.Position - localRoot.Position).Magnitude
+            if distance > maxDistance.Value then gui.Enabled = false return end
+            local screen, onScreen = Camera:WorldToViewportPoint(h.Position + Vector3.new(0,3.2,0))
+            if not onScreen then gui.Enabled = false return end
+            gui.Enabled = true
+            local title = mode.Value == "Username" and player.Name or player.DisplayName
+            nameLabel.Text = title
+            nameLabel.TextColor3 = teamColor.Value and player.TeamColor.Color or color.Value
+            local parts = {}
+            if showHP.Value then table.insert(parts, tostring(math.floor(hum.Health)) .. "❤") end
+            if showDistance.Value then table.insert(parts, tostring(math.floor(distance)) .. "m") end
+            info.Text = #parts > 0 and table.concat(parts, "  ") or ""
+            local nameWidth = TextService:GetTextSize(title, nameLabel.TextSize, nameLabel.Font, Vector2.new(1000,18)).X
+            local infoWidth = #info.Text > 0 and TextService:GetTextSize(info.Text, info.TextSize, info.Font, Vector2.new(1000,18)).X or 0
+            frame.Size = UDim2.fromOffset(72 + math.floor(nameWidth + infoWidth) + 8, 18)
+            info.Position = UDim2.new(1,-4,0,0)
+            frame.Position = UDim2.fromOffset(screen.X - frame.AbsoluteSize.X/2, screen.Y - frame.AbsoluteSize.Y - 2)
+        end)
+        tags[player] = {Gui=gui, Connection=connection}
     end
 
-    local nameTagConnections = {}
-    local function clearNameTagConnections()
-        for _, conn in ipairs(nameTagConnections) do
-            betterDisconnect(conn)
+    local function refresh()
+        for player in pairs(tags) do destroyTag(player) end
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer then createTag(player) end
         end
-        table.clear(nameTagConnections)
     end
 
     nameTags = Tabs.Render:CreateToggle({
         Name = "NameTags",
-        HoverText = "Adds nametag above every player.",
-        Callback = function(callback)
-            if callback then
-                clearNameTagConnections()
-                table.insert(nameTagConnections, Players.PlayerRemoving:Connect(function(plr)
-                    CleanupPlayerNameTag(plr)
+        HoverText = "Показывает тег игрока над его персонажем.",
+        Callback = function(enabled)
+            if enabled then
+                refresh()
+                disconnectAll()
+                table.insert(connections, Players.PlayerAdded:Connect(function(player)
+                    table.insert(connections, player.CharacterAdded:Connect(function() task.wait(0.3) if nameTags.Enabled then createTag(player) end end))
                 end))
-                lastFullUpdate = 0
-                RunLoops:BindToRenderStep("NameTags", function()
-                    local now = tick()
-                    if now - lastFullUpdate > 0.5 then
-                        lastFullUpdate = now
-                        for _, plr in pairs(Players:GetPlayers()) do
-                            if plr ~= LocalPlayer then
-                                if isAlive(plr) and (not billboardGuis[plr.Name] or not billboardGuis[plr.Name].Parent) then
-                                    CreateNameTag(plr)
-                                    table.insert(nameTagConnections, plr.CharacterRemoving:Connect(function()
-                                        CleanupPlayerNameTag(plr)
-                                    end))
-                                elseif (not isAlive(plr)) and billboardGuis[plr.Name] then
-                                    CleanupPlayerNameTag(plr)
-                                end
-                            end
-
-                        end
-                    end
-                    for name, gui in pairs(billboardGuis) do
-                        local plr = Players:FindFirstChild(name)
-                        if plr and gui.Parent and isAlive(plr) then
-                            UpdateNameTag(plr)
-                        end
-                    end
-                end)
+                table.insert(connections, Players.PlayerRemoving:Connect(function(player) destroyTag(player) playerTags[player]=nil end))
             else
-                RunLoops:UnbindFromRenderStep("NameTags")
-                clearNameTagConnections()
-                CleanupAllNameTags()
+                disconnectAll()
+                for player in pairs(tags) do destroyTag(player) end
             end
         end
     })
 
-    mode = nameTags:CreateDropdown({
-        Name = "Name Mode",
-        List = {"Username", "DisplayName"},
-        Default = "Username",
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    color = nameTags:CreateColorSlider({
-        Name = "Name Color",
-        Default = Color3.fromRGB(255, 255, 255),
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    teamColor = nameTags:CreateToggle({
-        Name = "Team Color",
-        Default = false,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    showHP = nameTags:CreateToggle({
-        Name = "Health",
-        Default = false,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    showDistance = nameTags:CreateToggle({
-        Name = "Distance",
-        Default = false,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    maxDistance = nameTags:CreateSlider({
-        Name = "Max Distance",
-        Min = 100,
-        Max = 10000,
-        Default = 1000,
-        Round = 0,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
+    mode = nameTags:CreateDropdown({Name="Name Mode", List={"Username","DisplayName"}, Default="Username", Function=function() end})
+    color = nameTags:CreateColorSlider({Name="Name Color", Default=Color3.fromRGB(255,255,255), Function=function() end})
+    teamColor = nameTags:CreateToggle({Name="Team Color", Default=false, Function=function() end})
+    showHP = nameTags:CreateToggle({Name="Health", Default=true, Function=function() end})
+    showDistance = nameTags:CreateToggle({Name="Distance", Default=true, Function=function() end})
+    maxDistance = nameTags:CreateSlider({Name="Max Distance", Min=100, Max=10000, Default=1000, Round=0, Function=function() end})
 end)
-
 runFunction(function()
     local rainbowSkin = {Enabled = false}
     local mode = {Value = "FullCharacter"}
@@ -4439,60 +4510,52 @@ end)
 
 runFunction(function()
     local customSky = {Enabled = false}
-    local up = {Value = ""}
-    local down = {Value = ""}
-    local left = {Value = ""}
-    local right = {Value = ""}
-    local front = {Value = ""}
-    local back = {Value = ""}
-    local sun = {Value = ""}
-    local sunSize = {Value = 11}
-    local moon = {Value = ""}
-    local moonSize = {Value = 11}
-    local oldSkyObjects = {}
+    local selection = {Value = "Dune sky"}
     local skyObject
+    local oldSkyObjects = {}
     local connection
+    local skies = {
+        ["Dune sky"] = "138907351102721",
+        ["Celestial"] = "86696473016531",
+        ["Day"] = "8613979186",
+        ["Space"] = "15983996673",
+        ["Luminar"] = "140307474008766",
+    }
 
     local function applySky()
         if not skyObject or skyObject.Parent ~= Lighting then return end
-        skyObject.Name = "SkyObject"
-        skyObject.SkyboxBk = "rbxassetid://" .. back.Value
-        skyObject.SkyboxDn = "rbxassetid://" .. down.Value
-        skyObject.SkyboxFt = "rbxassetid://" .. front.Value
-        skyObject.SkyboxLf = "rbxassetid://" .. left.Value
-        skyObject.SkyboxRt = "rbxassetid://" .. right.Value
-        skyObject.SkyboxUp = "rbxassetid://" .. up.Value
-        skyObject.SunTextureId = "rbxassetid://" .. sun.Value
-        skyObject.MoonTextureId = "rbxassetid://" .. moon.Value
-        skyObject.SunAngularSize = sunSize.Value
-        skyObject.MoonAngularSize = moonSize.Value
+        local id = skies[selection.Value]
+        local asset = "rbxassetid://" .. id
+        skyObject.SkyboxBk = asset
+        skyObject.SkyboxDn = asset
+        skyObject.SkyboxFt = asset
+        skyObject.SkyboxLf = asset
+        skyObject.SkyboxRt = asset
+        skyObject.SkyboxUp = asset
     end
 
     customSky = Tabs.World:CreateToggle({
-        Name = "Sky",
-        HoverText = "Customizes the sky of the game.",
-        Callback = function(callback)
-            if callback then
-                betterDisconnect(connection)
+        Name = "SkyShader",
+        HoverText = "Позволяет выбрать готовое небо.",
+        Callback = function(enabled)
+            betterDisconnect(connection)
+            connection = nil
+            if enabled then
                 table.clear(oldSkyObjects)
                 for _, v in ipairs(Lighting:GetChildren()) do
-                    if v:IsA("PostEffect") or (v:IsA("Sky") and v.Name ~= "SkyObject") then
+                    if v:IsA("Sky") and v.Name ~= "NightixSkyShader" then
                         table.insert(oldSkyObjects, v)
                         v.Parent = nil
                     end
                 end
                 if skyObject then skyObject:Destroy() end
                 skyObject = Instance.new("Sky")
-                skyObject.Name = "SkyObject"
+                skyObject.Name = "NightixSkyShader"
                 skyObject.Parent = Lighting
                 applySky()
-                connection = skyObject.Changed:Connect(function()
-                    if customSky.Enabled then applySky() end
-                end)
+                connection = skyObject.Changed:Connect(function() if customSky.Enabled then applySky() end end)
             else
-                betterDisconnect(connection)
-                connection = nil
-                if skyObject then skyObject:Destroy(); skyObject = nil end
+                if skyObject then skyObject:Destroy(); skyObject=nil end
                 for _, v in ipairs(oldSkyObjects) do
                     if v and v.Parent == nil then v.Parent = Lighting end
                 end
@@ -4501,88 +4564,14 @@ runFunction(function()
         end
     })
 
-    back = customSky:CreateTextBox({
-        Name = "SkyBack",
-        PlaceholderText = "Sky Back ID",
-        DefaultValue = "6444884337",
-        Function = function(v) back.Value = v end,
-    })
-
-    down = customSky:CreateTextBox({
-        Name = "SkyDown",
-        PlaceholderText = "Sky Down ID",
-        DefaultValue = "6444884785",
-        Function = function(v) down.Value = v end,
-    })
-
-    front = customSky:CreateTextBox({
-        Name = "SkyFront",
-        PlaceholderText = "Sky Front ID",
-        DefaultValue = "6444884337",
-        Function = function(v) front.Value = v end,
-    })
-
-    left = customSky:CreateTextBox({
-        Name = "SkyLeft",
-        PlaceholderText = "Sky Left ID",
-        DefaultValue = "6444884337",
-        Function = function(v) left.Value = v end,
-    })
-
-    right = customSky:CreateTextBox({
-        Name = "SkyRight",
-        PlaceholderText = "Sky Right ID",
-        DefaultValue = "6444884337",
-        Function = function(v) right.Value = v end,
-    })
-
-    up = customSky:CreateTextBox({
-        Name = "SkyUp",
-        PlaceholderText = "Sky Up ID",
-        DefaultValue = "6412503613",
-        Function = function(v) up.Value = v end,
-    })
-
-    sun = customSky:CreateTextBox({
-        Name = "SkySun",
-        PlaceholderText = "Sky Sun ID",
-        DefaultValue = "6196665106",
-        Function = function(v) sun.Value = v end,
-    })
-
-    moon = customSky:CreateTextBox({
-        Name = "SkyMoon",
-        PlaceholderText = "Sky Moon ID",
-        DefaultValue = "6444320592",
-        Function = function(v) moon.Value = v end,
-    })
-
-    sunSize = customSky:CreateSlider({
-        Name = "SunSize",
+    selection = customSky:CreateDropdown({
+        Name = "Sky Selection",
+        List = {"Dune sky","Celestial","Day","Space","Luminar"},
+        Default = "Dune sky",
         Function = function(v)
-            sunSize.Value = v
-            if customSky.Enabled and skyObject then
-                skyObject.SunAngularSize = v
-            end
-        end,
-        Min = 0,
-        Max = 60,
-        Default = 11,
-        Round = 0
-    })
-
-    moonSize = customSky:CreateSlider({
-        Name = "MoonSize",
-        Function = function(v)
-            moonSize.Value = v
-            if customSky.Enabled and skyObject then
-                skyObject.MoonAngularSize = v
-            end
-        end,
-        Min = 0,
-        Max = 60,
-        Default = 11,
-        Round = 0
+            selection.Value = v
+            if customSky.Enabled then applySky() end
+        end
     })
 end)
 
@@ -4594,20 +4583,21 @@ runFunction(function()
     local connection
     local oldTime
     local function updateTime()
-        Lighting.TimeOfDay = hours.Value..":"..minutes.Value..":"..seconds.Value
+        if not timeOfDay.Enabled then return end
+        Lighting.TimeOfDay = string.format("%02d:%02d:%02d", math.clamp(hours.Value,0,23), math.clamp(minutes.Value,0,59), math.clamp(seconds.Value,0,59))
     end
     timeOfDay = Tabs.World:CreateToggle({
         Name = "TimeOfDay",
         HoverText = "Customizes the time of the game.",
         Callback = function(callback)
+            betterDisconnect(connection)
+            connection = nil
             if callback then
                 oldTime = Lighting.TimeOfDay
                 updateTime()
-                connection = Lighting.Changed:Connect(updateTime)
             else
-                betterDisconnect(connection)
-                connection = nil
                 if oldTime then Lighting.TimeOfDay = oldTime end
+                oldTime = nil
             end
         end
     })

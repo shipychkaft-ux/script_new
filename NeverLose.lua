@@ -4199,7 +4199,22 @@ function NeverLose:CreateWindow(Config)
 	LogoImage.Size = UDim2.new(0, 48, 0, 48)
 	LogoImage.ZIndex = 7
 	LogoImage.Image = Window.Logo
-	LogoImage.ImageColor3 = NeverLose.IconColor
+	LogoImage.ImageColor3 = Color3.fromRGB(255,255,255)
+	local LogoGradient = Instance.new("UIGradient")
+	LogoGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(131,138,251)),
+	})
+	LogoGradient.Rotation = 0
+	LogoGradient.Parent = LogoImage
+	task.spawn(function()
+		local t = 0
+		while LogoGradient.Parent do
+			t = (t + 0.012) % 2
+			LogoGradient.Offset = Vector2.new(t - 1, 0)
+			task.wait(0.03)
+		end
+	end)
 
 	UICorner_2.CornerRadius = UDim.new(0, 7)
 	UICorner_2.Parent = LogoImage
@@ -6039,7 +6054,23 @@ function NeverLose:CreateWindow(Config)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
 			Icon.ImageTransparency = 0.250
+			Icon.ImageColor3 = Color3.fromRGB(255,255,255)
 			Icon.ScaleType = Enum.ScaleType.Fit
+			local IconGradient = Instance.new("UIGradient")
+			IconGradient.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(220,156,253)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(131,138,251)),
+			})
+			IconGradient.Rotation = 0
+			IconGradient.Parent = Icon
+			task.spawn(function()
+				local t = 0
+				while IconGradient.Parent do
+					t = (t + 0.012) % 2
+					IconGradient.Offset = Vector2.new(t - 1, 0)
+					task.wait(0.03)
+				end
+			end)
 
 			InnerBlock.Update = LPH_NO_VIRTUALIZE(function(value)
 				local size = TextService:GetTextSize(Content.Text , Content.TextSize,Content.Font,Vector2.new(math.huge,math.huge))
