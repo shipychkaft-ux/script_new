@@ -27,21 +27,33 @@ local debris = game:GetService("Debris")
 local LocalPlayer = Players.LocalPlayer
 local localPlayer = Players.LocalPlayer
 local lplr = Players.LocalPlayer
-local Character = LocalPlayer.Character
-local HumanoidRootPart = Character.HumanoidRootPart
-local Humanoid = Character.Humanoid
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
 local workspace = workspace
 local Workspace = workspace
 local Camera = workspace.CurrentCamera
 local Mouse = LocalPlayer:GetMouse()
 local PlayerGui = LocalPlayer.PlayerGui
 local Backpack = LocalPlayer.Backpack
-local Animate = LocalPlayer.Character:FindFirstChild("Animate")
+local Animate = Character:FindFirstChild("Animate")
 local LightingTime = Lighting.TimeOfDay
 local workspaceGravity = workspace.Gravity
 local PlayerWalkSpeed = Humanoid.WalkSpeed
 local PlayerJumpPower = Humanoid.JumpPower
 local PlayerHipHeight = Humanoid.HipHeight
+
+-- Keep legacy globals in sync after respawn. Most modules use the helper
+-- functions below, but a few older paths still reference these locals.
+LocalPlayer.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    HumanoidRootPart = newCharacter:WaitForChild("HumanoidRootPart")
+    Humanoid = newCharacter:WaitForChild("Humanoid")
+    Animate = newCharacter:FindFirstChild("Animate")
+    PlayerWalkSpeed = Humanoid.WalkSpeed
+    PlayerJumpPower = Humanoid.JumpPower
+    PlayerHipHeight = Humanoid.HipHeight
+end)
 local OldCameraMaxZoomDistance = LocalPlayer.CameraMaxZoomDistance
 local PlaceId = game.PlaceId
 local JobId = game.JobId
@@ -461,7 +473,7 @@ local function GetNearInstances(Radius, Player, RequiredInstance, IgnoreInstance
 
     for _, Instance in next, workspace:GetDescendants() do
         if (not RequiredInstance or Instance:IsA(RequiredInstance)) and not IsIgnored(Instance) then
-            if Instance:IsA("ClickDetector") and RequiredInstance == not "ClickDetector" then
+            if Instance:IsA("ClickDetector") and RequiredInstance ~= "ClickDetector" then
                 Instance = Instance.Parent
             end
             local Distance = (Instance.Position - Player.Character.HumanoidRootPart.Position).Magnitude
@@ -816,7 +828,7 @@ runFunction(function()
                                 end
                             end
                         elseif mode.Value == "Tool" then
-                            if toolHandler.currentTool == not nil and CurrentTool:IsA("Tool") and CanClick() then
+                            if toolHandler.currentTool ~= nil and CurrentTool:IsA("Tool") and CanClick() then
                                 toolHandler.currentTool:Active()
                             end
                         end
@@ -1288,9 +1300,10 @@ runFunction(function()
                     jump()
                     highJump:Toggle(true)
                 elseif mode.Value == "Normal" then
-                    connection = table.insert(connections, UserInputService.JumpRequest:Connect(function()
+                    connection = UserInputService.JumpRequest:Connect(function()
                         jump()
-                    end))
+                    end)
+                    table.insert(connections, connection)
                 end
             else
                 betterDisconnect(connection)
@@ -1440,11 +1453,23 @@ runFunction(function()
     local connection
     local connection2
     local holdingShift = false
+    local savedWalkSpeed
+    local savedJumpPower
+    local savedUseJumpPower
+    local savedAnimateDisabled
     speed = Tabs.Movement:CreateToggle({
         Name = "Speed",
         HoverText = "Makes you walk faster.",
         Callback = function(callback)
             if callback then
+                local currentHumanoid = getHumanoid(LocalPlayer)
+                local currentCharacter = getCharacter(LocalPlayer)
+                savedWalkSpeed = currentHumanoid and currentHumanoid.WalkSpeed or PlayerWalkSpeed
+                savedJumpPower = currentHumanoid and currentHumanoid.JumpPower or PlayerJumpPower
+                savedUseJumpPower = currentHumanoid and currentHumanoid.UseJumpPower
+                local currentAnimate = currentCharacter and currentCharacter:FindFirstChild("Animate")
+                savedAnimateDisabled = currentAnimate and currentAnimate.Disabled or false
+
                 connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
                     if input.KeyCode == Enum.KeyCode.LeftShift and not gameProcessed then
                         holdingShift = true
@@ -1485,26 +1510,30 @@ runFunction(function()
                         else]]
 
                         if mode.Value == "Velocity" then
-                            local Velocity = Humanoid.MoveDirection * (value.Value * 5) * Delta
-                            Character:TranslateBy(Vector3.new(Velocity.X / 10, 0, Velocity.Z / 10))
+                            -- Velocity is measured in studs/second; multiplying by
+                            -- Delta here made the old implementation almost inert.
+                            local desired = moveDirection * value.Value
+                            local current = humanoidRootPart.AssemblyLinearVelocity
+                            humanoidRootPart.AssemblyLinearVelocity = Vector3.new(desired.X, current.Y, desired.Z)
                         elseif mode.Value == "CFrame" then
-                            local Factor = value.Value - humanoid.WalkSpeed
-                            local MoveDirection = (moveDirection * Factor) * Delta
+                            local MoveDirection = (moveDirection * value.Value) * Delta
                             humanoidRootPart.CFrame = humanoidRootPart.CFrame + Vector3.new(MoveDirection.X, 0, MoveDirection.Z)
                         elseif mode.Value == "Normal" then
                             humanoid.WalkSpeed = value.Value
                         end
 
-                        if autoJump.Value and (humanoid.FloorMaterial ~= Enum.Material.Air) and humanoid.MoveDirection ~= Vector3.zero then
-                            if jumpMode == "Normal" then
+                        if autoJump.Value and humanoid.FloorMaterial ~= Enum.Material.Air and humanoid.MoveDirection.Magnitude > 0 then
+                            if jumpMode.Value == "Normal" then
                                 humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
                             else
-                                humanoidRootPart.Velocity = Vector3.new(humanoidRootPart.Velocity.X, autoJumpPower.Value, humanoidRootPart.Velocity.Z)
+                                local current = humanoidRootPart.AssemblyLinearVelocity
+                                humanoidRootPart.AssemblyLinearVelocity = Vector3.new(current.X, autoJumpPower.Value, current.Z)
                             end
                         end
 
                         if noAnim.Value then
-                            Character.Animate.Disabled = true
+                            local animate = Character:FindFirstChild("Animate")
+                            if animate then animate.Disabled = true end
                         end
                         if linearVelocity then
                             linearVelocity:Destroy()
@@ -1513,11 +1542,21 @@ runFunction(function()
                 end)
             else
                 RunLoops:UnbindFromHeartbeat("Speed")
-                getHumanoid().WalkSpeed = PlayerWalkSpeed
-                getHumanoid().JumpPower = PlayerJumpPower
-                getCharacter().Animate.Disabled = false
+                local currentHumanoid = getHumanoid(LocalPlayer)
+                if currentHumanoid then
+                    currentHumanoid.WalkSpeed = savedWalkSpeed or PlayerWalkSpeed
+                    currentHumanoid.JumpPower = savedJumpPower or PlayerJumpPower
+                    if savedUseJumpPower ~= nil then
+                        currentHumanoid.UseJumpPower = savedUseJumpPower
+                    end
+                end
+                local animate = getCharacter():FindFirstChild("Animate")
+                if animate then animate.Disabled = savedAnimateDisabled or false end
                 betterDisconnect(connection)
                 betterDisconnect(connection2)
+                connection = nil
+                connection2 = nil
+                holdingShift = false
             end
         end
     })
@@ -1596,7 +1635,8 @@ runFunction(function()
         Default = false,
         Function = function(v)
             if speed.Enabled then
-                getCharacter(LocalPlayer).Animate.Disabled = v
+                local animate = getCharacter(LocalPlayer):FindFirstChild("Animate")
+                if animate then animate.Disabled = v end
             end
         end
     })
@@ -2071,8 +2111,8 @@ runFunction(function()
             }
             if color.Container then color.Container.Visible = v == "BoxHandleAdornment" end
             if transparency.Container then transparency.Container.Visible = v == "BoxHandleAdornment" end
-            if outline.Container then outline.Container.Visible = v == "Highlight"; outline:ReToggle() end
-            if fill.Container then fill.Container.Visible = v == "Highlight"; fill:ReToggle() end
+            if outline.Container then outline.Container.Visible = v == "Highlight" end
+            if fill.Container then fill.Container.Visible = v == "Highlight" end
             if esp.Enabled then
                 esp:ReToggle(true)
                 espLibrary:updateAll()
@@ -2295,7 +2335,7 @@ runFunction(function()
                 Lighting.GlobalShadows = false
                 Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
                 changed = false
-                connection = table.insert(connections, Lighting.Changed:Connect(function()
+                connection = Lighting.Changed:Connect(function()
                     if not changed and callback then
                         params.Brightness = Lighting.Brightness
                         params.ClockTime = Lighting.ClockTime
@@ -2310,7 +2350,8 @@ runFunction(function()
                         Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
                         changed = false
                     end
-                end))
+                end)
+                table.insert(connections, connection)
             else
                 if connection then
                     connection:Disconnect()
@@ -2919,6 +2960,7 @@ runFunction(function()
         PlaceholderText = "sound id",
         List = {},
         Default = "",
+        HideAdd = true,
         Function = function(v) end
     })
 
@@ -3128,9 +3170,9 @@ runFunction(function()
                         end))
                     end
                 end))
-                table.insert(connections, TextChatService.MessageReceived:Connect(function(msg)
-                    hide(msg)
-                end))
+                -- TextChatMessage.Text is read-only; do not try to mutate it.
+                -- UI labels created by the chat system are already covered by
+                -- the PlayerGui/CoreGui descendant listeners above.
             else
                 for _, connection in next, connections do
                     betterDisconnect(connection)
@@ -3153,8 +3195,7 @@ runFunction(function()
         Function = function(v)
             if customName.Container then customName.Container.Visible = v == "Custom" end
             if usernameHider.Enabled then
-                usernameHider:Toggle(true)
-                usernameHider:Toggle(true)
+                usernameHider:ReToggle(true)
             end
         end
     })
@@ -3165,6 +3206,11 @@ runFunction(function()
         Default = "",
         Function = function(v)
             if usernameHider.Enabled then
+                for obj, originalText in pairs(changedObjects) do
+                    if obj and obj.Parent then
+                        obj.Text = originalText
+                    end
+                end
                 for obj, _ in pairs(changedObjects) do
                     hide(obj)
                 end
@@ -3609,6 +3655,7 @@ runFunction(function()
         Name = "SpamMessages",
         PlaceholderText = "Messages to spam",
         DefaultList = {},
+        HideAdd = true,
         Function = function(v) end,
     })
 
@@ -3822,17 +3869,18 @@ runFunction(function()
                 arrow.Size = UDim2.new(0, 30, 1, 0)
                 arrow.Parent = commandbar
 
-                connection = table.insert(connections, textBox.FocusLost:Connect(function(enterpressed)
+                connection = textBox.FocusLost:Connect(function(enterpressed)
                     if enterpressed then
                         local suc, res = pcall(function()
                             loadstring(textBox.Text)()
                         end)
                         if not suc then
-                            error(res)
+                            warn("[Nightix/ConsoleCommands]: " .. tostring(res))
                         end
                         textBox.Text = ""
                     end
-                end))
+                end)
+                table.insert(connections, connection)
             else
                 commandbar:Destroy()
                 betterDisconnect(connection)
@@ -4255,7 +4303,11 @@ runFunction(function()
                 GuiLibrary.CanSaveConfig = false
                 for _, table in next, GuiLibrary.ObjectsToSave.Toggles do
                     if table.API.Enabled and table.API.Name ~= "Panic" then
-                        table.API:Toggle(true)
+                        if table.API.SetEnabled then
+                            table.API:SetEnabled(false, true)
+                        else
+                            table.API:Toggle(false, false)
+                        end
                     end
                 end
                 panic:Toggle(true)
@@ -4478,52 +4530,44 @@ runFunction(function()
     local atmosphere
     local old = {}
 
+    local function applyAtmosphere()
+        if not atmosphere or atmosphere.Parent ~= Lighting then return end
+        atmosphere.Color = color.Value
+        atmosphere.Decay = decay.Value
+        atmosphere.Density = density.Value
+        atmosphere.Glare = glare.Value
+        atmosphere.Haze = haze.Value
+        atmosphere.Offset = offset.Value
+    end
+
     atmosphereModule = Tabs.World:CreateToggle({
-        Name = "Atmopshere",
+        Name = "Atmosphere",
         HoverText = "Customizes the atmosphere of the game.",
         Callback = function(callback)
             if callback then
-                for i, v in pairs(Lighting:GetChildren()) do
+                -- Hide existing atmospheres without parenting them under game.
+                -- The old LightingChanged listener recreated the custom
+                -- atmosphere immediately after it was destroyed on disable.
+                table.clear(old)
+                for _, v in ipairs(Lighting:GetChildren()) do
                     if v:IsA("Atmosphere") then
                         table.insert(old, v)
-                        v.Parent = game
+                        v.Parent = nil
                     end
                 end
-                atmosphere = Instance.new("Atmosphere")
-                atmosphere.Color = color.Value
-                atmosphere.Decay = decay.Value
-                atmosphere.Density = density.Value
-                atmosphere.Glare = glare.Value
-                atmosphere.Haze = haze.Value
-                atmosphere.Offset = offset.Value
-                atmosphere.Parent = Lighting
 
-                Lighting.LightingChanged:Connect(function()
-                    if Lighting:FindFirstChild("Atmosphere") then
-                        local atmosphere = Lighting:FindFirstChild("Atmosphere")
-                        atmosphere.Color = color.Value
-                        atmosphere.Decay = decay.Value
-                        atmosphere.Density = density.Value
-                        atmosphere.Glare = glare.Value
-                        atmosphere.Haze = haze.Value
-                        atmosphere.Offset = offset.Value
-                    else
-                        atmosphere = Instance.new("Atmosphere")
-                        atmosphere.Color = color.Value
-                        atmosphere.Decay = decay.Value
-                        atmosphere.Density = density.Value
-                        atmosphere.Glare = glare.Value
-                        atmosphere.Haze = haze.Value
-                        atmosphere.Offset = offset.Value
-                        atmosphere.Parent = Lighting
-                    end
-                end)
+                atmosphere = Instance.new("Atmosphere")
+                atmosphere.Parent = Lighting
+                applyAtmosphere()
             else
                 if atmosphere then
                     atmosphere:Destroy()
+                    atmosphere = nil
                 end
-                for i, v in pairs(old) do
-                    v.Parent = Lighting
+                for _, v in ipairs(old) do
+                    if v and v.Parent == nil then
+                        v.Parent = Lighting
+                    end
                 end
                 table.clear(old)
             end
@@ -4534,9 +4578,7 @@ runFunction(function()
         Name = "Color",
         Default = Color3.fromRGB(255, 255, 255),
         Function = function(v)
-            if atmosphere then
-                atmosphere.Color = v
-            end
+            if atmosphere then atmosphere.Color = v end
         end
     })
 
@@ -4544,62 +4586,52 @@ runFunction(function()
         Name = "Decay",
         Default = Color3.fromRGB(255, 255, 255),
         Function = function(v)
-            if atmosphere then
-                atmosphere.Decay = v
-            end
+            if atmosphere then atmosphere.Decay = v end
         end
     })
 
     density = atmosphereModule:CreateSlider({
         Name = "Density",
         Function = function(v)
-            if atmosphere then
-                atmosphere.Density = v
-            end
+            if atmosphere then atmosphere.Density = v end
         end,
         Min = 0,
         Max = 1,
         Default = 0.5,
-        Round = 3
+        Round = 2
     })
 
     glare = atmosphereModule:CreateSlider({
         Name = "Glare",
         Function = function(v)
-            if atmosphere then
-                atmosphere.Glare = v
-            end
+            if atmosphere then atmosphere.Glare = v end
         end,
         Min = 0,
-        Max = 10,
-        Default = 5,
+        Max = 1,
+        Default = 0.5,
         Round = 2
     })
 
     haze = atmosphereModule:CreateSlider({
         Name = "Haze",
         Function = function(v)
-            if atmosphere then
-                atmosphere.Haze = v
-            end
+            if atmosphere then atmosphere.Haze = v end
         end,
         Min = 0,
-        Max = 10,
-        Default = 5,
+        Max = 1,
+        Default = 0.5,
         Round = 2
     })
 
     offset = atmosphereModule:CreateSlider({
         Name = "Offset",
         Function = function(v)
-            if atmosphere then
-                atmosphere.Offset = v
-            end
+            if atmosphere then atmosphere.Offset = v end
         end,
-        Min = 0,
+        Min = -1,
         Max = 1,
-        Default = 0.5,
-        Round = 3
+        Default = 0,
+        Round = 2
     })
 end)
 

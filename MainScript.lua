@@ -32,9 +32,9 @@ local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
 
 local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character
-local HumanoidRootPart = Character.HumanoidRootPart
-local Humanoid = Character.Humanoid
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
 local Camera = workspace.CurrentCamera
 local RealCamera = workspace.Camera
 local Mouse = LocalPlayer:GetMouse()
@@ -426,7 +426,6 @@ runFunction(function()
     local uninject = Tabs.Settings:CreateButton({
         Name = "Uninject",
         Callback = function()
-            GuiLibrary:SaveConfig()
             Mana = nil
             GuiLibrary:Destruct()
         end
@@ -435,7 +434,6 @@ runFunction(function()
     local reinject = Tabs.Settings:CreateButton({
         Name = "Reinject",
         Callback = function()
-            GuiLibrary:SaveConfig()
             Mana = nil
             GuiLibrary:Destruct()
             Functions:RunFile("MainScript.lua")
@@ -452,73 +450,22 @@ end)
 
 -- Profiles tab
 runFunction(function()
-    local delay = {Value = 15}
-    local resetprofile = {}
-    local profilesList = {}
-    --local profiles = isfile("Mana/ProfilesList.json") and httpService:JSONDecode(readfile("Mana/ProfilesList.json")) or {"Default"}
-
-    local divider = Tabs.Profiles:CreateDivider("Config")
-
-    delay = Tabs.Profiles:CreateSlider({
-        Name = "AutoSave Delay",
-        Function = function(v)
-            GuiLibrary.autoSaveDelay = v
-        end,
-        Min = 1,
-        Max = 60,
-        Default = 5,
-        Round = 0
+    Tabs.Profiles:CreateConfigManager({
+        Name = "Configs",
     })
-
-    resetprofile = Tabs.Profiles:CreateButton({
-        Name = "Reset current profile",
-        Callback = function()
-            Mana = nil
-            GuiLibrary:Destruct()
-            --if isfile("Mana/Config/"..game.PlaceId..GuiLibrary.CurrentProfile..".json") then delfile("Mana/Config/"..game.PlaceId..GuiLibrary.CurrentProfile..".json") end
-            if isfile("Mana/Config/"..game.PlaceId..".json") then delfile("Mana/Config/"..game.PlaceId..".json"); print('shit deleted') end
-            Functions:RunFile("MainScript.lua")
-        end
-    })
-
-    --[[this shit is broken and unstable and i dont have time to fix this shit
-    profilesList = Tabs.Profiles:CreateTextList({
-        Name = "Profiles",
-        DefaultList = profiles,
-        PlaceholderText = "Profile name",
-        Choose = true,
-        MultiChoose = false,
-        Default = "Default",
-        Callback = function(v, bool)
-            print(profilesList.List or profiles)
-            writefile("Mana/ProfilesList.json", httpService:JSONEncode(profilesList.List or profiles))
-            if bool then
-                GuiLibrary:switchProfile(v)
-            end
-        end
-    })
-    ]]
 end)
 
 -- Friends tab
 runFunction(function()
-    local Friends = {List = {}}
-    local list = {}
-    Mana.Friends = list
-
-    Friends = Tabs.Friends:CreateTextList({
+    local Friends = Tabs.Friends:CreateTextList({
         Name = "Friends",
         List = {},
         PlaceholderText = "Friend Name",
-        Callback = function(v)
-            if list[v] then
-                table.remove(Friends.List, list[v])
-                list[v] = nil
-            else
-                table.insert(Friends.List, v)
-            end
-        end
+        Callback = function() end
     })
+    -- Keep Mana.Friends pointing at the live list so Remove immediately
+    -- affects target checks as well.
+    Mana.Friends = Friends.List
 end)
 
 --[[ // TextList tab (soon)
@@ -630,8 +577,7 @@ LocalPlayer.OnTeleport:Connect(function(State)
     end
 end)
 
-repeat task.wait() until GuiLibrary.CanLoadConfig -- // so da game module will load before config will load
+repeat task.wait() until GuiLibrary.CanLoadConfig -- game-specific modules are loaded before marking the client ready
 GuiLibrary.Loaded = true
 Mana.Loaded = true
---GuiLibrary:Toggle()
-GuiLibrary:LoadConfig()
+-- Configs are loaded manually from Profiles. There is no automatic config load/save.

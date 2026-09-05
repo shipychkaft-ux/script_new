@@ -113,6 +113,7 @@ function library:create(name, oneObject, custom)
         if custom then
             adorneePart = obj
             character = obj
+            color = api.color
         else
             if plr == localPlayer then return end
             character = plr.Character
@@ -137,6 +138,8 @@ function library:create(name, oneObject, custom)
             boxObject.SurfaceTransparency = api.surfaceTransparency
             boxObject.Transparency = api.transparency
         else]]
+        if not adorneePart then return end
+
         if api.mode == "BoxHandleAdornment" then
             local object
             if oneObject then
@@ -176,9 +179,9 @@ function library:create(name, oneObject, custom)
             end
 
             object.Adornee = adorneePart or character
-            object.OutlineColor = (api.useTeamColor and plr.Team and plr.TeamColor.Color) or api.outlineColor
+            object.OutlineColor = (api.useTeamColor and plr and plr.Team and plr.TeamColor.Color) or api.outlineColor
             object.OutlineTransparency = (api.outline and api.outlineTransparency) or 1
-            object.FillColor = (api.useTeamColor and plr.Team and plr.TeamColor.Color) or api.fillColor
+            object.FillColor = (api.useTeamColor and plr and plr.Team and plr.TeamColor.Color) or api.fillColor
             object.FillTransparency = (api.fill and api.fillTransparency) or 1
             object.DepthMode = api.highlightAlwaysOnTop and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
         end
@@ -191,20 +194,30 @@ function library:create(name, oneObject, custom)
         end
     end
     function api:start()
+        api.enabled = true
         for _, plr in next, players:GetPlayers() do
             api:updateEspObject(plr)
             table.insert(connections, plr.CharacterAdded:Connect(function()
-                api:updateEspObject(plr)
+                if api.enabled then
+                    api:updateEspObject(plr)
+                end
             end))
         end
         table.insert(connections, players.PlayerAdded:Connect(function(plr)
             api:updateEspObject(plr)
+            table.insert(connections, plr.CharacterAdded:Connect(function()
+                if api.enabled then
+                    api:updateEspObject(plr)
+                end
+            end))
         end))
     end
     function api:stop()
+        api.enabled = false
         for _, connection in next, connections do
             betterDisconnect(connection)
         end
+        table.clear(connections)
         for _, plr in next, players:GetPlayers() do
             api:removeEspObject(plr)
         end

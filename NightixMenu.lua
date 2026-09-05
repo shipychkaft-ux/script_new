@@ -24,13 +24,14 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         Content = "Nightix",
         Size = NeverLose.Scales.Default,
         ConfigFolder = "NightixConfigs",
+        EnableConfig = false,
         Enable3DRenderer = false,
         Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
     })
 
     -- watermark
     local Watermark = window:Watermark()
-    Watermark:AddBlock("cube-vertexes", "Nightix | UID " .. tostring(localPlayer.DisplayName))
+    Watermark:AddBlock("rbxassetid://80320370259758", "Nightix | UID: " .. tostring(localPlayer.UserId))
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
@@ -258,6 +259,11 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             lib:SetValue(v)
         end
 
+        function api:ReToggle()
+            api:Toggle(false)
+            api:Toggle(true)
+        end
+
         api:Toggle(def)
 
         return registerOption(toggleName, tabName, name, api, "Toggle")
@@ -356,8 +362,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local api = {
             Name = name,
             Callback = callback,
-            MainObject = nil,
-            Container = nil,
+            MainObject = lib and lib.MainObject,
+            Container = lib and lib.Container,
         }
 
         return registerOption(toggleName, tabName, name, api, "Button")
@@ -369,6 +375,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         local label = container:AddLabel(name)
         if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
+        local itemObjects = {}
 
         local inputLib = label:AddTextInput({
             Default = "",
@@ -377,17 +384,19 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Size = 100,
             Callback = function() end,
         })
-        container:AddButton({
-            Name = "Add",
-            Icon = "circle-plus",
-            Callback = function()
-                local text = inputLib:GetValue()
-                if text and text ~= "" then
-                    api:CreateListObject(text)
-                    inputLib:SetValue("")
-                end
-            end,
-        })
+        if not argstable.HideAdd then
+            container:AddButton({
+                Name = "Add",
+                Icon = "circle-plus",
+                Callback = function()
+                    local text = inputLib:GetValue()
+                    if text and text ~= "" then
+                        api:CreateListObject(text)
+                        inputLib:SetValue("")
+                    end
+                end,
+            })
+        end
 
         local api = {
             Name = name,
@@ -397,6 +406,24 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Container = label.Root,
         }
 
+        function api:Clear()
+            for _, item in ipairs(itemObjects) do
+                if item.button and item.button.MainObject then
+                    item.button.MainObject:Destroy()
+                end
+                if item.label and item.label.Root then
+                    for i = #NeverLose.NameRegisitry, 1, -1 do
+                        if NeverLose.NameRegisitry[i].Root == item.label.Root then
+                            table.remove(NeverLose.NameRegisitry, i)
+                        end
+                    end
+                    item.label.Root:Destroy()
+                end
+            end
+            table.clear(itemObjects)
+            table.clear(api.List)
+        end
+
         function api:CreateListObject(value)
             local text = tostring(value)
             if text == "" then return end
@@ -405,7 +432,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             callback(text)
 
             local itemLabel = container:AddLabel(text)
-            container:AddButton({
+            local removeButton = container:AddButton({
                 Name = "Remove",
                 Icon = "close",
                 Callback = function()
@@ -416,15 +443,26 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                         end
                     end
                     itemLabel:SetVisible(false)
-                    itemLabel.Root.Size = UDim2.new(1, 0, 0, 0)
-                    for i, q in ipairs(NeverLose.NameRegisitry) do
-                        if q.Root == itemLabel.Root then
-                            table.remove(NeverLose.NameRegisitry, i)
+                    if removeButton.MainObject then
+                        removeButton.MainObject:Destroy()
+                    end
+                    if itemLabel.Root then
+                        for i = #NeverLose.NameRegisitry, 1, -1 do
+                            if NeverLose.NameRegisitry[i].Root == itemLabel.Root then
+                                table.remove(NeverLose.NameRegisitry, i)
+                            end
+                        end
+                        itemLabel.Root:Destroy()
+                    end
+                    for i = #itemObjects, 1, -1 do
+                        if itemObjects[i].label == itemLabel then
+                            table.remove(itemObjects, i)
                             break
                         end
                     end
                 end,
             })
+            table.insert(itemObjects, {label = itemLabel, button = removeButton})
         end
 
         for _, v in pairs(argstable.DefaultList or argstable.List or {}) do
@@ -466,7 +504,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Default = ToggleTable.Enabled,
             Callback = function(v)
                 if ToggleTable.Enabled ~= v then
-                    ToggleTable.Enabled = v
                     ToggleTable:Toggle(false, v)
                 end
             end,
@@ -475,22 +512,52 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local optionWindow = label:AddOption(1) -- gear: module options
         table.insert(optionWindows, optionWindow)
 
-        function ToggleTable:Toggle(Silent, Bool)
-            local Bool = Bool == nil and not ToggleTable.Enabled or Bool == true
-            if ToggleTable.Enabled ~= Bool then
-                ToggleTable.Enabled = Bool
-                ToggleTable.Value = Bool
-            end
-            if not Silent and ToggleTable.Callback then
+        function ToggleTable:SetEnabled(Bool, Silent)
+            Bool = Bool == true
+            if ToggleTable.Enabled == Bool then return false end
+
+            ToggleTable.Enabled = Bool
+            ToggleTable.Value = Bool
+            toggleLib:SetValue(Bool)
+
+            -- Explicit state changes (config loading/restarts) still need the
+            -- module callback even when UI feedback is suppressed.
+            if ToggleTable.Callback then
                 ToggleTable.Callback(Bool)
             end
-            guilibrary:playsound(Bool and toggleOnSound or toggleOffSound, 0.8)
-            showToggleNotification(ToggleTable.Name, Bool)
-            toggleLib:SetValue(Bool)
+
+            if not Silent then
+                guilibrary:playsound(Bool and toggleOnSound or toggleOffSound, 0.8)
+                showToggleNotification(ToggleTable.Name, Bool)
+            end
+            return true
+        end
+
+        function ToggleTable:Toggle(Silent, Bool)
+            local target = Bool == nil and not ToggleTable.Enabled or Bool == true
+            if ToggleTable.Enabled == target then return end
+            ToggleTable.Enabled = target
+            ToggleTable.Value = target
+            toggleLib:SetValue(target)
+            if not Silent and ToggleTable.Callback then
+                ToggleTable.Callback(target)
+            end
+            guilibrary:playsound(target and toggleOnSound or toggleOffSound, 0.8)
+            if not Silent then
+                showToggleNotification(ToggleTable.Name, target)
+            end
         end
 
         function ToggleTable:ReToggle(Silent)
-            ToggleTable:Toggle(Silent, not ToggleTable.Enabled)
+            -- Restart an enabled module so option changes are applied without
+            -- accidentally leaving the module disabled.
+            if not ToggleTable.Enabled then
+                ToggleTable:SetEnabled(true, Silent == true)
+                return
+            end
+
+            ToggleTable:SetEnabled(false, true)
+            ToggleTable:SetEnabled(true, true)
         end
 
         function ToggleTable:UpdateKeybind(remove, newKeybind)
@@ -537,8 +604,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
             local keybind = ToggleTable.Keybind
             local pressed = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode.Name == keybind
-                or keybind == "M1B" and input.UserInputType == Enum.UserInputType.MouseButton1
-                or keybind == "M2B" and input.UserInputType == Enum.UserInputType.MouseButton2
+                or (keybind == "M1B" or keybind == "MouseButton1") and input.UserInputType == Enum.UserInputType.MouseButton1
+                or (keybind == "M2B" or keybind == "MouseButton2") and input.UserInputType == Enum.UserInputType.MouseButton2
+                or (keybind == "M3B" or keybind == "MouseButton3") and input.UserInputType == Enum.UserInputType.MouseButton3
 
             if pressed then
                 ToggleTable:ReToggle(false)
@@ -615,6 +683,150 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         function tabtable:CreateTextList(argstable)
             return createTextList(getSection(tabname), argstable, nil, tabname)
+        end
+
+        function tabtable:CreateConfigManager(argstable)
+            argstable = argstable or {}
+            local section = getSection(tabname)
+            local manager = {}
+            local selected = nil
+            local rows = {}
+
+            local title = section:AddLabel(tostring(argstable.Name or "Configs"))
+            title:ToolTip("Click a config to load it. Select it, then use Remove or the pencil to manage it.")
+
+            local nameInput = title:AddTextInput({
+                Default = "",
+                Placeholder = "Config name / new name",
+                Numeric = false,
+                Size = 140,
+                Callback = function() end,
+            })
+
+            local function clearRows()
+                for _, row in ipairs(rows) do
+                    if row.Root then
+                        for i = #NeverLose.NameRegisitry, 1, -1 do
+                            if NeverLose.NameRegisitry[i].Root == row.Root then
+                                table.remove(NeverLose.NameRegisitry, i)
+                            end
+                        end
+                        row.Root:Destroy()
+                    end
+                end
+                table.clear(rows)
+            end
+
+            local function notify(text)
+                local notification = NeverLose:CreateNotification()
+                notification.new({Title = "Profiles", Content = tostring(text), Duration = 2.5})
+            end
+
+            function manager:Refresh()
+                clearRows()
+                local configs = guilibrary:ListConfigs()
+                for _, configName in ipairs(configs) do
+                    local row = section:AddLabel(configName)
+                    row:SetText((selected == configName and "● " or "○ ") .. configName)
+                    table.insert(rows, row)
+                    NeverLose:CreateInput(row.Root, function()
+                        local ok, err = guilibrary:LoadConfig(configName)
+                        if ok then
+                            selected = configName
+                            guilibrary.CurrentConfig = configName
+                            nameInput:SetValue("")
+                            manager:Refresh()
+                            notify("Loaded " .. configName)
+                        else
+                            notify("Load failed: " .. tostring(err))
+                        end
+                    end)
+                end
+            end
+
+            section:AddButton({
+                Name = "Add",
+                Icon = "circle-plus",
+                Callback = function()
+                    local name = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+                    if name == "" then
+                        notify("Enter a config name")
+                        return
+                    end
+                    local ok, err = guilibrary:CreateConfig(name)
+                    if ok then
+                        selected = name
+                        nameInput:SetValue("")
+                        manager:Refresh()
+                        notify("Created " .. name)
+                    else
+                        notify("Create failed: " .. tostring(err))
+                    end
+                end,
+            })
+
+            section:AddButton({
+                Name = "Save current",
+                Icon = "floppy-disk",
+                Callback = function()
+                    local target = selected or guilibrary.CurrentConfig
+                    if not target then
+                        notify("Select a config first")
+                        return
+                    end
+                    local ok, err = guilibrary:SaveConfig(target)
+                    notify(ok and ("Saved " .. target) or ("Save failed: " .. tostring(err)))
+                end,
+            })
+
+            section:AddButton({
+                Name = "Remove",
+                Icon = "trash-can",
+                Callback = function()
+                    if not selected then
+                        notify("Select a config first")
+                        return
+                    end
+                    local name = selected
+                    local ok, err = guilibrary:DeleteConfig(name)
+                    if ok then
+                        selected = nil
+                        manager:Refresh()
+                        notify("Removed " .. name)
+                    else
+                        notify("Remove failed: " .. tostring(err))
+                    end
+                end,
+            })
+
+            section:AddButton({
+                Name = "Rename",
+                Icon = "pencil",
+                Callback = function()
+                    if not selected then
+                        notify("Select a config first")
+                        return
+                    end
+                    local newName = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+                    if newName == "" then
+                        notify("Enter the new name in the field")
+                        return
+                    end
+                    local oldName = selected
+                    local ok, err = guilibrary:RenameConfig(oldName, newName)
+                    if ok then
+                        selected = newName
+                        nameInput:SetValue("")
+                        manager:Refresh()
+                        notify("Renamed to " .. newName)
+                    else
+                        notify("Rename failed: " .. tostring(err))
+                    end
+                end,
+            })
+
+            manager:Refresh()
+            return manager
         end
 
         function tabtable:CreateDivider(DividerText)

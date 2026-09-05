@@ -20,7 +20,7 @@ local LocalPlayer = Players.LocalPlayer
 local mouse = LocalPlayer:GetMouse()
 local LastPress = 0
 local SliderLastPress = 0
-local Developer = shared.ManaDeveloepr
+local Developer = shared.ManaDeveloper
 local connections = shared.Mana.Connections
 local OnMobile
 local TabsFrame
@@ -29,7 +29,6 @@ local Fonts = {}
 local Keybinds = {}
 local OptionFunctions = {}
 local guilibrary = {
-    autoSaveDelay = 5,
     Loaded = false,
     ConfigLoaded = false,
     CanLoadConfig = false,
@@ -80,7 +79,7 @@ local guipallet = {
     PlaceholderColor = Color3.fromRGB(220, 220, 220),
     PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
     InfoColor = Color3.fromRGB(180, 180, 180),
-    WarningColor = Color3.new(198, 205, 64), -- 250, 230, 50
+    WarningColor = Color3.fromRGB(198, 205, 64), -- 250, 230, 50
     ErrorColor = Color3.fromRGB(205, 64, 78),
     Font = Enum.Font.Arial
 }
@@ -276,531 +275,263 @@ function guilibrary:findStringInTable(table1, key)
     end
 end
 
---// start of cool config system
+--// config system (manual profiles; no autosave)
 local function createFolder(name)
-    if isfolder(name) == false then
-        makefolder(name)
+    if not isfolder(name) then
+        pcall(makefolder, name)
     end
 end
 
-createFolder("NewMana")
-createFolder("NewMana/Assets")
-createFolder("NewMana/Config")
-createFolder("NewMana/Config/Universal")
-createFolder("NewMana/Scripts")
-createFolder("NewMana/Modules")
+local function sanitizeConfigName(name)
+    name = tostring(name or "")
+    name = name:gsub("[%c]", "")
+    name = name:gsub("[\\/]", "")
+    name = name:sub(1, 32)
+    return name
+end
 
--- // made this by looking at old vape's saving system + new one (mostly at new)
-function guilibrary:SaveConfig()
-    local data = {
-        Tabs = {},
-        Toggles = {},
-        Options = {}
-    }
+createFolder("Nightix")
+createFolder("Nightix/Configs")
+createFolder("Nightix/Configs/" .. tostring(game.PlaceId))
+
+guilibrary.ConfigRoot = "Nightix/Configs/" .. tostring(game.PlaceId)
+guilibrary.CurrentConfig = nil
+
+local function configPath(name)
+    local safe = sanitizeConfigName(name)
+    if safe == "" then return nil end
+    return guilibrary.ConfigRoot .. "/" .. safe .. ".json"
+end
+
+local function collectOption(optionData)
+    local api = optionData.API
+    local result = {Type = optionData.Type}
+    if optionData.Type == "ColorSlider" then
+        result.RelativeTable = api.RelativeTable
+    elseif optionData.Type == "TextList" then
+        result.List = api.List or {}
+    elseif optionData.Type == "Slider" or optionData.Type == "Dropdown" or optionData.Type == "Toggle" or optionData.Type == "TextBox" then
+        result.Value = api.Value
+    end
+    return result
+end
+
+function guilibrary:BuildConfigData()
+    local data = {Version = 2, Tabs = {}, Toggles = {}}
 
     for tabKey, tabData in next, guilibrary.ObjectsToSave.Tabs do
+        local container = tabData.API and tabData.API.Container
+        local position = container and container.Position
         data.Tabs[tabKey] = {
             Name = tabData.Name,
-            Position = {tabData.API.Container.Position.X.Scale, tabData.API.Container.Position.X.Offset, tabData.API.Container.Position.Y.Scale, tabData.API.Container.Position.Y.Offset},
-            Type = "Tab",
+            Type = tabData.Type,
+            Position = position and {position.X.Scale, position.X.Offset, position.Y.Scale, position.Y.Offset} or nil,
             Options = {}
         }
-        if tabData.Type == "OptionTab" then
-            for optionKey, optionData in next, tabData.Options do -- // had to do it this way since there are multiple options named the same
-                local newOptionData = {Type = optionData.Type}
-                if optionData.Type == "ColorSlider" then
-                    newOptionData.RelativeTable = optionData.API.RelativeTable
-                elseif optionData.Type == "Slider" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "Dropdown" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "Toggle" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "TextBox" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "TextList" then
-                    newOptionData.List = optionData.API.List
-                end
-                data.Tabs[tabKey].Options[optionKey] = newOptionData
-            end
+        for optionKey, optionData in next, (tabData.Options or {}) do
+            data.Tabs[tabKey].Options[optionKey] = collectOption(optionData)
         end
     end
 
     for toggleKey, toggleData in next, guilibrary.ObjectsToSave.Toggles do
-        if toggleData.API.Name ~= "ServerHop" or toggleData.API.Name ~= "Rejoin" then
+        if toggleData.API.Name ~= "Uninject" and toggleData.API.Name ~= "Reinject" and toggleData.API.Name ~= "DeleteConfig" then
             data.Toggles[toggleKey] = {
                 Name = toggleData.Name,
-                Enabled = toggleData.API.Enabled,
-                Keybind = toggleData.API.Keybind,
+                Enabled = toggleData.API.Enabled == true,
+                Keybind = toggleData.API.Keybind or "None",
                 Options = {}
             }
-            for optionKey, optionData in next, toggleData.Options do -- // had to do it this way since there are multiple options named the same
-                local newOptionData = {Type = optionData.Type}
-                if optionData.Type == "ColorSlider" then
-                    newOptionData.RelativeTable = optionData.API.RelativeTable
-                elseif optionData.Type == "Slider" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "Dropdown" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "Toggle" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "TextBox" then
-                    newOptionData.Value = optionData.API.Value
-                elseif optionData.Type == "TextList" then
-                    newOptionData.List = optionData.API.List
-                end
-                data.Toggles[toggleKey].Options[optionKey] = newOptionData
+            for optionKey, optionData in next, (toggleData.Options or {}) do
+                data.Toggles[toggleKey].Options[optionKey] = collectOption(optionData)
             end
         end
     end
 
-    --[[
-    for key, optionData in next, guilibrary.ObjectsToSave.Options do
-        local newOptionData = {Type = optionData.Type}
-        if optionData.Type == "ColorSlider" then
-            newOptionData.RelativeTable = optionData.API.RelativeTable
-        elseif optionData.Type == "Slider" then
-            newOptionData.Value = optionData.API.Value
-        elseif optionData.Type == "Dropdown" then
-            print(optionData.API.Name)
-            newOptionData.Value = optionData.API.Value
-        elseif optionData.Type == "Toggle" then
-            newOptionData.Value = optionData.API.Value
-        elseif optionData.Type == "TextList" then
-            newOptionData.List = optionData.API.List
-        end
-        data.Options[key] = newOptionData
-    end
-    ]]
-
-    writefile("Mana/Config/" .. game.PlaceId .. ".json", httpService:JSONEncode(data))
+    return data
 end
 
-function guilibrary:LoadConfig()
-    local success, config = pcall(function()
-        return httpService:JSONDecode(readfile("Mana/Config/" .. game.PlaceId .. ".json"))
+function guilibrary:SaveConfig(name)
+    name = sanitizeConfigName(name or guilibrary.CurrentConfig)
+    if name == "" then
+        return false, "Config name is empty"
+    end
+
+    local path = configPath(name)
+    if not path then return false, "Invalid config name" end
+
+    local ok, err = pcall(function()
+        writefile(path, httpService:JSONEncode(guilibrary:BuildConfigData()))
     end)
+    if not ok then return false, tostring(err) end
 
-    if not success then
-        guilibrary:CreateNotification("Config loader", "Error loading config: "..tostring(config), 5, "Error")
-        return
-    end
-
-    for tabKey, tabData in next, config.Tabs do
-        local tabTable = guilibrary.ObjectsToSave.Tabs[tabKey]
-        tabTable.API.Container.Position = UDim2.new(unpack(tabData.Position))
-        if tabTable.Type == "OptionTab" then
-            for optionKey, optionData in next, config.Tabs[tabKey].Options do -- // had to do it this way since there are multiple options named the same
-                if guilibrary.ObjectsToSave.Tabs[tabKey].Options[optionKey] then
-                    if optionData.Type == "ColorSlider" then
-                        if optionData.RelativeTable then
-                            guilibrary.ObjectsToSave.Tabs[tabKey].Options[optionKey].API:Set(table.unpack(optionData.RelativeTable))
-                        end
-                    elseif optionData.Type == "Slider" then
-                        if optionData.Value then
-                            guilibrary.ObjectsToSave.Tabs[tabKey].Options[optionKey].API:Set(optionData.Value)
-                        end
-                    elseif optionData.Type == "Dropdown" then
-                        if optionData.Value then
-                            guilibrary.ObjectsToSave.Tabs[tabKey].Options[optionKey].API:Select(optionData.Value)
-                        end
-                    elseif optionData.Type == "Toggle" then
-                        if optionData.Value ~= nil then
-                            guilibrary.ObjectsToSave.Tabs[tabKey].Options[optionKey].API:Toggle(optionData.Value)
-                        end
-                    elseif optionData.Type == "TextBox" then
-                        if optionData.Value then
-                            guilibrary.ObjectsToSave.Tabs[tabKey].Options[optionKey].API:Set(optionData.Value)
-                        end
-                    elseif optionData.Type == "TextList" then
-                        local API = guilibrary.ObjectsToSave.Tabs[tabKey].Options[optionKey].API
-                        for _, v in next, optionData.List do
-                            API:CreateListObject(v)
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    for toggleKey, toggleData in next, config.Toggles do
-        if guilibrary.ObjectsToSave.Toggles[toggleKey] then
-            local api = guilibrary.ObjectsToSave.Toggles[toggleKey].API
-            if toggleData.Enabled then
-                api:Toggle(true)
-            end
-            if toggleData.Keybind ~= "none" then
-                api:UpdateKeybind(false, toggleData.Keybind)
-            end
-            for optionKey, optionData in next, config.Toggles[toggleKey].Options do -- // had to do it this way since there are multiple options named the same
-                if guilibrary.ObjectsToSave.Toggles[toggleKey].Options[optionKey] then
-                    if optionData.Type == "ColorSlider" then
-                        if optionData.RelativeTable then
-                            guilibrary.ObjectsToSave.Toggles[toggleKey].Options[optionKey].API:Set(table.unpack(optionData.RelativeTable))
-                        end
-                    elseif optionData.Type == "Slider" then
-                        if optionData.Value then
-                            guilibrary.ObjectsToSave.Toggles[toggleKey].Options[optionKey].API:Set(optionData.Value)
-                        end
-                    elseif optionData.Type == "Dropdown" then
-                        if optionData.Value then
-                            guilibrary.ObjectsToSave.Toggles[toggleKey].Options[optionKey].API:Select(optionData.Value)
-                        end
-                    elseif optionData.Type == "Toggle" then
-                        if optionData.Value ~= nil then
-                            guilibrary.ObjectsToSave.Toggles[toggleKey].Options[optionKey].API:Toggle(optionData.Value)
-                        end
-                    elseif optionData.Type == "TextBox" then
-                        if optionData.Value then
-                            guilibrary.ObjectsToSave.Toggles[toggleKey].Options[optionKey].API:Set(optionData.Value)
-                        end
-                    elseif optionData.Type == "TextList" then
-                        local API = guilibrary.ObjectsToSave.Toggles[toggleKey].Options[optionKey].API
-                        for _, v in next, optionData.List do
-                            API:CreateListObject(v)
-                        end
-                    end
-                end
-            end
-        end
-    end
-
-    --[[
-    for key, optionData in next, config.Options do
-        if guilibrary.ObjectsToSave.Options[key] then
-            if optionData.Type == "ColorSlider" then
-                if optionData.RelativeTable then
-                    guilibrary.ObjectsToSave.Options[key].API:Set(table.unpack(optionData.RelativeTable))
-                end
-            elseif optionData.Type == "Slider" then
-                if optionData.Value then
-                    guilibrary.ObjectsToSave.Options[key].API:Set(optionData.Value)
-                end
-            elseif optionData.Type == "Dropdown" then
-                if optionData.Value then
-                    guilibrary.ObjectsToSave.Options[key].API:Select(optionData.Value)
-                end
-            elseif optionData.Type == "Toggle" then
-                if optionData.Value then
-                    guilibrary.ObjectsToSave.Options[key].API:Toggle(true)
-                end
-            elseif optionData.Type == "TextBox" then
-                if optionData.Value then
-                    guilibrary.ObjectsToSave.Options[key].API:Set(optionData.Value)
-                end
-            elseif optionData.Type == "TextList" then
-                local API = guilibrary.ObjectsToSave.Options[key].API
-                for _, v in next, optionData.List do
-                    guilibrary.ObjectsToSave.Options[key].API:CreateListObject(v)
-                end
-            end
-        end
-    end
-    ]]
+    guilibrary.CurrentConfig = name
     guilibrary.ConfigLoaded = true
+    return true
 end
 
---[[
-function guilibrary:SaveConfig()
-    local savedata = {}
-    --local path = "NewMana/Config/"..game.PlaceId..guilibrary.CurrentProfile
-    --guilibrary.ProfilePath = path
-
-    for objtable, obj in pairs(guilibrary.ObjectsThatCanBeSaved) do
-        if obj.Type == "Tab" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "Tab",
-                --Pinned = obj.Table.Pinned,
-                Position = {obj.mainobject.Position.X.Scale, obj.mainobject.Position.X.Offset, obj.mainobject.Position.Y.Scale, obj.mainobject.Position.Y.Offset}
-            }
-        elseif obj.Type == "CustomTab" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "CustomTab",
-                Pinned = obj.Table.Pinned,
-                Position = {obj.mainobject.Position.X.Scale, obj.mainobject.Position.X.Offset, obj.mainobject.Position.Y.Scale, obj.mainobject.Position.Y.Offset}
-            }
-        elseif obj.Type == "Toggle" then
-            if obj.Table.Name ~= "UnInject" and obj.Table.Name ~= "ReInject" and obj.Table.Name ~= "DeleteConfig" then
-                savedata[objtable] = {
-                    Name = obj.Table.Name,
-                    Type = "Toggle",
-                    Value = obj.Table.Value,
-                    Keybind = obj.Table.Keybind
-                }
-            end
-        elseif obj.Type == "ColorSlider" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "ColorSlider",
-                Value = obj.Table.Value
-            }
-        elseif obj.Type == "Slider" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "Slider",
-                Value = obj.Table.Value
-            }
-        elseif obj.Type == "Dropdown" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "Dropdown",
-                Value = obj.Table.Value
-            }
-        elseif obj.Type == "OptionToggle" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "OptionToggle",
-                Value = obj.Table.Value
-            }
-        elseif obj.Type == "TextBox" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "TextBox",
-                Value = obj.Table.Text
-            }
-        elseif obj.Type == "TextList" then
-            savedata[objtable] = {
-                Name = obj.Table.Name,
-                Type = "TextList",
-                List = obj.Table.List
-            }
-        else
-            warn("[Nightix/Guilibrary.lua]: can't save config from unknown object: "..obj.Type.." (objtype).")
-            --warn("[ManaV2ForRoblox/Guilibrary.lua]: can't save config from unknown object: "..obj.Name or obj.Table.Name.."-"..obj.Type.." (name - obj).")
+local function applyOption(optionData, api)
+    if not api or not optionData then return end
+    if optionData.Type == "ColorSlider" and optionData.RelativeTable and api.Set then
+        api:Set(table.unpack(optionData.RelativeTable))
+    elseif optionData.Type == "Slider" and optionData.Value ~= nil and api.Set then
+        api:Set(optionData.Value, guilibrary.SliderCanOverride)
+    elseif optionData.Type == "Dropdown" and optionData.Value ~= nil and api.Select then
+        api:Select(optionData.Value)
+    elseif optionData.Type == "Toggle" and optionData.Value ~= nil and api.Toggle then
+        api:Toggle(optionData.Value)
+    elseif optionData.Type == "TextBox" and optionData.Value ~= nil and api.Set then
+        api:Set(optionData.Value)
+    elseif optionData.Type == "TextList" and api.Clear and api.CreateListObject then
+        api:Clear()
+        for _, value in next, (optionData.List or {}) do
+            api:CreateListObject(value)
+        end
+    elseif optionData.Type == "TextList" and api.CreateListObject then
+        for _, value in next, (optionData.List or {}) do
+            api:CreateListObject(value)
         end
     end
-    writefile("NewMana/Config/"..game.PlaceId..".json", httpService:JSONEncode(savedata))
-    --writefile("NewMana/CurrentProfile.txt", guilibrary.CurrentProfile)
 end
-]]
 
---[[
-function guilibrary:SaveConfig()
-    local newSaveData = {}
-    for optionTable, option in next, guilibrary.ObjectsThatCanBeSaved do
-        if option.Type == "Tab" or option.Type == "OptionTab" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                Type = "Tab",
-                Position = {option.MainObject.Position.X.Scale, option.MainObject.Position.X.Offset, option.MainObject.Position.Y.Scale, option.MainObject.Position.Y.Offset}
-            }
-        elseif option.Type == "CustomTab" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                Type = "CustomTab",
-                Pinned = option.Pinned,
-                Position = option.Position
-            }
-        elseif option.Type == "Toggle" then
-            if option.Name ~= "UnInject" and option.Name ~= "ReInject" and option.Name ~= "DeleteConfig" then
-                newSaveData[optionTable] = {
-                    Name = option.Name,
-                    Value = option.Value,
-                    Keybind = option.Keybind,
-                    Type = "Toggle"
-                }
-            end
-        elseif option.Type == "ColorSlider" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                Type = "ColorSlider",
-                RelativeTable = option.Api.RelativeTable or option.RelativeTable
-            }
-        elseif option.Type == "Slider" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                Value = option.Value,
-                Type = "Slider"
-            }
-        elseif option.Type == "Dropdown" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                Value = option.Value,
-                Type = "Dropdown"
-            }
-        elseif option.Type == "OptionToggle" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                Value = option.Value,
-                Type = "OptionToggle"
-            }
-        elseif option.Type == "TextBox" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                Value = option.Value,
-                Type = "TextBox"
-            }
-        elseif option.Type == "TextList" then
-            newSaveData[optionTable] = {
-                Name = option.Name,
-                List = option.List,
-                Chosen = option.Chosen,
-                ChosenList = option.ChosenList,
-                Type = "TextList"
-            }
-        end
-    end
-    writefile("NewMana/Config/"..game.PlaceId..".json", httpService:JSONEncode(newSaveData))
-end
-]]
-
---[[
-function guilibrary:LoadConfig()
-    local success, result = pcall(function()
-        return httpService:JSONDecode(readfile("NewMana/Config/"..game.PlaceId..".json"))
-    end)
-
-    if success and type(result) == "table" then
-        for index, option in next, result do
-            if guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, index) then
-                local objectTable = guilibrary.ObjectsThatCanBeSaved[index]
-                
-                if option.Type == "Tab" or option.Type == "OptionTab" then
-                    objectTable.MainObject.Position = UDim2.new(table.unpack(option.Position))
-                elseif option.Type == "CustomTab" then
-                    objectTable.MainObject.Position = UDim2.new(table.unpack(option.Position))
-                    if objectTable.Api and objectTable.Api.Pin then
-                        objectTable.Api:Pin(option.Pinned or false)
-                    end
-                elseif option.Type == "Toggle" then
-                    if objectTable.Api and objectTable.Api.Toggle then
-                        if option.Value ~= nil then
-                            objectTable.Api:Toggle(option.Value)
-                        end
-                        if option.Keybind and objectTable.Api.UpdateKeybind then
-                            objectTable.Api:UpdateKeybind(false, option.Keybind)
-                        end
-                    end
-                elseif option.Type == "ColorSlider" then
-                    if objectTable.Api and objectTable.Api.Set and option.RelativeTable then
-                        objectTable.Api:Set(table.unpack(option.RelativeTable), false)
-                    end
-                elseif option.Type == "Slider" then
-                    if objectTable.Api and objectTable.Api.Set and option.Value then
-                        objectTable.Api:Set(option.Value, guilibrary.SliderCanOverride)
-                    end
-                elseif option.Type == "Dropdown" then
-                    if objectTable.Api and objectTable.Api.Select and option.Value then
-                        objectTable.Api:Select(option.Value)
-                    end
-                elseif option.Type == "OptionToggle" then
-                    if objectTable.Api and objectTable.Api.Toggle and option.Value ~= nil then
-                        objectTable.Api:Toggle(option.Value)
-                    end
-                elseif option.Type == "TextBox" then
-                    if objectTable.Api and objectTable.Api.Set and option.Value then
-                        objectTable.Api:Set(option.Value)
-                    end
-                elseif option.Type == "TextList" then
-                    if objectTable.Api and (option.List or option.list) then
-                        local listData = option.List or option.list
-                        for _, v in next, listData do
-                            if objectTable.Api.CreateListObject then
-                                objectTable.Api:CreateListObject(v)
-                            end
-                        end
-                        if objectTable.Api.Choose and option.Chosen then
-                            objectTable.Api:Set(option.Chosen)
-                        end
-                        if objectTable.Api.MultiChoose and option.ChosenList then
-                            for _, v in next, option.ChosenList do
-                                objectTable.Api:Set(v)
-                            end
-                        end
-                    end
-                end
+local function resetAllToggles()
+    for _, toggleData in next, guilibrary.ObjectsToSave.Toggles do
+        local api = toggleData.API
+        if api and api.Enabled then
+            if api.SetEnabled then
+                api:SetEnabled(false, true)
+            elseif api.Toggle then
+                api:Toggle(false, false)
             end
         end
     end
 end
-]]
 
---[[
-function guilibrary:LoadConfig()
-    local success, profile = pcall(function()
-        return readfile("NewMana/CurrentProfile.txt")
+function guilibrary:LoadConfig(name)
+    name = sanitizeConfigName(name or guilibrary.CurrentConfig)
+    local path = configPath(name)
+    if not path or not isfile(path) then
+        return false, "Config not found"
+    end
+
+    local ok, config = pcall(function()
+        return httpService:JSONDecode(readfile(path))
     end)
-
-    if success and profile ~= nil then
-        guilibrary.CurrentProfile = profile
-    else
-        guilibrary.CurrentProfile = "Default"
+    if not ok or type(config) ~= "table" then
+        return false, "Invalid config file"
     end
 
-    local success, result = pcall(function()
-        --return httpService:JSONDecode(readfile("NewMana/Config/"..game.PlaceId..guilibrary.CurrentProfile..".json"))
-        return httpService:JSONDecode(readfile("NewMana/Config/"..game.PlaceId..".json"))
+    -- Important: options are applied before toggles. This prevents modules from
+    -- starting with stale settings and also guarantees disabled modules turn off.
+    resetAllToggles()
+
+    for tabKey, tabData in next, (config.Tabs or {}) do
+        local savedTab = guilibrary.ObjectsToSave.Tabs[tabKey]
+        if savedTab then
+            if savedTab.API and savedTab.API.Container and tabData.Position then
+                pcall(function()
+                    savedTab.API.Container.Position = UDim2.new(table.unpack(tabData.Position))
+                end)
+            end
+            for optionKey, optionData in next, (tabData.Options or {}) do
+                local option = savedTab.Options and savedTab.Options[optionKey]
+                if option then applyOption(optionData, option.API) end
+            end
+        end
+    end
+
+    for toggleKey, toggleData in next, (config.Toggles or {}) do
+        local savedToggle = guilibrary.ObjectsToSave.Toggles[toggleKey]
+        if savedToggle then
+            for optionKey, optionData in next, (toggleData.Options or {}) do
+                local option = savedToggle.Options and savedToggle.Options[optionKey]
+                if option then applyOption(optionData, option.API) end
+            end
+            if savedToggle.API.UpdateKeybind and toggleData.Keybind then
+                savedToggle.API:UpdateKeybind(false, toggleData.Keybind)
+            end
+        end
+    end
+
+    -- Apply module states last so callbacks see the correct option values.
+    for toggleKey, toggleData in next, (config.Toggles or {}) do
+        local savedToggle = guilibrary.ObjectsToSave.Toggles[toggleKey]
+        if savedToggle and savedToggle.API and savedToggle.API.Toggle then
+            if savedToggle.API.SetEnabled then
+                savedToggle.API:SetEnabled(toggleData.Enabled == true, true)
+            else
+                savedToggle.API:Toggle(false, toggleData.Enabled == true)
+            end
+        end
+    end
+
+    guilibrary.CurrentConfig = name
+    guilibrary.ConfigLoaded = true
+    return true
+end
+
+function guilibrary:ListConfigs()
+    local result = {}
+    local ok, files = pcall(listfiles, guilibrary.ConfigRoot)
+    if not ok or type(files) ~= "table" then return result end
+
+    for _, path in next, files do
+        local filename = tostring(path):match("([^/\\]+)$")
+        local name = filename and filename:gsub("%.json$", "")
+        if name and name ~= "" then
+            table.insert(result, name)
+        end
+    end
+
+    table.sort(result, function(a, b) return a:lower() < b:lower() end)
+    return result
+end
+
+function guilibrary:DeleteConfig(name)
+    name = sanitizeConfigName(name)
+    local path = configPath(name)
+    if not path or not isfile(path) then return false, "Config not found" end
+    if delfile then
+        local ok, err = pcall(delfile, path)
+        if not ok then return false, tostring(err) end
+    else
+        return false, "delfile is unavailable"
+    end
+    if guilibrary.CurrentConfig == name then
+        guilibrary.CurrentConfig = nil
+    end
+    return true
+end
+
+function guilibrary:RenameConfig(oldName, newName)
+    oldName = sanitizeConfigName(oldName)
+    newName = sanitizeConfigName(newName)
+    local oldPath, newPath = configPath(oldName), configPath(newName)
+    if not oldPath or not isfile(oldPath) then return false, "Config not found" end
+    if newName == "" then return false, "New name is empty" end
+    if oldName == newName then return true end
+    if isfile(newPath) then return false, "A config with that name already exists" end
+
+    local ok, err = pcall(function()
+        local data = readfile(oldPath)
+        writefile(newPath, data)
+        delfile(oldPath)
     end)
+    if not ok then return false, tostring(err) end
 
-    if success and type(result) == "table" then
-        for objtable, obj in pairs(result) do
-            spawn(function()
-                if obj.Type == "Tab" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    guilibrary.ObjectsThatCanBeSaved[objtable].mainobject.Position = UDim2.new(table.unpack(obj.Position))
-                    --guilibrary.ObjectsThatCanBeSaved[objtable].Table:Pin(obj.Pinned or false)
-                elseif obj.Type == "CustomTab" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    guilibrary.ObjectsThatCanBeSaved[objtable].mainobject.Position = UDim2.new(table.unpack(obj.Position))
-                    guilibrary.ObjectsThatCanBeSaved[objtable].Table:Pin(obj.Pinned or false)
-                elseif obj.Type == "Toggle" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    if obj.Name ~= "UnInject" and obj.Name ~= "ReInject" and obj.Name ~= "DeleteConfig" then
-                        guilibrary.ObjectsThatCanBeSaved[objtable].Table:Toggle(true, obj.Value)
-                        guilibrary.ObjectsThatCanBeSaved[objtable].Table:UpdateKeybind(false, obj.Keybind)
-                    end
-                elseif obj.Type == "OptionToggle" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    guilibrary.ObjectsThatCanBeSaved[objtable].Table:Toggle(obj.Value)
-                elseif obj.Type == "ColorSlider" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-
-                elseif obj.Type == "Slider" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    guilibrary.ObjectsThatCanBeSaved[objtable].Table:Set(obj.Value, guilibrary.SliderCanOverride)
-                elseif obj.Type == "Dropdown" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    guilibrary.ObjectsThatCanBeSaved[objtable].Table:Select(obj.Value)
-                elseif obj.Type == "TextBox" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    guilibrary.ObjectsThatCanBeSaved[objtable].Table:Set(obj.Value)
-                elseif obj.Type == "TextList" and guilibrary:isObjectInTable(guilibrary.ObjectsThatCanBeSaved, objtable) then
-                    for i, v in pairs(obj.List) do
-                        guilibrary.ObjectsThatCanBeSaved[objtable].Table:CreateListObject(v)
-                    end
-                else
-                    warn("[ManaV2ForRoblox/Guilibrary.lua]: can't load config from unknown object: "..obj.Type.." (objtype).")
-                end
-            end)
-        end
-    else
-        warn("[Nightix/GuiLibrary.lua]: an error occured while loading config: "..result..". \nIf this keeps happening report it to @mankacoder on discord.")
-        guilibrary:CreateNotification("Profiles", "an error occured while loading config: "..result..".\nIf this keeps happening report it to @mankacoder on discord.", 15, false)
+    if guilibrary.CurrentConfig == oldName then
+        guilibrary.CurrentConfig = newName
     end
+    return true
 end
-]]
 
---[[
-function guilibrary:switchProfile(profile)
-    if isfile("NewMana/Config/"..game.PlaceId..profile..".json") then
-        guilibrary.CurrentProfile = profile
-    else
-        warn("[Nightix/Guilibrary.lua]: Unable to load profile "..profile.." - not found, instead creating it.")
-        guilibrary:CreateNotification("Profiles", "Unable to load profile "..profile.." - not found, instead creating it.", 5, true)
-        guilibrary.CurrentProfile = profile
-        writefile("NewMana/Config/"..game.PlaceId..guilibrary.CurrentProfile..".json", "{}")
-    end
-    if isfile("NewMana/CurrentProfile.txt") then
-        delfile("NewMana/CurrentProfile.txt")
-        writefile("NewMana/CurrentProfile.txt", guilibrary.CurrentProfile)
-    end
-    guilibrary:LoadConfig()
+function guilibrary:CreateConfig(name)
+    return guilibrary:SaveConfig(name)
 end
-]]
 
-spawn(function()
-    repeat
-        if shared.Mana.Loaded and guilibrary.CanSaveConfig then
-            guilibrary:SaveConfig()
-        end
-        task.wait(guilibrary.autoSaveDelay or 10)
-    until not shared.Mana
-end)
---// end of cool config system
+-- Kept for compatibility with older modules. Saving is now always explicit;
+-- there is intentionally no background/autosave loop.
+guilibrary.CanSaveConfig = true
+--// end of config system
 
 --// start of cool theme system
 function guilibrary:sortObjects()

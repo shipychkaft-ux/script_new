@@ -1,78 +1,72 @@
-# Nightix — ManaV2ForRoblox Edition
+# Nightix — Roblox Client
 
-Чит-скрипт для Roblox с меню **Nightix** (портировано из Minecraft client Nightix 1.21.11).
+Nightix is a Roblox Lua client with a Nightix-style ClickGUI.
 
-## ✨ Особенности
+## GitHub loader
 
-- Полностью переработанное меню в стиле ClickGUI из Nightix
-- **Иконка Nightix** (rbxassetid://80320370259758) — перекрашивается под выбранную тему
-- 5 цветовых тем
-- Поиск, анимации, прокрутка
+Upload all project files to the same GitHub repository. `MainScript.lua` loads the other files from:
 
-## 🎮 Установка
+`https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/`
 
-### 1. Загрузите файлы на GitHub
-
-1. Перейдите на https://github.com и создайте новый репозиторий (или используйте существующий `script_new`).
-2. Загрузите в репозиторий **все файлы** из этой папки:
--   `GuiLibrary.lua`
--   `MainScript.lua`
--   `NightixMenu.lua`
--   `Universal.lua`
--   `espLibrary.lua`
--   `playersHandler.lua`
--   `toolHandler.lua`
--   `loadstring.lua`
--   `README.md`
-
-### 2. Использование
-
-В Roblox-эксплоите (Synapse, Fluxus, KRNL и т.д.) выполните:
+Loader:
 
 ```lua
 loadstring(game:HttpGet("https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/MainScript.lua"))()
 ```
 
-Либо используйте `loadstring.lua` из папки.
+`loadstring.lua` can also be used when `MainScript.lua` is present locally.
 
-## 🧭 Новое меню (в стиле Nightix)
+## Main fixes in this build
 
-Меню переработано по образцу ClickGUI из Minecraft-клиента **Nightix 1.21.11**:
+- Speed `Velocity` and `CFrame` modes use real studs/second movement instead of frame-scaled movement.
+- Speed survives respawns and restores the player's original WalkSpeed/JumpPower/Animate state when disabled.
+- Fixed `ReToggle()` so changing module settings while a module is enabled restarts the module correctly instead of silently leaving it disabled.
+- Fixed the ESP `ReToggle` error caused by calling `ReToggle()` on option toggles.
+- ESP cleanup/restart and player respawn handling were hardened.
+- Atmosphere no longer recreates itself after being disabled.
+- Fixed several stale/incorrect connection assignments and invalid comparisons.
+- Panic now actually disables active modules.
+- Removed the legacy NeverLose config/autosave system from the Nightix window.
+- Configs are now manual profiles stored under `Nightix/Configs/<PlaceId>/`.
+- Profiles has a config list: click a config to load it, plus **Add**, **Save current**, **Remove**, and **Rename** (pencil) controls.
+- Config loading applies options before module states and explicitly disables modules that are off in the selected profile.
+- No background config autosave and no automatic config load on startup.
+- Render/Utility sound/message lists no longer show the generic **Add** button.
+- Watermark uses the Nightix icon and displays `UID: <UserId>`.
+- Fixed several smaller runtime/cleanup issues in ESP, UsernameHider, Friends, Fullbright, HighJump and console handling.
 
-- **Центральное окно** — одно окно по центру экрана
-- **Слева** — иконки категорий (Combat, Movement, Render, Utility, World, Settings...)
-- **По центру** — список модулей выбранной категории
-- **Справа** — настройки выбранного модуля
-- **Поиск** — фильтрация модулей + счётчик результатов
-- **Темы** — точки переключения цветовой темы сверху
-- **ЛКМ по модулю** — вкл/выкл
-- **ПКМ по модулю** — открыть настройки
-- **Плавные анимации** — появление, наведение, включение
-- **Пустое состояние** — "Ничего не найдено"
+## Controls
 
-## ⚙️ Управление
+| Input | Action |
+|---|---|
+| `RightShift` | Open/close menu |
+| `LMB` | Toggle module |
+| `RMB` | Open module options |
+| Mouse wheel button / `M3B` | Supported as a module bind |
 
-| Клавиша | Действие |
-|---------|----------|
-| `RightShift` | Открыть/закрыть меню |
-| `ЛКМ` | Включить/выключить модуль |
-| `ПКМ` | Открыть настройки модуля |
+## Files
 
-## 🛠 Структура
+- `MainScript.lua` — entry point and tab setup
+- `GuiLibrary.lua` — compatibility/API layer and manual config storage
+- `NightixMenu.lua` — Nightix UI adapter and profile manager
+- `NeverLose.lua` — UI implementation
+- `Universal.lua` — universal modules
+- `espLibrary.lua` — ESP implementation
+- `playersHandler.lua` — player handling
+- `toolHandler.lua` — tool handling
+- `loadstring.lua` — local loader
 
-```
-ManaV2ForRoblox/
-├── MainScript.lua      — главный скрипт
-├── GuiLibrary.lua      — библиотека GUI (опции, слайдеры, тумблеры)
-├── NightixMenu.lua     — НОВОЕ меню в стиле Nightix
-├── Universal.lua       — универсальные модули (AimAssist, Reach, ...)
-├── playersHandler.lua  — обработчик игроков
-├── toolHandler.lua     — обработчик инструментов
-├── espLibrary.lua      — ESP библиотека
-└── loadstring.lua      — загрузчик
-```
+## Configs
 
-## 📝 Credits
+Configs are **not** saved automatically. Use the Profiles tab:
 
-- **ManaV2ForRoblox** — Maanaaaa & Wowzers
-- **Nightix 1.21.11** — ru.white / Xanax (дизайн, механики меню и иконка)
+1. Type a name and press **Add** to save the current state as a new config.
+2. Click a config in the list to load it.
+3. Select a config and press **Save current** to update it.
+4. Select a config, enter a new name, then press **Rename** (pencil) to rename it.
+5. Select a config and press **Remove** to delete it.
+
+## Credits
+
+- ManaV2ForRoblox — Maanaaaa & Wowzers
+- Nightix-style UI implementation in this project

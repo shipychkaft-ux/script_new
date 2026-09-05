@@ -983,7 +983,14 @@ NeverLose.ProcessParams = LPH_NO_VIRTUALIZE(function(self , Params , Fixed)
 	local k = Params or {};
 
 	for i,v in next , Fixed do
-		k[i] = Params[i] or v;
+		-- Preserve explicit false/zero values. The old `Params[i] or v`
+		-- silently replaced false with the default, which broke boolean
+		-- options such as EnableConfig.
+		if Params[i] ~= nil then
+			k[i] = Params[i];
+		else
+			k[i] = v;
+		end;
 	end;
 
 	table.clear(Fixed);
@@ -3631,6 +3638,9 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		Icon.TextTransparency = 0.250
 		Icon.TextWrapped = true
 
+		Button.MainObject = ButtonFrame;
+		Button.Container = ButtonFrame;
+
 		function Button:SetText(t)
 			BasedLabel.Text = t;
 		end;
@@ -3845,6 +3855,7 @@ function NeverLose:CreateWindow(Config)
 		Content = "Counter-Strike 2",
 		Size = UDim2.new(0, 640, 0, 480),
 		ConfigFolder = "NeverLoseConfigs",
+		EnableConfig = true,
 		Enable3DRenderer = false,
 		Keybind = "Insert"
 	});
@@ -3855,6 +3866,7 @@ function NeverLose:CreateWindow(Config)
 		Content = Config.Content,
 		Size = Config.Size,
 		ConfigFolder = Config.ConfigFolder,
+		EnableConfig = Config.EnableConfig,
 		Signal = NeverLose:CreateSignal(true),
 		Tabs = {},
 		CurrentTab = 1,
@@ -3865,7 +3877,7 @@ function NeverLose:CreateWindow(Config)
 	NeverLose.GlobalLogo = Window.Logo;
 
 	local Logging = NeverLose:CreateLogger();
-	if not isfolder(Window.ConfigFolder) then
+	if Window.EnableConfig and Window.ConfigFolder and not isfolder(Window.ConfigFolder) then
 		makefolder(Window.ConfigFolder);
 	end;
 
@@ -5837,7 +5849,14 @@ function NeverLose:CreateWindow(Config)
 		return ConfigLib;
 	end;
 
-	Window:_InitConfig();
+	if Window.EnableConfig then
+		Window:_InitConfig();
+	else
+		-- Nightix uses its own manual profile manager. Hide the legacy
+		-- NeverLose config control and, most importantly, do not start its
+		-- background Default-config autosave loop.
+		ConfigFrame.Visible = false;
+	end;
 
 	local UserSettings = NeverLose:CreateOptionWindow(BottomFrame , BottomFrame.ZIndex + 13);
 	local reciveSignal;
