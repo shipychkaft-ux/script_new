@@ -4199,22 +4199,34 @@ function NeverLose:CreateWindow(Config)
 	LogoImage.Size = UDim2.new(0, 48, 0, 48)
 	LogoImage.ZIndex = 7
 	LogoImage.Image = Window.Logo
-	LogoImage.ImageColor3 = Color3.new(1,1,1)
+	LogoImage.ImageColor3 = Color3.fromRGB(255,255,255)
 	local NightixGradient = Instance.new("UIGradient")
-    NightixGradient.Rotation = 0
-    -- Seamless smooth sweep: 216,148,245 -> 123,131,243 -> 216,148,245.
-    NightixGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(216,148,245)),
-        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(123,131,243)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(216,148,245))
-    })
-    NightixGradient.Parent = LogoImage
-    task.spawn(function()
-        while LogoImage and LogoImage.Parent do
-            NightixGradient.Offset = Vector2.new(-((tick() * 0.10) % 1), 0)
-            task.wait()
-        end
-    end)
+	NightixGradient.Rotation = 0
+	NightixGradient.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0.00, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.10, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.10, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.20, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.20, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.30, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.30, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.40, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.40, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.50, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.50, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.60, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.60, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.70, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.70, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.80, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(0.80, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.90, Color3.fromRGB(220,156,253)),
+		ColorSequenceKeypoint.new(0.90, Color3.fromRGB(131,138,251)),
+		ColorSequenceKeypoint.new(1.00, Color3.fromRGB(131,138,251))
+	})
+	NightixGradient.Parent = LogoImage
+	task.spawn(function() while LogoImage and LogoImage.Parent do NightixGradient.Offset = Vector2.new(1 - ((tick()*0.55)%2),0); task.wait() end end)
+
 	UICorner_2.CornerRadius = UDim.new(0, 7)
 	UICorner_2.Parent = LogoImage
 
@@ -6052,23 +6064,13 @@ function NeverLose:CreateWindow(Config)
 			Icon.Size = UDim2.new(0, 24, 0, 24)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
-			Icon.ImageColor3 = Color3.new(1,1,1)
 			Icon.ImageTransparency = 0.250
 			Icon.ScaleType = Enum.ScaleType.Fit
 			local WatermarkGradient = Instance.new("UIGradient")
-            WatermarkGradient.Rotation = 0
-            WatermarkGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00,Color3.fromRGB(216,148,245)),
-                ColorSequenceKeypoint.new(0.50,Color3.fromRGB(123,131,243)),
-                ColorSequenceKeypoint.new(1.00,Color3.fromRGB(216,148,245))
-            })
-            WatermarkGradient.Parent = Icon
-            task.spawn(function()
-                while Icon and Icon.Parent do
-                    WatermarkGradient.Offset=Vector2.new(-((tick()*0.10)%1),0)
-                    task.wait()
-                end
-            end)
+			WatermarkGradient.Rotation = 0
+			WatermarkGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.10,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.10,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.20,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.20,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.30,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.30,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.40,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.40,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.50,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.50,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.60,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.60,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.70,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.70,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.80,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(.80,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.90,Color3.fromRGB(220,156,253)),ColorSequenceKeypoint.new(.90,Color3.fromRGB(131,138,251)),ColorSequenceKeypoint.new(1,Color3.fromRGB(131,138,251))})
+			WatermarkGradient.Parent = Icon
+			task.spawn(function() while Icon and Icon.Parent do WatermarkGradient.Offset=Vector2.new(1-((tick()*.55)%2),0); task.wait() end end)
 
 			InnerBlock.Update = LPH_NO_VIRTUALIZE(function(value)
 				local size = TextService:GetTextSize(Content.Text , Content.TextSize,Content.Font,Vector2.new(math.huge,math.huge))
