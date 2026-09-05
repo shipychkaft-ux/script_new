@@ -506,109 +506,14 @@ local function betterDisconnect(connection)
 end
 
 -- // Combat tab
--- Single test combat module. Legacy AimAssist/AutoClicker/Reach were removed.
 runFunction(function()
-    local attackAura = {Enabled = false}
-    local range = {Value = 100}
-    local cps = {Value = 8}
-    local aimPart = {Value = "HumanoidRootPart"}
-    local teamCheck = {Value = false}
-    local silentRotate = {Value = true}
-    local fov = {Value = 360}
-    local loopId = 0
-    local oldAutoRotate = true
-
-    local function getTarget()
-        local best, bestScreenDistance
-        local mousePos = UserInputService:GetMouseLocation()
-        local localRoot = getHumanoidRootPart(LocalPlayer)
-        if not localRoot then return nil end
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and isAlive(plr) then
-                local character = getCharacter(plr)
-                local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                local part = character and character:FindFirstChild(aimPart.Value)
-                local sameTeam = teamCheck.Value and plr.Team == LocalPlayer.Team
-                if humanoid and humanoid.Health > 0 and root and part and not sameTeam then
-                    local distance = (root.Position - localRoot.Position).Magnitude
-                    local screen, onScreen = Camera:WorldToViewportPoint(part.Position)
-                    if onScreen and distance <= range.Value then
-                        local screenDistance = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
-                        if screenDistance <= fov.Value and (not bestScreenDistance or screenDistance < bestScreenDistance) then
-                            best, bestScreenDistance = plr, screenDistance
-                        end
-                    end
-                end
-            end
-        end
-        return best
-    end
-
-    local function silentRotateTo(target)
-        if not silentRotate.Value or not isAlive(target) or not isAlive() then return end
-        local root = getHumanoidRootPart(LocalPlayer)
-        local targetRoot = getHumanoidRootPart(target)
-        if not root or not targetRoot then return end
-        local delta = targetRoot.Position - root.Position
-        local flat = Vector3.new(delta.X, 0, delta.Z)
-        if flat.Magnitude > 0.001 then
-            root.CFrame = CFrame.lookAt(root.Position, root.Position + flat.Unit)
-        end
-    end
-
-    attackAura = Tabs.Combat:CreateToggle({
-        Name = "AttackAura",
-        HoverText = "Targets a nearby player, silently rotates the character and spams LMB for testing.",
-        Callback = function(enabled)
-            loopId += 1
-            local myLoop = loopId
-            if enabled then
-                local humanoid = getHumanoid(LocalPlayer)
-                oldAutoRotate = humanoid and humanoid.AutoRotate or true
-                if humanoid then humanoid.AutoRotate = false end
-                RunLoops:BindToRenderStep("AttackAuraAim", function()
-                    if not attackAura.Enabled then return end
-                    local target = getTarget()
-                    if target and silentRotate.Value then
-                        -- Preserve the user's actual camera orientation. The character
-                        -- can rotate toward the target without moving the PC view.
-                        local cameraFrame = Camera.CFrame
-                        silentRotateTo(target)
-                        Camera.CFrame = cameraFrame
-                    end
-                end)
-                task.spawn(function()
-                    while attackAura.Enabled and myLoop == loopId do
-                        if mouse1click and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() then
-                            pcall(mouse1click)
-                        end
-                        task.wait(1 / math.max(1, cps.Value))
-                    end
-                end)
-            else
-                RunLoops:UnbindFromRenderStep("AttackAuraAim")
-                local humanoid = getHumanoid(LocalPlayer)
-                if humanoid then humanoid.AutoRotate = oldAutoRotate end
-            end
-        end
-    })
-
-    range = attackAura:CreateSlider({
-        Name = "Range", Function = function() end, Min = 1, Max = 100, Default = 100, Round = 0
-    })
-    cps = attackAura:CreateSlider({
-        Name = "CPS", Function = function() end, Min = 1, Max = 30, Default = 8, Round = 0
-    })
-    fov = attackAura:CreateSlider({
-        Name = "FOV", Function = function() end, Min = 10, Max = 360, Default = 360, Round = 0
-    })
-    aimPart = attackAura:CreateDropdown({
-        Name = "Aim Part", Function = function() end, List = {"Head", "HumanoidRootPart"}, Default = "HumanoidRootPart"
-    })
-    teamCheck = attackAura:CreateToggle({Name = "Team Check", Default = false, Function = function() end})
-    silentRotate = attackAura:CreateToggle({Name = "Silent Rotation", Default = true, Function = function() end})
+    local attackAura={Enabled=false}; local range={Value=100}; local cps={Value=8}; local aimPart={Value="Голова"}; local teamCheck={Value=false}; local silentRotate={Value=true}; local fov={Value=360}; local aimSpeed={Value=12}; local currentTarget=nil; local oldAutoRotate=true
+    local function valid(plr) if not plr or plr==LocalPlayer or not isAlive(plr) or not isAlive() then return false end; if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team==LocalPlayer.Team then return false end; local r=getHumanoidRootPart(plr); local mr=getHumanoidRootPart(LocalPlayer); local h=getHumanoid(plr); return r and mr and h and h.Health>0 and (r.Position-mr.Position).Magnitude<=range.Value end
+    local function part(plr) local c=getCharacter(plr); return c and (c:FindFirstChild(aimPart.Value=="Голова" and "Head" or "HumanoidRootPart") or c:FindFirstChild("HumanoidRootPart")) end
+    local function acquire() local mr=getHumanoidRootPart(LocalPlayer); if not mr then return nil end; local best,score=nil,math.huge; local mousePos=UserInputService:GetMouseLocation(); for _,plr in ipairs(Players:GetPlayers()) do if valid(plr) then local a=part(plr); if a then local sp,on=Camera:WorldToViewportPoint(a.Position); local d=(a.Position-mr.Position).Magnitude; if on and d<=range.Value then local sd=(Vector2.new(sp.X,sp.Y)-mousePos).Magnitude; if sd<=fov.Value then local sc=sd+d*.15; if sc<score then best,score=plr,sc end end end end end end; return best end
+    local function aim(plr,dt) if not silentRotate.Value or not valid(plr) then return end; local r=getHumanoidRootPart(LocalPlayer); local a=part(plr); if not r or not a then return end; local flat=Vector3.new(a.Position.X-r.Position.X,0,a.Position.Z-r.Position.Z); if flat.Magnitude<.001 then return end; local targetYaw=math.atan2(-flat.X,-flat.Z); local _,yaw,_=r.CFrame:ToOrientation(); local diff=math.atan2(math.sin(targetYaw-yaw),math.cos(targetYaw-yaw)); local step=math.rad(math.max(1,aimSpeed.Value)*90)*math.max(dt or 1/60,1/240); r.CFrame=CFrame.new(r.Position)*CFrame.Angles(0,yaw+math.clamp(diff,-step,step),0) end
+    attackAura=Tabs.Combat:CreateToggle({Name="AttackAura",HoverText="Автоматически наводится на цель и атакует ЛКМ.",Callback=function(on) if on then local h=getHumanoid(LocalPlayer); oldAutoRotate=h and h.AutoRotate or true; if h then h.AutoRotate=false end; currentTarget=nil; RunLoops:BindToRenderStep("AttackAuraAim",function(dt) if attackAura.Enabled then if not valid(currentTarget) then currentTarget=acquire() end; if currentTarget then aim(currentTarget,dt) end end end); local lastClick=0; RunLoops:BindToHeartbeat("AttackAuraClick",function() if attackAura.Enabled and currentTarget and valid(currentTarget) and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() and mouse1click then local now=tick(); if now-lastClick>=1/math.max(1,cps.Value) then lastClick=now; pcall(mouse1click) end end end) else RunLoops:UnbindFromRenderStep("AttackAuraAim"); RunLoops:UnbindFromHeartbeat("AttackAuraClick"); currentTarget=nil; local h=getHumanoid(LocalPlayer); if h then h.AutoRotate=oldAutoRotate end end end})
+    range=attackAura:CreateSlider({Name="Дальность",Function=function() end,Min=1,Max=100,Default=100,Round=0}); cps=attackAura:CreateSlider({Name="CPS",Function=function() end,Min=1,Max=30,Default=8,Round=0}); fov=attackAura:CreateSlider({Name="FOV",Function=function() end,Min=10,Max=360,Default=360,Round=0}); aimSpeed=attackAura:CreateSlider({Name="Скорость наведения",Function=function() end,Min=1,Max=30,Default=12,Round=0}); aimPart=attackAura:CreateDropdown({Name="Часть наведения",Function=function() end,List={"Голова","Тело"},Default="Голова"}); teamCheck=attackAura:CreateToggle({Name="Проверка команды",Default=false,Function=function() end}); silentRotate=attackAura:CreateToggle({Name="Без поворота камеры",Default=true,Function=function() end}); shared.NightixAttackAuraTarget=function() return currentTarget end
 end)
 
 -- // Movement tab
@@ -1137,192 +1042,36 @@ runFunction(function()
 end)
 
 runFunction(function()
-    local speed = {Enabled = false}
-    local mode = {Value = "Normal"}
-    local value = {Value = 16}
-    local autoJump = {Value = false}
-    local jumpMode = {Value = "Normal"}
-    local autoJumpPower = {Value = 25}
-    local jumpPower = {Value = 50}
-    local noAnim = {Value = false}
-    local shiftHold = {Value = false}
-    local linearVelocity
-    local connection
-    local connection2
-    local holdingShift = false
-    local savedWalkSpeed
-    local savedJumpPower
-    local savedUseJumpPower
-    local savedAnimateDisabled
-    speed = Tabs.Movement:CreateToggle({
-        Name = "Speed",
-        HoverText = "Makes you walk faster.",
-        Callback = function(callback)
-            if callback then
-                local humanoid = getHumanoid(LocalPlayer)
-                local character = getCharacter(LocalPlayer)
-                savedWalkSpeed = humanoid and humanoid.WalkSpeed or PlayerWalkSpeed
-                savedJumpPower = humanoid and humanoid.JumpPower or PlayerJumpPower
-                savedUseJumpPower = humanoid and humanoid.UseJumpPower
-                local animate = character and character:FindFirstChild("Animate")
-                savedAnimateDisabled = animate and animate.Disabled or false
-
-                betterDisconnect(connection)
-                betterDisconnect(connection2)
-                connection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-                    if input.KeyCode == Enum.KeyCode.LeftShift and not gameProcessed then
-                        holdingShift = true
-                    end
-                end)
-                connection2 = UserInputService.InputEnded:Connect(function(input)
-                    if input.KeyCode == Enum.KeyCode.LeftShift then holdingShift = false end
-                end)
-
-                RunLoops:BindToHeartbeat("Speed", function(dt)
-                    if not isAlive() or (shiftHold.Value and not holdingShift) then return end
-                    local hum = getHumanoid(LocalPlayer)
-                    local root = getHumanoidRootPart(LocalPlayer)
-                    if not hum or not root then return end
-
-                    hum.JumpPower = jumpPower.Value
-                    hum.UseJumpPower = true
-                    local direction = hum.MoveDirection
-                    if direction.Magnitude > 0.01 then
-                        direction = direction.Unit
-                        if mode.Value == "Normal" then
-                            hum.WalkSpeed = value.Value
-                        elseif mode.Value == "Velocity" then
-                            -- Direct displacement is used here because some experiences
-                            -- overwrite AssemblyLinearVelocity every frame.
-                            -- This keeps the configured speed deterministic.
-                            root.CFrame = root.CFrame + direction * value.Value * math.max(dt, 1 / 240)
-                        elseif mode.Value == "CFrame" then
-                            root.CFrame = root.CFrame + direction * value.Value * math.max(dt, 1 / 240)
-                        end
-                    elseif mode.Value == "Normal" then
-                        hum.WalkSpeed = value.Value
-                    end
-
-                    if autoJump.Value and hum.FloorMaterial ~= Enum.Material.Air and direction.Magnitude > 0.01 then
-                        if jumpMode.Value == "Normal" then
-                            hum:ChangeState(Enum.HumanoidStateType.Jumping)
-                        else
-                            local current = root.AssemblyLinearVelocity
-                            root.AssemblyLinearVelocity = Vector3.new(current.X, autoJumpPower.Value, current.Z)
-                        end
-                    end
-
-                    local anim = getCharacter(LocalPlayer):FindFirstChild("Animate")
-                    if anim then anim.Disabled = noAnim.Value end
-                end)
-            else
-                RunLoops:UnbindFromHeartbeat("Speed")
-                local hum = getHumanoid(LocalPlayer)
-                if hum then
-                    hum.WalkSpeed = savedWalkSpeed or PlayerWalkSpeed
-                    hum.JumpPower = savedJumpPower or PlayerJumpPower
-                    if savedUseJumpPower ~= nil then hum.UseJumpPower = savedUseJumpPower end
+    local speed={Enabled=false}; local mode={Value="CFrame"}; local value={Value=50}; local autoJump={Value=false}; local jumpMode={Value="Normal"}; local autoJumpPower={Value=25}; local jumpPower={Value=50}; local noAnim={Value=false}; local shiftHold={Value=false}; local holdingShift=false; local savedWalkSpeed; local savedJumpPower; local savedUseJumpPower; local savedAnimateDisabled; local c1; local c2
+    speed=Tabs.Movement:CreateToggle({Name="Speed",HoverText="Ускоряет передвижение игрока.",Callback=function(on)
+        if on then
+            local h=getHumanoid(LocalPlayer); local c=getCharacter(LocalPlayer); savedWalkSpeed=h and h.WalkSpeed or 16; savedJumpPower=h and h.JumpPower or 50; savedUseJumpPower=h and h.UseJumpPower; local a=c and c:FindFirstChild("Animate"); savedAnimateDisabled=a and a.Disabled or false; holdingShift=false
+            betterDisconnect(c1); betterDisconnect(c2); c1=UserInputService.InputBegan:Connect(function(i,g) if i.KeyCode==Enum.KeyCode.LeftShift and not g then holdingShift=true end end); c2=UserInputService.InputEnded:Connect(function(i) if i.KeyCode==Enum.KeyCode.LeftShift then holdingShift=false end end)
+            RunLoops:BindToHeartbeat("Speed",function(dt)
+                if not isAlive() or (shiftHold.Value and not holdingShift) then return end
+                local hum=getHumanoid(LocalPlayer); local root=getHumanoidRootPart(LocalPlayer); if not hum or not root then return end
+                hum.UseJumpPower=true; hum.JumpPower=jumpPower.Value; hum.WalkSpeed=math.max(16,value.Value)
+                local d=hum.MoveDirection
+                if d.Magnitude>.01 then
+                    d=Vector3.new(d.X,0,d.Z).Unit
+                    if mode.Value=="Velocity" then local v=root.AssemblyLinearVelocity; root.AssemblyLinearVelocity=Vector3.new(d.X*value.Value,v.Y,d.Z*value.Value)
+                    elseif mode.Value=="CFrame" then root.CFrame=root.CFrame+d*math.max(0,value.Value-16)*math.max(dt,1/240) end
                 end
-                local anim = getCharacter(LocalPlayer):FindFirstChild("Animate")
-                if anim then anim.Disabled = savedAnimateDisabled or false end
-                betterDisconnect(connection)
-                betterDisconnect(connection2)
-                connection, connection2 = nil, nil
-                holdingShift = false
-            end
+                if autoJump.Value and hum.FloorMaterial~=Enum.Material.Air and d.Magnitude>.01 then if jumpMode.Value=="Normal" then hum:ChangeState(Enum.HumanoidStateType.Jumping) else local v=root.AssemblyLinearVelocity; root.AssemblyLinearVelocity=Vector3.new(v.X,autoJumpPower.Value,v.Z) end end
+                local anim=getCharacter(LocalPlayer):FindFirstChild("Animate"); if anim then anim.Disabled=noAnim.Value end
+            end)
+        else
+            RunLoops:UnbindFromHeartbeat("Speed"); local h=getHumanoid(LocalPlayer); if h then h.WalkSpeed=savedWalkSpeed or 16; h.JumpPower=savedJumpPower or 50; if savedUseJumpPower~=nil then h.UseJumpPower=savedUseJumpPower end end; local a=getCharacter(LocalPlayer):FindFirstChild("Animate"); if a then a.Disabled=savedAnimateDisabled or false end; betterDisconnect(c1); betterDisconnect(c2); c1=nil; c2=nil; holdingShift=false
         end
-    })
-
-    mode = speed:CreateDropdown({
-        Name = "Mode",
-        Function = function(v) 
-            if speed.Enabled then 
-                speed:ReToggle(true)
-            end
-        end,
-        List = {"Velocity", "CFrame", "Normal"}, -- "AssemblyAngularVelocity", "AssemblyLinearVelocity", "LinearVelocity", "Velocity", "CFrame", "Normal"}
-        Default = "Velocity"
-    })
-
-    value = speed:CreateSlider({
-        Name = "Speed",
-        Function = function(v) 
-            if speed.Enabled and mode.Value == "Normal" then
-                getHumanoid(LocalPlayer).WalkSpeed = v
-            end
-        end,
-        Min = 0,
-        Max = 200,
-        Default = 50,
-        Round = 0
-    })
-
-    autoJumpPower = speed:CreateSlider({
-        Name = "AutoJumpPower",
-        Function = function(v) end,
-        Min = 0,
-        Max = 30,
-        Default = 25,
-        Round = 0
-    })
-
-    jumpPower = speed:CreateSlider({
-        Name = "JumpPower",
-        Function = function(v) 
-            if speed.Enabled then
-                getHumanoid(LocalPlayer).JumpPower = v
-            end
-        end,
-        Min = 0,
-        Max = 200,
-        Default = 50,
-        Round = 0
-    })
-
-    autoJump = speed:CreateToggle({
-        Name = "AutoJump",
-        Default = false,
-        Function = function(v)
-            if jumpMode.MainObject then jumpMode.MainObject.Visible = v end
-        end
-    })
-
-    jumpMode = speed:CreateDropdown({
-        Name = "AutoJumpMode",
-        Function = function(v) 
-            if autoJumpPower.MainObject then
-                autoJumpPower.MainObject.Visible = v == "Velocity"
-            end
-            if speed.Enabled then
-                speed:ReToggle(true)
-            end
-        end,
-        List = {"Normal", "Velocity"},
-        Default = "Normal"
-    })
-    jumpMode.Container1.Visible = false
-
-    noAnim = speed:CreateToggle({
-        Name = "NoAnimation",
-        Default = false,
-        Function = function(v)
-            if speed.Enabled then
-                local animate = getCharacter(LocalPlayer):FindFirstChild("Animate")
-                if animate then animate.Disabled = v end
-            end
-        end
-    })
-
-    shiftHold = speed:CreateToggle({
-        Name = "ShiftHold",
-        Default = false,
-        Function = function(v)
-            holdingShift = false
-            if speed.Enabled then
-                speed:ReToggle(true)
-            end
-        end
-    })
+    end})
+    mode=speed:CreateDropdown({Name="Режим",List={"Velocity","CFrame","Normal"},Default="CFrame",Function=function(v) mode.Value=v end})
+    value=speed:CreateSlider({Name="Скорость",Function=function(v) value.Value=v end,Min=0,Max=200,Default=50,Round=0})
+    autoJumpPower=speed:CreateSlider({Name="Сила автопрыжка",Function=function(v) autoJumpPower.Value=v end,Min=0,Max=30,Default=25,Round=0})
+    jumpPower=speed:CreateSlider({Name="Сила прыжка",Function=function(v) jumpPower.Value=v end,Min=0,Max=200,Default=50,Round=0})
+    autoJump=speed:CreateToggle({Name="Автопрыжок",Default=false,Function=function(v) autoJump.Value=v end})
+    jumpMode=speed:CreateDropdown({Name="Режим автопрыжка",List={"Normal","Velocity"},Default="Normal",Function=function(v) jumpMode.Value=v end})
+    noAnim=speed:CreateToggle({Name="Без анимации",Default=false,Function=function(v) noAnim.Value=v end})
+    shiftHold=speed:CreateToggle({Name="Только с Shift",Default=false,Function=function(v) shiftHold.Value=v end})
 end)
 
 runFunction(function()
@@ -1681,6 +1430,18 @@ runFunction(function()
         DefaultValue = "",
         Function = function(v) end,
     })
+end)
+
+-- Target ESP: Catlavan modes + Ромб + 3D Circle
+runFunction(function()
+    local targetESP={Enabled=false}; local mode={Value="Vortex"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=.2}; local target; local sg; local img; local circle={}
+    local diamonds={["1"]="113363639205880",["2"]="132493106112220",["3"]="108556924043797",["4"]="139726405706582"}; local ids={Vortex="113363639205880",Garland="77939595216474",Brackets="113363639205880",Ghosts="5538771868",Default="77939595216474"}
+    local function clear() if sg then pcall(function() sg:Destroy() end); sg=nil; img=nil end end; local function clearCircle() for _,p in ipairs(circle) do pcall(function() p:Destroy() end) end; table.clear(circle) end
+    local function makeCircle() local p=Instance.new("Part"); p.Anchored=true; p.CanCollide=false; p.CanQuery=false; p.CanTouch=false; p.Size=Vector3.new(4,.04,4); p.Transparency=1; p.Parent=workspace; local sg=Instance.new("SurfaceGui"); sg.Face=Enum.NormalId.Top; sg.AlwaysOnTop=true; sg.CanvasSize=Vector2.new(400,400); sg.Parent=p; local d=Instance.new("ImageLabel"); d.BackgroundTransparency=1; d.Size=UDim2.fromScale(1,1); d.Image="rbxassetid://107258187506657"; d.Parent=sg; table.insert(circle,p) end
+    local function updateCircle(t) if not target or not target.Character then clearCircle(); return end; local h=target.Character:FindFirstChild("Head"); local r=getHumanoidRootPart(target); if not h or not r then return end; if #circle==0 then for i=1,7 do makeCircle() end end; local height=math.max(1,h.Position.Y-r.Position.Y+2.5); local ph=(t*1.15)%2; local prog=ph<=1 and ph or 2-ph; local down=ph<=1; local y=h.Position.Y-.35-prog*height; for i,p in ipairs(circle) do p.Position=Vector3.new(h.Position.X,y+(down and 1 or -1)*(i-1)*.11,h.Position.Z); local sg=p:FindFirstChildOfClass("SurfaceGui"); local d=sg and sg:FindFirstChildOfClass("ImageLabel"); if d then d.ImageTransparency=math.min(.86,(i-1)*.13) end end end
+    local function updateScreen() if not target or not isAlive(target) then clear(); return end; if not sg then sg=Instance.new("ScreenGui"); sg.Name="NightixTargetESP"; sg.IgnoreGuiInset=true; sg.ResetOnSpawn=false; sg.Parent=CoreGui; img=Instance.new("ImageLabel"); img.AnchorPoint=Vector2.new(.5,.5); img.BackgroundTransparency=1; img.Parent=sg end; local a=target.Character:FindFirstChild("Head") or getHumanoidRootPart(target); if not a then return end; local pos,on=Camera:WorldToViewportPoint(a.Position); img.Visible=on; if on then img.Size=UDim2.fromOffset(size.Value,size.Value); img.Position=UDim2.fromOffset(pos.X,pos.Y); img.Image="rbxassetid://"..(mode.Value=="Ромб" and diamonds[diamond.Value] or ids[mode.Value] or ids.Default); img.ImageTransparency=alpha.Value; img.Rotation=(tick()*speed.Value)%360 end end
+    local function findTarget() local a=shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget(); if a and isAlive(a) then return a end; local me=getHumanoidRootPart(LocalPlayer); if not me then return end; local b,d=nil,math.huge; for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer and isAlive(p) then local r=getHumanoidRootPart(p); if r then local x=(r.Position-me.Position).Magnitude; if x<d then b,d=p,x end end end end; return b end
+    targetESP=Tabs.Render:CreateToggle({Name="Target ESP",HoverText="Показывает эффект на цели.",Callback=function(on) if on then RunLoops:BindToRenderStep("TargetESP",function() target=findTarget(); if mode.Value=="Circle" then clear(); updateCircle(tick()) else clearCircle(); updateScreen() end end) else RunLoops:UnbindFromRenderStep("TargetESP"); clear(); clearCircle(); target=nil end end}); mode=targetESP:CreateDropdown({Name="Режим",List={"Vortex","Garland","Brackets","Ghosts","Default","Ромб","Circle"},Default="Vortex",Function=function(v) mode.Value=v; diamond.Container.Visible=v=="Ромб" end}); diamond=targetESP:CreateDropdown({Name="Ромб",List={"1","2","3","4"},Default="1",Function=function(v) diamond.Value=v end}); diamond.Container.Visible=false; size=targetESP:CreateSlider({Name="Размер",Function=function(v) size.Value=v end,Min=60,Max=300,Default=150,Round=0}); speed=targetESP:CreateSlider({Name="Скорость",Function=function(v) speed.Value=v end,Min=0,Max=720,Default=180,Round=0}); alpha=targetESP:CreateSlider({Name="Прозрачность",Function=function(v) alpha.Value=v end,Min=0,Max=1,Default=.2,Round=2})
 end)
 
 runFunction(function()
@@ -2090,268 +1851,15 @@ runFunction(function()
     })
 end)
 
--- Made by Wowzers
+-- Nightix NameTags
 runFunction(function()
-    local nameTags = {Enabled = false}
-    local mode = {Value = "Username"}
-    local color = {Value = Color3.fromRGB(255, 255, 255)}
-    local teamColor = {Value = false}
-    local showHP = {Value = false}
-    local showDistance = {Value = false}
-    local maxDistance = {Value = 1000}
-    local billboardGuis = {}
-    local connections = {}
-    local nameTagsFolder = Instance.new("Folder")
-    nameTagsFolder.Name = "NameTagsFolder"
-    nameTagsFolder.Parent = CoreGui or workspace
-    local connections = {}
-    local lastFullUpdate
-
-    for _, existing in pairs(CoreGui:GetChildren()) do
-        if existing.Name == "NameTagsFolder" and existing ~= nameTagsFolder then
-            existing:Destroy()
-        end
-    end
-
-    local function CleanupPlayerNameTag(plr)
-        local playerName = typeof(plr) == "string" and plr or plr.Name
-
-        if billboardGuis[playerName] then
-            if billboardGuis[playerName].Parent then
-                billboardGuis[playerName]:Destroy()
-            end
-            billboardGuis[playerName] = nil
-        end
-    end
-
-    local textLabelProps = {
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 1, 0),
-        Font = Enum.Font.SourceSansBold,
-        TextColor3 = Color3.fromRGB(255, 255, 255),
-        TextSize = 16,
-        TextStrokeTransparency = 0.4,
-        TextYAlignment = Enum.TextYAlignment.Center,
-        RichText = true,
-        Name = "NameTagText"
-    }
-
-    local function CreateNameTag(plr)
-        if not isAlive(plr, true) then
-            return nil
-        end
-
-        CleanupPlayerNameTag(plr)
-
-        local billboardGui = Instance.new("BillboardGui")
-        local textLabel = Instance.new("TextLabel")
-
-        billboardGui.Name = "NameTag_" .. plr.Name
-        billboardGui.Adornee = plr.Character.Head
-        billboardGui.AlwaysOnTop = true
-        billboardGui.Size = UDim2.new(0, 200, 0, 50)
-        billboardGui.StudsOffset = Vector3.new(0, 1.2, 0)
-        billboardGui.MaxDistance = maxDistance.Value
-        billboardGui.Parent = nameTagsFolder
-
-        for prop, value in pairs(textLabelProps) do
-            textLabel[prop] = value
-        end
-        textLabel.Parent = billboardGui
-
-        billboardGuis[plr.Name] = billboardGui
-        return billboardGui
-    end
-
-    local function UpdateNameTag(plr)
-        if not isAlive(plr) then return end
-
-        local billboardGui = billboardGuis[plr.Name]
-        if not billboardGui or not billboardGui.Parent then return end
-
-        local character = getCharacter(plr)
-        local humanoid = getHumanoid(plr)
-        local humanoidRootPart = getHumanoidRootPart(plr)
-        local localHumanoidRootPart = getHumanoidRootPart()
-
-        local textLabel = billboardGui:FindFirstChild("NameTagText")
-        if not textLabel then return end
-
-        local nameText = mode.Value == "Username" and plr.Name or plr.DisplayName
-        local parts = {}
-
-        table.insert(parts, string.format("<font color=\"rgb(%d, %d, %d)\">%s</font>",
-            color.RawColorTable.R,
-            color.RawColorTable.G,
-            color.RawColorTable.B,
-        nameText))
-
-        if showHP.Value then
-            local health = math.floor(humanoid.Health)
-            local maxHealth = math.floor(humanoid.MaxHealth)
-            local healthColor = ConvertHealthToColor(health, maxHealth)
-            local color = teamColor and plr.Team and plr.TeamColor or color.Value
-
-            table.insert(parts, string.format(" <font color=\"rgb(%d,%d,%d)\">%d HP</font>", 
-                math.floor(healthColor.R * 255), 
-                math.floor(healthColor.G * 255), 
-                math.floor(healthColor.B * 255), 
-            health))
-        end
-
-        if showDistance.Value and isAlive() then
-            local distance = math.floor((localHumanoidRootPart.Position - humanoidRootPart.Position).Magnitude)
-            table.insert(parts, string.format(" [%dm]", distance))
-        end
-
-        textLabel.Text = table.concat(parts)
-
-        if showDistance.Value and isAlive() then
-            local distance = (localHumanoidRootPart.Position - humanoidRootPart.Position).Magnitude
-            local scaleFactor = math.clamp(1 - (distance / maxDistance.Value) * 0.5, 0.5, 1)
-            if math.abs(textLabel.TextSize - (16 * scaleFactor)) > 0.5 then
-                textLabel.TextSize = 16 * scaleFactor
-            end
-        end
-    end
-
-    local function UpdateAllNameTags()
-        for _, plr in pairs(Players:GetPlayers()) do
-            if plr ~= LocalPlayer and isAlive(plr) then
-                if billboardGuis[plr.Name] and billboardGuis[plr.Name].Parent then
-                    UpdateNameTag(plr)
-                else
-                    CreateNameTag(plr)
-                end
-            end
-        end
-    end
-
-    local function CleanupAllNameTags()
-        for name, gui in pairs(billboardGuis) do
-            if gui and gui.Parent then
-                gui:Destroy()
-            end
-            billboardGuis[name] = nil
-        end
-    end
-
-    local nameTagConnections = {}
-    local function clearNameTagConnections()
-        for _, conn in ipairs(nameTagConnections) do
-            betterDisconnect(conn)
-        end
-        table.clear(nameTagConnections)
-    end
-
-    nameTags = Tabs.Render:CreateToggle({
-        Name = "NameTags",
-        HoverText = "Adds nametag above every player.",
-        Callback = function(callback)
-            if callback then
-                clearNameTagConnections()
-                table.insert(nameTagConnections, Players.PlayerRemoving:Connect(function(plr)
-                    CleanupPlayerNameTag(plr)
-                end))
-                lastFullUpdate = 0
-                RunLoops:BindToRenderStep("NameTags", function()
-                    local now = tick()
-                    if now - lastFullUpdate > 0.5 then
-                        lastFullUpdate = now
-                        for _, plr in pairs(Players:GetPlayers()) do
-                            if plr ~= LocalPlayer then
-                                if isAlive(plr) and (not billboardGuis[plr.Name] or not billboardGuis[plr.Name].Parent) then
-                                    CreateNameTag(plr)
-                                    table.insert(nameTagConnections, plr.CharacterRemoving:Connect(function()
-                                        CleanupPlayerNameTag(plr)
-                                    end))
-                                elseif (not isAlive(plr)) and billboardGuis[plr.Name] then
-                                    CleanupPlayerNameTag(plr)
-                                end
-                            end
-
-                        end
-                    end
-                    for name, gui in pairs(billboardGuis) do
-                        local plr = Players:FindFirstChild(name)
-                        if plr and gui.Parent and isAlive(plr) then
-                            UpdateNameTag(plr)
-                        end
-                    end
-                end)
-            else
-                RunLoops:UnbindFromRenderStep("NameTags")
-                clearNameTagConnections()
-                CleanupAllNameTags()
-            end
-        end
-    })
-
-    mode = nameTags:CreateDropdown({
-        Name = "Name Mode",
-        List = {"Username", "DisplayName"},
-        Default = "Username",
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    color = nameTags:CreateColorSlider({
-        Name = "Name Color",
-        Default = Color3.fromRGB(255, 255, 255),
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    teamColor = nameTags:CreateToggle({
-        Name = "Team Color",
-        Default = false,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    showHP = nameTags:CreateToggle({
-        Name = "Health",
-        Default = false,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    showDistance = nameTags:CreateToggle({
-        Name = "Distance",
-        Default = false,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
-
-    maxDistance = nameTags:CreateSlider({
-        Name = "Max Distance",
-        Min = 100,
-        Max = 10000,
-        Default = 1000,
-        Round = 0,
-        Function = function(v)
-            if nameTags.Enabled then
-                UpdateAllNameTags()
-            end
-        end
-    })
+    local nameTags={Enabled=false}; local mode={Value="Username"}; local color={Value=Color3.fromRGB(255,255,255)}; local teamColor={Value=false}; local showHP={Value=false}; local guis={}; local folder=Instance.new("Folder"); folder.Name="NightixNameTags"; folder.Parent=CoreGui
+    local function clear(plr) local n=typeof(plr)=="string" and plr or plr.Name; if guis[n] then pcall(function() guis[n]:Destroy() end); guis[n]=nil end end
+    local function make(plr) clear(plr); if not isAlive(plr,true) then return end; local g=Instance.new("BillboardGui"); g.Name="NameTag_"..plr.Name; g.Adornee=plr.Character:FindFirstChild("Head"); g.AlwaysOnTop=true; g.Size=UDim2.fromOffset(220,70); g.StudsOffset=Vector3.new(0,2.8,0); g.Parent=folder; local f=Instance.new("Frame"); f.Size=UDim2.fromScale(1,1); f.BackgroundColor3=Color3.fromRGB(20,20,24); f.BackgroundTransparency=.12; f.BorderSizePixel=0; f.Parent=g; local n=Instance.new("TextLabel"); n.Name="Nickname"; n.BackgroundTransparency=1; n.Position=UDim2.fromOffset(8,5); n.Size=UDim2.new(1,-16,0,24); n.Font=guifont or Enum.Font.GothamBold; n.TextSize=16; n.TextXAlignment=Enum.TextXAlignment.Center; n.TextStrokeTransparency=1; n.Parent=f; local icon=Instance.new("ImageLabel"); icon.Name="HealthIcon"; icon.BackgroundTransparency=1; icon.Image="rbxassetid://99142118523333"; icon.Size=UDim2.fromOffset(17,17); icon.Position=UDim2.fromOffset(8,39); icon.Parent=f; local hp=Instance.new("TextLabel"); hp.Name="Health"; hp.BackgroundTransparency=1; hp.Position=UDim2.fromOffset(29,35); hp.Size=UDim2.new(1,-35,0,24); hp.Font=guifont or Enum.Font.GothamBold; hp.TextSize=16; hp.TextColor3=Color3.fromRGB(255,255,255); hp.TextXAlignment=Enum.TextXAlignment.Left; hp.TextStrokeTransparency=1; hp.Parent=f; guis[plr.Name]=g; return g end
+    local function update(plr) if not isAlive(plr) then clear(plr); return end; local g=guis[plr.Name] or make(plr); if not g then return end; local f=g:FindFirstChildOfClass("Frame"); local n=f and f:FindFirstChild("Nickname"); local hp=f and f:FindFirstChild("Health"); local icon=f and f:FindFirstChild("HealthIcon"); local h=getHumanoid(plr); if not n or not hp or not h then return end; local c=(teamColor.Value and plr.Team and plr.Team.TeamColor.Color) or color.Value; n.Text=mode.Value=="DisplayName" and plr.DisplayName or plr.Name; n.TextColor3=c; hp.Text=tostring(math.floor(h.Health)).." HP"; hp.Visible=showHP.Value; icon.Visible=showHP.Value; g.Size=UDim2.fromOffset(220,showHP.Value and 70 or 40) end
+    local conns={}; nameTags=Tabs.Render:CreateToggle({Name="NameTags",HoverText="Показывает ник и здоровье.",Callback=function(on) if on then for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then make(p) end end; table.insert(conns,Players.PlayerRemoving:Connect(clear)); RunLoops:BindToRenderStep("NameTags",function() for _,p in ipairs(Players:GetPlayers()) do if p~=LocalPlayer then update(p) end end end) else RunLoops:UnbindFromRenderStep("NameTags"); for _,c in ipairs(conns) do betterDisconnect(c) end; table.clear(conns); for n,g in pairs(guis) do pcall(function() g:Destroy() end); guis[n]=nil end end end}); mode=nameTags:CreateDropdown({Name="Режим ника",List={"Username","DisplayName"},Default="Username",Function=function() end}); color=nameTags:CreateColorSlider({Name="Цвет ника",Default=Color3.fromRGB(255,255,255),Function=function() end}); teamColor=nameTags:CreateToggle({Name="Цвет команды",Default=false,Function=function() end}); showHP=nameTags:CreateToggle({Name="Здоровье",Default=false,Function=function() end})
 end)
+
 
 runFunction(function()
     local rainbowSkin = {Enabled = false}
@@ -4438,152 +3946,9 @@ runFunction(function()
 end)
 
 runFunction(function()
-    local customSky = {Enabled = false}
-    local up = {Value = ""}
-    local down = {Value = ""}
-    local left = {Value = ""}
-    local right = {Value = ""}
-    local front = {Value = ""}
-    local back = {Value = ""}
-    local sun = {Value = ""}
-    local sunSize = {Value = 11}
-    local moon = {Value = ""}
-    local moonSize = {Value = 11}
-    local oldSkyObjects = {}
-    local skyObject
-    local connection
-
-    local function applySky()
-        if not skyObject or skyObject.Parent ~= Lighting then return end
-        skyObject.Name = "SkyObject"
-        skyObject.SkyboxBk = "rbxassetid://" .. back.Value
-        skyObject.SkyboxDn = "rbxassetid://" .. down.Value
-        skyObject.SkyboxFt = "rbxassetid://" .. front.Value
-        skyObject.SkyboxLf = "rbxassetid://" .. left.Value
-        skyObject.SkyboxRt = "rbxassetid://" .. right.Value
-        skyObject.SkyboxUp = "rbxassetid://" .. up.Value
-        skyObject.SunTextureId = "rbxassetid://" .. sun.Value
-        skyObject.MoonTextureId = "rbxassetid://" .. moon.Value
-        skyObject.SunAngularSize = sunSize.Value
-        skyObject.MoonAngularSize = moonSize.Value
-    end
-
-    customSky = Tabs.World:CreateToggle({
-        Name = "Sky",
-        HoverText = "Customizes the sky of the game.",
-        Callback = function(callback)
-            if callback then
-                betterDisconnect(connection)
-                table.clear(oldSkyObjects)
-                for _, v in ipairs(Lighting:GetChildren()) do
-                    if v:IsA("PostEffect") or (v:IsA("Sky") and v.Name ~= "SkyObject") then
-                        table.insert(oldSkyObjects, v)
-                        v.Parent = nil
-                    end
-                end
-                if skyObject then skyObject:Destroy() end
-                skyObject = Instance.new("Sky")
-                skyObject.Name = "SkyObject"
-                skyObject.Parent = Lighting
-                applySky()
-                connection = skyObject.Changed:Connect(function()
-                    if customSky.Enabled then applySky() end
-                end)
-            else
-                betterDisconnect(connection)
-                connection = nil
-                if skyObject then skyObject:Destroy(); skyObject = nil end
-                for _, v in ipairs(oldSkyObjects) do
-                    if v and v.Parent == nil then v.Parent = Lighting end
-                end
-                table.clear(oldSkyObjects)
-            end
-        end
-    })
-
-    back = customSky:CreateTextBox({
-        Name = "SkyBack",
-        PlaceholderText = "Sky Back ID",
-        DefaultValue = "6444884337",
-        Function = function(v) back.Value = v end,
-    })
-
-    down = customSky:CreateTextBox({
-        Name = "SkyDown",
-        PlaceholderText = "Sky Down ID",
-        DefaultValue = "6444884785",
-        Function = function(v) down.Value = v end,
-    })
-
-    front = customSky:CreateTextBox({
-        Name = "SkyFront",
-        PlaceholderText = "Sky Front ID",
-        DefaultValue = "6444884337",
-        Function = function(v) front.Value = v end,
-    })
-
-    left = customSky:CreateTextBox({
-        Name = "SkyLeft",
-        PlaceholderText = "Sky Left ID",
-        DefaultValue = "6444884337",
-        Function = function(v) left.Value = v end,
-    })
-
-    right = customSky:CreateTextBox({
-        Name = "SkyRight",
-        PlaceholderText = "Sky Right ID",
-        DefaultValue = "6444884337",
-        Function = function(v) right.Value = v end,
-    })
-
-    up = customSky:CreateTextBox({
-        Name = "SkyUp",
-        PlaceholderText = "Sky Up ID",
-        DefaultValue = "6412503613",
-        Function = function(v) up.Value = v end,
-    })
-
-    sun = customSky:CreateTextBox({
-        Name = "SkySun",
-        PlaceholderText = "Sky Sun ID",
-        DefaultValue = "6196665106",
-        Function = function(v) sun.Value = v end,
-    })
-
-    moon = customSky:CreateTextBox({
-        Name = "SkyMoon",
-        PlaceholderText = "Sky Moon ID",
-        DefaultValue = "6444320592",
-        Function = function(v) moon.Value = v end,
-    })
-
-    sunSize = customSky:CreateSlider({
-        Name = "SunSize",
-        Function = function(v)
-            sunSize.Value = v
-            if customSky.Enabled and skyObject then
-                skyObject.SunAngularSize = v
-            end
-        end,
-        Min = 0,
-        Max = 60,
-        Default = 11,
-        Round = 0
-    })
-
-    moonSize = customSky:CreateSlider({
-        Name = "MoonSize",
-        Function = function(v)
-            moonSize.Value = v
-            if customSky.Enabled and skyObject then
-                skyObject.MoonAngularSize = v
-            end
-        end,
-        Min = 0,
-        Max = 60,
-        Default = 11,
-        Round = 0
-    })
+    local customSky={Enabled=false}; local choice={Value="Dune"}; local sky; local old={}; local ids={Dune="138907351102721",Celestial="86696473016531",Day="8613979186",Space="15983996673",Luminar="140307474008766"}
+    local function apply() if not sky then return end; local a="rbxassetid://"..ids[choice.Value]; sky.SkyboxBk=a; sky.SkyboxDn=a; sky.SkyboxFt=a; sky.SkyboxLf=a; sky.SkyboxRt=a; sky.SkyboxUp=a end
+    customSky=Tabs.World:CreateToggle({Name="SkyShader",HoverText="Меняет небо.",Callback=function(on) if on then table.clear(old); for _,v in ipairs(Lighting:GetChildren()) do if v:IsA("Sky") then table.insert(old,v); v.Parent=nil end end; sky=Instance.new("Sky"); sky.Name="NightixSkyShader"; sky.Parent=Lighting; apply() else if sky then sky:Destroy(); sky=nil end; for _,v in ipairs(old) do if v and v.Parent==nil then v.Parent=Lighting end end; table.clear(old) end end}); choice=customSky:CreateDropdown({Name="Небо",List={"Dune","Celestial","Day","Space","Luminar"},Default="Dune",Function=function(v) choice.Value=v; if customSky.Enabled then apply() end end})
 end)
 
 runFunction(function()

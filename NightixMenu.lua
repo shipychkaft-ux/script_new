@@ -19,7 +19,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- Window
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
-        Logo = "rbxassetid://80320370259758",
+        Logo = "rbxassetid://106084104602244",
         Name = "Nightix",
         Content = "Nightix",
         Size = NeverLose.Scales.Default,
@@ -31,7 +31,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
     -- watermark
     local Watermark = window:Watermark()
-    Watermark:AddBlock("rbxassetid://80320370259758", "Nightix | UID: " .. tostring(localPlayer.UserId))
+    Watermark:AddBlock("rbxassetid://106084104602244", "Nightix | UID: " .. tostring(localPlayer.UserId))
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
