@@ -537,23 +537,19 @@ runFunction(function()
     local function acquire()
         local mr = getHumanoidRootPart(LocalPlayer)
         if not mr then return nil end
-        local best, score = nil, math.huge
-        local mousePos = UserInputService:GetMouseLocation()
 
+        -- True aura targeting: choose the nearest valid player in range.
+        -- It does not depend on the cursor/crosshair; aiming happens after
+        -- the target is acquired so the attack is directed at that player.
+        local best, bestDistance = nil, math.huge
         for _, plr in ipairs(Players:GetPlayers()) do
             if valid(plr) then
                 local a = part(plr)
-                if a then
-                    local sp, on = Camera:WorldToViewportPoint(a.Position)
-                    local d = (a.Position - mr.Position).Magnitude
-                    if on and d <= range.Value then
-                        local sd = (Vector2.new(sp.X, sp.Y) - mousePos).Magnitude
-                        if sd <= fov.Value then
-                            local sc = sd + d * 0.15
-                            if sc < score then
-                                best, score = plr, sc
-                            end
-                        end
+                local root = getHumanoidRootPart(plr)
+                if a and root then
+                    local distance = (root.Position - mr.Position).Magnitude
+                    if distance <= range.Value and distance < bestDistance then
+                        best, bestDistance = plr, distance
                     end
                 end
             end
@@ -653,103 +649,6 @@ runFunction(function()
     shared.NightixAttackAuraTarget = function()
         return currentTarget
     end
-end)
-
--- TriggerBot: uses the same target/rotation path as AttackAura, but only
--- attacks a player that is currently under the crosshair.
-runFunction(function()
-    local triggerBot = {Enabled = false}
-    local range = {Value = 100}
-    local cps = {Value = 10}
-    local aimSpeed = {Value = 20}
-    local teamCheck = {Value = false}
-    local lastClick = 0
-
-    local function validTarget(plr)
-        if not plr or plr == LocalPlayer or not isAlive(plr) or not isAlive() then return false end
-        if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then return false end
-        local root = getHumanoidRootPart(plr)
-        local me = getHumanoidRootPart(LocalPlayer)
-        local hum = getHumanoid(plr)
-        return root and me and hum and hum.Health > 0
-            and (root.Position - me.Position).Magnitude <= range.Value
-    end
-
-    local function targetUnderCursor()
-        local mousePos = UserInputService:GetMouseLocation()
-        local best, bestScore = nil, math.huge
-
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if validTarget(plr) then
-                local character = getCharacter(plr)
-                local head = character and character:FindFirstChild("Head")
-                local root = getHumanoidRootPart(plr)
-                local point = head or root
-                if point then
-                    local screen, visible = Camera:WorldToViewportPoint(point.Position)
-                    if visible then
-                        local distance2d = (Vector2.new(screen.X, screen.Y) - mousePos).Magnitude
-                        if distance2d < bestScore then
-                            best, bestScore = plr, distance2d
-                        end
-                    end
-                end
-            end
-        end
-
-        -- A small cursor tolerance avoids TriggerBot firing through the world
-        -- at players that are merely somewhere on screen.
-        return best, bestScore
-    end
-
-    local function rotateTo(plr, dt)
-        local root = getHumanoidRootPart(plr)
-        local me = getHumanoidRootPart(LocalPlayer)
-        if not root or not me then return end
-        local flat = Vector3.new(root.Position.X-me.Position.X,0,root.Position.Z-me.Position.Z)
-        if flat.Magnitude < .001 then return end
-        local targetYaw = math.atan2(-flat.X,-flat.Z)
-        local _, yaw, _ = me.CFrame:ToOrientation()
-        local diff = math.atan2(math.sin(targetYaw-yaw), math.cos(targetYaw-yaw))
-        local step = math.rad(math.max(1, aimSpeed.Value)*90) * math.max(dt or 1/60,1/240)
-        me.CFrame = CFrame.new(me.Position) * CFrame.Angles(0, yaw + math.clamp(diff,-step,step), 0)
-        Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, (getCharacter(plr):FindFirstChild("Head") or root).Position)
-    end
-
-    local function attack()
-        if mouse1click then pcall(mouse1click) end
-        local character = LocalPlayer.Character
-        local tool = character and character:FindFirstChildOfClass("Tool")
-        if tool then pcall(function() tool:Activate() end) end
-    end
-
-    triggerBot = Tabs.Combat:CreateToggle({
-        Name = "TriggerBot",
-        HoverText = "Автоматически атакует игрока под прицелом.",
-        Callback = function(on)
-            if on then
-                RunLoops:BindToRenderStep("TriggerBot", function(dt)
-                    if not triggerBot.Enabled or GuiLibrary.Toggled or UserInputService:GetFocusedTextBox() then return end
-                    local target, screenDistance = targetUnderCursor()
-                    if target and screenDistance <= 55 then
-                        rotateTo(target, dt)
-                        local now = tick()
-                        if now-lastClick >= 1/math.max(1,cps.Value) then
-                            lastClick = now
-                            attack()
-                        end
-                    end
-                end)
-            else
-                RunLoops:UnbindFromRenderStep("TriggerBot")
-            end
-        end
-    })
-
-    range = triggerBot:CreateSlider({Name="Дальность", Function=function(v) range.Value=v end, Min=1, Max=100, Default=100, Round=0})
-    cps = triggerBot:CreateSlider({Name="CPS", Function=function(v) cps.Value=v end, Min=1, Max=30, Default=10, Round=0})
-    aimSpeed = triggerBot:CreateSlider({Name="Скорость наведения", Function=function(v) aimSpeed.Value=v end, Min=1, Max=30, Default=20, Round=0})
-    teamCheck = triggerBot:CreateToggle({Name="Проверка команды", Default=false, Function=function(v) teamCheck.Value=v end})
 end)
 
 -- // Movement tab
@@ -1677,16 +1576,15 @@ runFunction(function()
     local speed = {Value = 180}
     local alpha = {Value = .2}
     local circleRadius = {Value = 2.4}
-    local circleThickness = {Value = .09}
-    local circleGlow = {Value = 1.5}
+    local     local circleGlow = {Value = 1.5}
 
     local target
     local sg
     local img
     local circlePart
-    local circleDecal
+    local circleGui
+    local circleImage
     local circleBloom
-    local circleTrail
 
     local diamonds = {
         ["1"] = "113363639205880",
@@ -1705,8 +1603,8 @@ runFunction(function()
     local function clearCircle()
         if circlePart then pcall(function() circlePart:Destroy() end) end
         circlePart = nil
-        circleDecal = nil
-        circleTrail = nil
+        circleGui = nil
+        circleImage = nil
         -- Bloom is global; remove only the one created by this module.
         if circleBloom then pcall(function() circleBloom:Destroy() end) end
         circleBloom = nil
@@ -1723,48 +1621,37 @@ runFunction(function()
         circlePart.CanTouch = false
         circlePart.CastShadow = false
         circlePart.Transparency = 1
-        circlePart.Size = Vector3.new(0.05, 0.05, 0.05)
+        circlePart.Size = Vector3.new(4.8, 0.04, 4.8)
         circlePart.Parent = workspace
 
-        -- A real 3D horizontal disk carries the supplied circle texture.
-        -- The disk is moved through the entire character height.
-        local mesh = Instance.new("CylinderMesh")
-        mesh.Scale = Vector3.new(2, 0.035, 2)
-        mesh.Parent = circlePart
+        -- The supplied asset is rendered on the actual 3D plane instead of
+        -- being a screen-space Target ESP image. This keeps the ring flat
+        -- like a china-hat and lets it move through the character in world space.
+        circleGui = Instance.new("SurfaceGui")
+        circleGui.Name = "CircleTextureGui"
+        circleGui.Face = Enum.NormalId.Top
+        circleGui.AlwaysOnTop = true
+        circleGui.LightInfluence = 0
+        circleGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+        circleGui.PixelsPerStud = 100
+        circleGui.Parent = circlePart
 
-        circleDecal = Instance.new("Decal")
-        circleDecal.Name = "CircleTexture"
-        circleDecal.Texture = CIRCLE_TEXTURE
-        circleDecal.Face = Enum.NormalId.Top
-        circleDecal.Transparency = alpha.Value
-        circleDecal.Parent = circlePart
+        circleImage = Instance.new("ImageLabel")
+        circleImage.Name = "CircleTexture"
+        circleImage.BackgroundTransparency = 1
+        circleImage.Size = UDim2.fromScale(1, 1)
+        circleImage.Position = UDim2.fromScale(0, 0)
+        circleImage.Image = CIRCLE_TEXTURE
+        circleImage.ImageTransparency = alpha.Value
+        circleImage.ScaleType = Enum.ScaleType.Stretch
+        circleImage.Parent = circleGui
 
-        -- Real post-process glow (Bloom), not transparent duplicate rings.
         circleBloom = Instance.new("BloomEffect")
         circleBloom.Name = "NightixTargetESPCircleBloom"
         circleBloom.Intensity = circleGlow.Value
         circleBloom.Size = 24
-        circleBloom.Threshold = 0.65
+        circleBloom.Threshold = 0.45
         circleBloom.Parent = Lighting
-
-        -- Short-lived particles use the same supplied texture to leave a
-        -- tight trail behind the moving ring. Bloom makes the trail glow.
-        circleTrail = Instance.new("ParticleEmitter")
-        circleTrail.Name = "CircleGlowTrail"
-        circleTrail.Texture = CIRCLE_TEXTURE
-        circleTrail.Rate = 0
-        circleTrail.Speed = NumberRange.new(0, 0)
-        circleTrail.Lifetime = NumberRange.new(.12, .22)
-        circleTrail.SpreadAngle = Vector2.new(0, 0)
-        circleTrail.LockedToPart = true
-        circleTrail.LightEmission = 1
-        circleTrail.LightInfluence = 0
-        circleTrail.Size = NumberSequence.new(1)
-        circleTrail.Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, .35),
-            NumberSequenceKeypoint.new(1, 1)
-        })
-        circleTrail.Parent = circlePart
     end
 
     local function updateCircle(t)
@@ -1775,31 +1662,29 @@ runFunction(function()
 
         local character = target.Character
         local boxCFrame, boxSize = character:GetBoundingBox()
-        local bottomY = boxCFrame.Position.Y - boxSize.Y * .5
-        local topY = boxCFrame.Position.Y + boxSize.Y * .5
-        local height = math.max(.1, topY - bottomY)
+        local bottomY = boxCFrame.Position.Y - boxSize.Y * 0.5 + 0.03
+        local topY = boxCFrame.Position.Y + boxSize.Y * 0.5 - 0.03
+        local height = math.max(0.1, topY - bottomY)
 
         ensureCircle()
 
-        -- Ping-pong from the exact bottom to the exact top and back.
-        local cycle = math.max(.05, speed.Value / 180)
-        local phase = (t * cycle) % 2
+        -- One continuous ping-pong cycle. Smoothstep removes the hard stop
+        -- at the head/feet while still reaching both exact endpoints.
+        local cycleSpeed = math.max(0.05, speed.Value / 180)
+        local phase = (t * cycleSpeed) % 2
         local progress = phase <= 1 and phase or 2 - phase
         local eased = progress * progress * (3 - 2 * progress)
         local y = bottomY + eased * height
 
+        local diameter = math.max(0.5, circleRadius.Value * 2)
+        circlePart.Size = Vector3.new(diameter, 0.04, diameter)
         circlePart.Position = Vector3.new(boxCFrame.Position.X, y, boxCFrame.Position.Z)
-        local diameter = math.max(.1, circleRadius.Value * 2)
-        circlePart.Size = Vector3.new(diameter, .05, diameter)
 
-        if circleDecal then
-            circleDecal.Transparency = math.clamp(alpha.Value, 0, 1)
+        if circleImage then
+            circleImage.ImageTransparency = math.clamp(alpha.Value, 0, 1)
         end
         if circleBloom then
             circleBloom.Intensity = circleGlow.Value
-        end
-        if circleTrail then
-            circleTrail:Emit(1)
         end
     end
 
@@ -1866,7 +1751,7 @@ runFunction(function()
             if on then
                 RunLoops:BindToRenderStep("TargetESP", function()
                     target = findTarget()
-                    if mode.Value == "Circle" then
+                    if mode.Value == "Кольцо (Circle)" then
                         clearScreen()
                         updateCircle(tick())
                     else
@@ -1885,7 +1770,7 @@ runFunction(function()
 
     mode = targetESP:CreateDropdown({
         Name = "Режим",
-        List = {"Ромб", "Circle"},
+        List = {"Ромб", "Кольцо (Circle)"},
         Default = "Ромб",
         Function = function(v)
             mode.Value = v
@@ -1941,350 +1826,6 @@ runFunction(function()
     diamond.Container.Visible = true
     size.Container.Visible = true
     circleRadius.Container.Visible = false
-    circleGlow.Container.Visible = false
-end)
-
-runFunction(function()
-    local targetESP = {Enabled = false}
-    local mode = {Value = "Vortex"}
-    local diamond = {Value = "1"}
-    local size = {Value = 150}
-    local speed = {Value = 180}
-    local alpha = {Value = .2}
-    local circleRadius = {Value = 2.4}
-    local circleThickness = {Value = .09}
-    local circleGlow = {Value = 1.5}
-
-    local target
-    local sg
-    local img
-    local circlePart
-    local circleAttachments = {}
-    local circleBeams = {}
-    local circleBloom
-
-    local diamonds = {
-        ["1"] = "113363639205880",
-        ["2"] = "132493106112220",
-        ["3"] = "108556924043797",
-        ["4"] = "139726405706582"
-    }
-
-    local ids = {
-        Vortex = "113363639205880",
-        Garland = "77939595216474",
-        Brackets = "113363639205880",
-        Ghosts = "5538771868",
-        Default = "77939595216474"
-    }
-
-    local function clearScreen()
-        if sg then
-            pcall(function() sg:Destroy() end)
-            sg = nil
-            img = nil
-        end
-    end
-
-    local function clearCircle()
-        for _, beam in ipairs(circleBeams) do
-            pcall(function() beam:Destroy() end)
-        end
-        table.clear(circleBeams)
-
-        for _, attachment in ipairs(circleAttachments) do
-            pcall(function() attachment:Destroy() end)
-        end
-        table.clear(circleAttachments)
-
-        if circlePart then
-            pcall(function() circlePart:Destroy() end)
-            circlePart = nil
-        end
-
-        if circleBloom then
-            pcall(function() circleBloom:Destroy() end)
-            circleBloom = nil
-        end
-    end
-
-    local function ensureCircle()
-        if circlePart and circlePart.Parent then
-            return
-        end
-
-        circlePart = Instance.new("Part")
-        circlePart.Name = "NightixTargetESPCircle"
-        circlePart.Anchored = true
-        circlePart.CanCollide = false
-        circlePart.CanQuery = false
-        circlePart.CanTouch = false
-        circlePart.Transparency = 1
-        circlePart.Size = Vector3.new(0.1, 0.1, 0.1)
-        circlePart.Parent = workspace
-
-        local segments = 48
-        for i = 1, segments do
-            local attachment = Instance.new("Attachment")
-            attachment.Name = "CircleAttachment"
-            attachment.Parent = circlePart
-            circleAttachments[i] = attachment
-        end
-
-        for i = 1, segments do
-            local nextIndex = (i % segments) + 1
-            local beam = Instance.new("Beam")
-            beam.Name = "TargetESPCircleBeam"
-            beam.Attachment0 = circleAttachments[i]
-            beam.Attachment1 = circleAttachments[nextIndex]
-            beam.FaceCamera = true
-            beam.LightEmission = 1
-            beam.LightInfluence = 0
-            beam.Segments = 2
-            beam.Width0 = circleThickness.Value
-            beam.Width1 = circleThickness.Value
-            beam.Transparency = NumberSequence.new(0.05)
-            beam.Color = ColorSequence.new(Color3.fromRGB(255, 255, 255))
-            beam.Parent = circlePart
-            circleBeams[i] = beam
-        end
-
-        -- One post-process bloom for the ring itself. This is real glow,
-        -- rather than stacking transparent copies of the circle texture.
-        circleBloom = Instance.new("BloomEffect")
-        circleBloom.Name = "NightixTargetESPCircleBloom"
-        circleBloom.Intensity = circleGlow.Value
-        circleBloom.Size = 24
-        circleBloom.Threshold = 0.65
-        circleBloom.Parent = Lighting
-    end
-
-    local function updateCircle(t)
-        if not target or not isAlive(target) or not target.Character then
-            clearCircle()
-            return
-        end
-
-        local character = target.Character
-        local boxCFrame, boxSize = character:GetBoundingBox()
-        local bottomY = boxCFrame.Position.Y - (boxSize.Y * 0.5)
-        local topY = boxCFrame.Position.Y + (boxSize.Y * 0.5)
-        local height = math.max(0.1, topY - bottomY)
-
-        ensureCircle()
-
-        local progress = (t * (math.max(0, speed.Value) / 180)) % 2
-        if progress > 1 then
-            progress = 2 - progress
-        end
-
-        -- Smoothstep: starts at the very bottom of the character and
-        -- finishes at the very top without the abrupt vertical jump.
-        local eased = progress * progress * (3 - 2 * progress)
-        local y = bottomY + eased * height
-        local center = Vector3.new(boxCFrame.Position.X, y, boxCFrame.Position.Z)
-        circlePart.Position = center
-
-        local radius = math.max(0.1, circleRadius.Value)
-        local segments = #circleAttachments
-        for i, attachment in ipairs(circleAttachments) do
-            local angle = ((i - 1) / segments) * math.pi * 2
-            attachment.Position = Vector3.new(
-                math.cos(angle) * radius,
-                0,
-                math.sin(angle) * radius
-            )
-        end
-
-        for _, beam in ipairs(circleBeams) do
-            beam.Width0 = circleThickness.Value
-            beam.Width1 = circleThickness.Value
-            beam.Transparency = NumberSequence.new(math.clamp(alpha.Value * 0.45, 0, 0.95))
-        end
-
-        if circleBloom then
-            circleBloom.Intensity = circleGlow.Value
-        end
-    end
-
-    local function updateScreen()
-        if not target or not isAlive(target) then
-            clearScreen()
-            return
-        end
-
-        if not sg then
-            sg = Instance.new("ScreenGui")
-            sg.Name = "NightixTargetESP"
-            sg.IgnoreGuiInset = true
-            sg.ResetOnSpawn = false
-            sg.Parent = CoreGui
-
-            img = Instance.new("ImageLabel")
-            img.Name = "TargetImage"
-            img.AnchorPoint = Vector2.new(.5, .5)
-            img.BackgroundTransparency = 1
-            img.Parent = sg
-        end
-
-        local anchor = target.Character:FindFirstChild("Head") or getHumanoidRootPart(target)
-        if not anchor then
-            img.Visible = false
-            return
-        end
-
-        local pos, onScreen = Camera:WorldToViewportPoint(anchor.Position)
-        img.Visible = onScreen
-        if not onScreen then
-            return
-        end
-
-        img.Size = UDim2.fromOffset(size.Value, size.Value)
-        img.Position = UDim2.fromOffset(pos.X, pos.Y)
-        img.Image = "rbxassetid://" .. (mode.Value == "Ромб" and diamonds[diamond.Value] or ids[mode.Value] or ids.Default)
-        img.ImageTransparency = alpha.Value
-        img.Rotation = (tick() * speed.Value) % 360
-    end
-
-    local function findTarget()
-        local auraTarget = shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget()
-        if auraTarget and isAlive(auraTarget) then
-            return auraTarget
-        end
-
-        local me = getHumanoidRootPart(LocalPlayer)
-        if not me then return end
-
-        local best, bestDistance = nil, math.huge
-        for _, player in ipairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and isAlive(player) then
-                local root = getHumanoidRootPart(player)
-                if root then
-                    local distance = (root.Position - me.Position).Magnitude
-                    if distance < bestDistance then
-                        best, bestDistance = player, distance
-                    end
-                end
-            end
-        end
-        return best
-    end
-
-    targetESP = Tabs.Render:CreateToggle({
-        Name = "Target ESP",
-        HoverText = "Показывает эффект на цели.",
-        Callback = function(on)
-            if on then
-                RunLoops:BindToRenderStep("TargetESP", function()
-                    target = findTarget()
-                    if mode.Value == "Circle" then
-                        clearScreen()
-                        updateCircle(tick())
-                    else
-                        clearCircle()
-                        updateScreen()
-                    end
-                end)
-            else
-                RunLoops:UnbindFromRenderStep("TargetESP")
-                clearScreen()
-                clearCircle()
-                target = nil
-            end
-        end
-    })
-
-    -- Create the dependent option first. The old code accessed
-    -- diamond.Container before the dropdown existed, which caused the
-    -- exact nil.Visible error from the screenshot and stopped the rest
-    -- of the Target ESP settings from being created.
-    diamond = targetESP:CreateDropdown({
-        Name = "Вариант ромба",
-        List = {"1", "2", "3", "4"},
-        Default = "1",
-        Function = function(v)
-            diamond.Value = v
-        end
-    })
-
-    mode = targetESP:CreateDropdown({
-        Name = "Режим",
-        List = {"Vortex", "Garland", "Brackets", "Ghosts", "Default", "Ромб", "Circle"},
-        Default = "Vortex",
-        Function = function(v)
-            mode.Value = v
-            if diamond.Container1 then
-                diamond.Container1.Visible = v == "Ромб"
-            end
-            if circleRadius.Container then circleRadius.Container.Visible = v == "Circle" end
-            if circleThickness.Container then circleThickness.Container.Visible = v == "Circle" end
-            if circleGlow.Container then circleGlow.Container.Visible = v == "Circle" end
-        end
-    })
-
-    diamond.Container1.Visible = false
-
-    size = targetESP:CreateSlider({
-        Name = "Размер",
-        Function = function(v) size.Value = v end,
-        Min = 60,
-        Max = 300,
-        Default = 150,
-        Round = 0
-    })
-
-    speed = targetESP:CreateSlider({
-        Name = "Скорость",
-        Function = function(v) speed.Value = v end,
-        Min = 0,
-        Max = 720,
-        Default = 180,
-        Round = 0
-    })
-
-    alpha = targetESP:CreateSlider({
-        Name = "Прозрачность",
-        Function = function(v) alpha.Value = v end,
-        Min = 0,
-        Max = 1,
-        Default = .2,
-        Round = 2
-    })
-
-    circleRadius = targetESP:CreateSlider({
-        Name = "Радиус круга",
-        Function = function(v) circleRadius.Value = v end,
-        Min = 1,
-        Max = 5,
-        Default = 2.4,
-        Round = 1
-    })
-
-    circleThickness = targetESP:CreateSlider({
-        Name = "Толщина круга",
-        Function = function(v) circleThickness.Value = v end,
-        Min = 0.02,
-        Max = 0.3,
-        Default = .09,
-        Round = 2
-    })
-
-    circleGlow = targetESP:CreateSlider({
-        Name = "Свечение круга",
-        Function = function(v)
-            circleGlow.Value = v
-            if circleBloom then
-                circleBloom.Intensity = v
-            end
-        end,
-        Min = 0,
-        Max = 5,
-        Default = 1.5,
-        Round = 1
-    })
-
-    circleRadius.Container.Visible = false
-    circleThickness.Container.Visible = false
     circleGlow.Container.Visible = false
 end)
 
