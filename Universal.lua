@@ -508,12 +508,190 @@ end
 -- // Combat tab
 runFunction(function()
     local attackAura={Enabled=false}; local range={Value=100}; local cps={Value=8}; local aimPart={Value="Голова"}; local teamCheck={Value=false}; local silentRotate={Value=true}; local fov={Value=360}; local aimSpeed={Value=12}; local currentTarget=nil; local oldAutoRotate=true
-    local function valid(plr) if not plr or plr==LocalPlayer or not isAlive(plr) or not isAlive() then return false end; if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team==LocalPlayer.Team then return false end; local r=getHumanoidRootPart(plr); local mr=getHumanoidRootPart(LocalPlayer); local h=getHumanoid(plr); return r and mr and h and h.Health>0 and (r.Position-mr.Position).Magnitude<=range.Value end
-    local function part(plr) local c=getCharacter(plr); return c and (c:FindFirstChild(aimPart.Value=="Голова" and "Head" or "HumanoidRootPart") or c:FindFirstChild("HumanoidRootPart")) end
-    local function acquire() local mr=getHumanoidRootPart(LocalPlayer); if not mr then return nil end; local best,score=nil,math.huge; local mousePos=UserInputService:GetMouseLocation(); for _,plr in ipairs(Players:GetPlayers()) do if valid(plr) then local a=part(plr); if a then local sp,on=Camera:WorldToViewportPoint(a.Position); local d=(a.Position-mr.Position).Magnitude; if on and d<=range.Value then local sd=(Vector2.new(sp.X,sp.Y)-mousePos).Magnitude; if sd<=fov.Value then local sc=sd+d*.15; if sc<score then best,score=plr,sc end end end end end end; return best end
-    local function aim(plr,dt) if not silentRotate.Value or not valid(plr) then return end; local r=getHumanoidRootPart(LocalPlayer); local a=part(plr); if not r or not a then return end; local flat=Vector3.new(a.Position.X-r.Position.X,0,a.Position.Z-r.Position.Z); if flat.Magnitude<.001 then return end; local targetYaw=math.atan2(-flat.X,-flat.Z); local _,yaw,_=r.CFrame:ToOrientation(); local diff=math.atan2(math.sin(targetYaw-yaw),math.cos(targetYaw-yaw)); local step=math.rad(math.max(1,aimSpeed.Value)*90)*math.max(dt or 1/60,1/240); r.CFrame=CFrame.new(r.Position)*CFrame.Angles(0,yaw+math.clamp(diff,-step,step),0) end
-    attackAura=Tabs.Combat:CreateToggle({Name="AttackAura",HoverText="Автоматически наводится на цель и атакует ЛКМ.",Callback=function(on) if on then local h=getHumanoid(LocalPlayer); oldAutoRotate=h and h.AutoRotate or true; if h then h.AutoRotate=false end; currentTarget=nil; RunLoops:BindToRenderStep("AttackAuraAim",function(dt) if attackAura.Enabled then if not valid(currentTarget) then currentTarget=acquire() end; if currentTarget then aim(currentTarget,dt) end end end); local lastClick=0; RunLoops:BindToHeartbeat("AttackAuraClick",function() if attackAura.Enabled and currentTarget and valid(currentTarget) and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() and mouse1click then local now=tick(); if now-lastClick>=1/math.max(1,cps.Value) then lastClick=now; pcall(mouse1click) end end end) else RunLoops:UnbindFromRenderStep("AttackAuraAim"); RunLoops:UnbindFromHeartbeat("AttackAuraClick"); currentTarget=nil; local h=getHumanoid(LocalPlayer); if h then h.AutoRotate=oldAutoRotate end end end})
-    range=attackAura:CreateSlider({Name="Дальность",Function=function() end,Min=1,Max=100,Default=100,Round=0}); cps=attackAura:CreateSlider({Name="CPS",Function=function() end,Min=1,Max=30,Default=8,Round=0}); fov=attackAura:CreateSlider({Name="FOV",Function=function() end,Min=10,Max=360,Default=360,Round=0}); aimSpeed=attackAura:CreateSlider({Name="Скорость наведения",Function=function() end,Min=1,Max=30,Default=12,Round=0}); aimPart=attackAura:CreateDropdown({Name="Часть наведения",Function=function() end,List={"Голова","Тело"},Default="Голова"}); teamCheck=attackAura:CreateToggle({Name="Проверка команды",Default=false,Function=function() end}); silentRotate=attackAura:CreateToggle({Name="Без поворота камеры",Default=true,Function=function() end}); shared.NightixAttackAuraTarget=function() return currentTarget end
+
+    local function valid(plr)
+        if not plr or plr==LocalPlayer or not isAlive(plr) or not isAlive() then return false end
+        if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team==LocalPlayer.Team then return false end
+        local r=getHumanoidRootPart(plr); local mr=getHumanoidRootPart(LocalPlayer); local h=getHumanoid(plr)
+        return r and mr and h and h.Health>0 and (r.Position-mr.Position).Magnitude<=range.Value
+    end
+
+    local function part(plr)
+        local c=getCharacter(plr)
+        return c and (c:FindFirstChild(aimPart.Value=="Голова" and "Head" or "HumanoidRootPart") or c:FindFirstChild("HumanoidRootPart"))
+    end
+
+    local function acquire()
+        local mr=getHumanoidRootPart(LocalPlayer)
+        if not mr then return nil end
+        local best,score=nil,math.huge
+        local mousePos=UserInputService:GetMouseLocation()
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if valid(plr) then
+                local a=part(plr)
+                if a then
+                    local sp,on=Camera:WorldToViewportPoint(a.Position)
+                    local d=(a.Position-mr.Position).Magnitude
+                    if on and d<=range.Value then
+                        local sd=(Vector2.new(sp.X,sp.Y)-mousePos).Magnitude
+                        if sd<=fov.Value then
+                            local sc=sd+d*.15
+                            if sc<score then best,score=plr,sc end
+                        end
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    -- Roblox games commonly register a real weapon swing through Tool:Activate().
+    -- Prefer that path and only fall back to the executor mouse helper when needed.
+    local function performAttack()
+        local character=getCharacter(LocalPlayer)
+        if character then
+            local tool=character:FindFirstChildOfClass("Tool")
+            if tool then
+                local ok=pcall(function() tool:Activate() end)
+                if ok then return true end
+            end
+        end
+        if mouse1click then
+            return pcall(mouse1click)
+        end
+        return false
+    end
+
+    local function aim(plr,dt)
+        if not valid(plr) then return end
+        local r=getHumanoidRootPart(LocalPlayer); local a=part(plr)
+        if not r or not a then return end
+        local flat=Vector3.new(a.Position.X-r.Position.X,0,a.Position.Z-r.Position.Z)
+        if flat.Magnitude<.001 then return end
+        local targetYaw=math.atan2(-flat.X,-flat.Z)
+        local _,yaw,_=r.CFrame:ToOrientation()
+        local diff=math.atan2(math.sin(targetYaw-yaw),math.cos(targetYaw-yaw))
+        local step=math.rad(math.max(1,aimSpeed.Value)*90)*math.max(dt or 1/60,1/240)
+        r.CFrame=CFrame.new(r.Position)*CFrame.Angles(0,yaw+math.clamp(diff,-step,step),0)
+
+        -- When requested, rotate the camera too. With "Без поворота камеры"
+        -- enabled the character is still aimed, but the player's view is kept.
+        if not silentRotate.Value then
+            local camPos=Camera.CFrame.Position
+            Camera.CFrame=CFrame.lookAt(camPos,a.Position)
+        end
+    end
+
+    attackAura=Tabs.Combat:CreateToggle({
+        Name="AttackAura",
+        HoverText="Автоматически наводится на цель и атакует.",
+        Callback=function(on)
+            if on then
+                local h=getHumanoid(LocalPlayer)
+                oldAutoRotate=h and h.AutoRotate or true
+                if h then h.AutoRotate=false end
+                currentTarget=nil
+
+                RunLoops:BindToRenderStep("AttackAuraAim",function(dt)
+                    if not attackAura.Enabled then return end
+                    if not valid(currentTarget) then currentTarget=acquire() end
+                    if currentTarget then aim(currentTarget,dt) end
+                end)
+
+                local lastClick=0
+                RunLoops:BindToHeartbeat("AttackAuraClick",function()
+                    if not attackAura.Enabled or not currentTarget or not valid(currentTarget) then return end
+                    if GuiLibrary.Toggled or UserInputService:GetFocusedTextBox() then return end
+                    local now=tick()
+                    if now-lastClick>=1/math.max(1,cps.Value) then
+                        lastClick=now
+                        performAttack()
+                    end
+                end)
+            else
+                RunLoops:UnbindFromRenderStep("AttackAuraAim")
+                RunLoops:UnbindFromHeartbeat("AttackAuraClick")
+                currentTarget=nil
+                local h=getHumanoid(LocalPlayer)
+                if h then h.AutoRotate=oldAutoRotate end
+            end
+        end
+    })
+
+    range=attackAura:CreateSlider({Name="Дальность",Function=function() end,Min=1,Max=100,Default=100,Round=0})
+    cps=attackAura:CreateSlider({Name="CPS",Function=function() end,Min=1,Max=30,Default=8,Round=0})
+    fov=attackAura:CreateSlider({Name="FOV",Function=function() end,Min=10,Max=360,Default=360,Round=0})
+    aimSpeed=attackAura:CreateSlider({Name="Скорость наведения",Function=function() end,Min=1,Max=30,Default=12,Round=0})
+    aimPart=attackAura:CreateDropdown({Name="Часть наведения",Function=function() end,List={"Голова","Тело"},Default="Голова"})
+    teamCheck=attackAura:CreateToggle({Name="Проверка команды",Default=false,Function=function() end})
+    silentRotate=attackAura:CreateToggle({Name="Без поворота камеры",Default=true,Function=function() end})
+
+    -- TriggerBot: acquire the player under the crosshair, aim the character at
+    -- that target, then activate the equipped weapon. This fixes the old case
+    -- where a click was generated but the weapon was not actually swung.
+    local triggerBot={Enabled=false}; local triggerFov={Value=25}; local triggerDelay={Value=0.08}; local triggerAimSpeed={Value=18}; local triggerTarget=nil
+
+    local function getCrosshairTarget()
+        local me=getHumanoidRootPart(LocalPlayer)
+        if not me then return nil end
+        local mousePos=UserInputService:GetMouseLocation()
+        local best,bestScore=nil,math.huge
+        for _,plr in ipairs(Players:GetPlayers()) do
+            if valid(plr) then
+                local a=part(plr)
+                if a then
+                    local screen,on=Camera:WorldToViewportPoint(a.Position)
+                    if on then
+                        local d=(Vector2.new(screen.X,screen.Y)-mousePos).Magnitude
+                        if d<=triggerFov.Value and d<bestScore then
+                            best,bestScore=plr,d
+                        end
+                    end
+                end
+            end
+        end
+        return best
+    end
+
+    triggerBot=Tabs.Combat:CreateToggle({
+        Name="TriggerBot",
+        HoverText="Наводится на цель под прицелом и атакует.",
+        Callback=function(on)
+            if on then
+                triggerTarget=nil
+                RunLoops:BindToRenderStep("TriggerBotAim",function(dt)
+                    if not triggerBot.Enabled then return end
+                    if not valid(triggerTarget) then triggerTarget=getCrosshairTarget() end
+                    if triggerTarget then
+                        local old=aimSpeed.Value
+                        aimSpeed.Value=triggerAimSpeed.Value
+                        aim(triggerTarget,dt)
+                        aimSpeed.Value=old
+                    end
+                end)
+
+                local lastAttack=0
+                RunLoops:BindToHeartbeat("TriggerBotAttack",function()
+                    if not triggerBot.Enabled or not triggerTarget or not valid(triggerTarget) then return end
+                    if GuiLibrary.Toggled or UserInputService:GetFocusedTextBox() then return end
+                    local now=tick()
+                    if now-lastAttack>=triggerDelay.Value then
+                        lastAttack=now
+                        performAttack()
+                    end
+                end)
+            else
+                RunLoops:UnbindFromRenderStep("TriggerBotAim")
+                RunLoops:UnbindFromHeartbeat("TriggerBotAttack")
+                triggerTarget=nil
+            end
+        end
+    })
+
+    triggerFov=triggerBot:CreateSlider({Name="FOV",Function=function() end,Min=1,Max=120,Default=25,Round=0})
+    triggerDelay=triggerBot:CreateSlider({Name="Задержка удара",Function=function() end,Min=0.03,Max=0.5,Default=0.08,Round=2})
+    triggerAimSpeed=triggerBot:CreateSlider({Name="Скорость наведения",Function=function() end,Min=1,Max=30,Default=18,Round=0})
+    shared.NightixAttackAuraTarget=function() return currentTarget end
 end)
 
 -- // Movement tab

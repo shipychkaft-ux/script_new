@@ -3263,7 +3263,12 @@ function guilibrary:CreateWindow()
             end))
             
             function ToggleTable:Toggle(silent, bool)
-                bool = bool or (not ToggleTable.Enabled)
+                -- `false` is a valid explicit state. The old `bool or ...`
+                -- expression converted false back into true, which made
+                -- programmatic/keybind disables unreliable.
+                if bool == nil then
+                    bool = not ToggleTable.Enabled
+                end
                 if bool == ToggleTable.Enabled then return end
                 silent = silent or false
                 ToggleTable.Enabled = bool
