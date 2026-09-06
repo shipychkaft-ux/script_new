@@ -598,7 +598,7 @@ runFunction(function()
                 local h = getHumanoid(LocalPlayer)
                 oldAutoRotate = h and h.AutoRotate or true
                 if h then h.AutoRotate = false end
-                currentTarget = nil
+                currentTarget = acquire()
 
                 RunLoops:BindToRenderStep("AttackAuraAim", function(dt)
                     if not attackAura.Enabled then return end
@@ -612,7 +612,9 @@ runFunction(function()
 
                 local lastClick = 0
                 RunLoops:BindToHeartbeat("AttackAuraClick", function()
-                    if attackAura.Enabled and currentTarget and valid(currentTarget)
+                    if not attackAura.Enabled then return end
+                    if not valid(currentTarget) then currentTarget = acquire() end
+                    if currentTarget and valid(currentTarget)
                         and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() then
                         local now = tick()
                         if now - lastClick >= 1 / math.max(1, cps.Value) then
@@ -1268,7 +1270,7 @@ runFunction(function()
     local lastPos
     --local objects = {}
     breadcrumbs = Tabs.Render:CreateToggle({
-        Name = "Breadcrumbs",
+        Name = "Trail",
         HoverText = "Creates a trail behind you.",
         Callback = function(callback)
             if callback then
@@ -1562,216 +1564,44 @@ end)
 
 -- Target ESP: synchronized strictly with AttackAura.
 runFunction(function()
-    local targetESP = {Enabled = false}
-    local mode = {Value = "Ромб"}
-    local diamond = {Value = "1"}
-    local size = {Value = 150}
-    local speed = {Value = 180}
-    local alpha = {Value = 0.2}
-    local color = {Value = Color3.fromRGB(123, 131, 243)}
-    local circleVariant = {Value = "1"}
-    local circleRadius = {Value = 2.4}
-
-    local target
-    local sg, img
-    local circlePart, circleDecal
-
-    local diamonds = {
-        ["1"] = "113363639205880",
-        ["2"] = "132493106112220",
-        ["3"] = "108556924043797",
-        ["4"] = "139726405706582"
-    }
-
-    local circleTextures = {
-        ["1"] = "107258187506657",
-        ["2"] = "88864906064603",
-        ["3"] = "127001857631043",
-        ["4"] = "107258187506657"
-    }
-
-    local function clearScreen()
-        if sg then pcall(function() sg:Destroy() end) end
-        sg, img = nil, nil
-    end
-
-    local function clearCircle()
-        if circlePart then pcall(function() circlePart:Destroy() end) end
-        circlePart, circleDecal = nil, nil
-    end
-
+    local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
+    local target; local billboard; local img; local circlePart; local circleDecal
+    local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
+    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
+    local function clearDiamond() if billboard then billboard:Destroy(); billboard=nil; img=nil end end
+    local function clearCircle() if circlePart then circlePart:Destroy(); circlePart=nil; circleDecal=nil end end
     local function ensureCircle()
         if circlePart and circlePart.Parent then return end
-        circlePart = Instance.new("Part")
-        circlePart.Name = "NightixTargetESPCircle"
-        circlePart.Anchored = true
-        circlePart.CanCollide = false
-        circlePart.CanQuery = false
-        circlePart.CanTouch = false
-        circlePart.CastShadow = false
-        circlePart.Transparency = 1
-        circlePart.Size = Vector3.new(0.05, 0.05, 0.05)
-        circlePart.Parent = workspace
-
-        -- Original 3D circle construction: a real horizontal disk with the
-        -- supplied texture, moved through the target's exact body height.
-        local mesh = Instance.new("CylinderMesh")
-        mesh.Scale = Vector3.new(2, 0.035, 2)
-        mesh.Parent = circlePart
-
-        circleDecal = Instance.new("Decal")
-        circleDecal.Name = "CircleTexture"
-        circleDecal.Face = Enum.NormalId.Top
-        circleDecal.Parent = circlePart
+        circlePart=Instance.new("Part"); circlePart.Name="NightixTargetESPCircle"; circlePart.Anchored=true; circlePart.CanCollide=false; circlePart.CanQuery=false; circlePart.CanTouch=false; circlePart.CastShadow=false; circlePart.Transparency=1; circlePart.Size=Vector3.new(.05,.05,.05); circlePart.Parent=workspace
+        local mesh=Instance.new("CylinderMesh"); mesh.Scale=Vector3.new(2,.035,2); mesh.Parent=circlePart
+        circleDecal=Instance.new("Decal"); circleDecal.Name="CircleTexture"; circleDecal.Face=Enum.NormalId.Top; circleDecal.Parent=circlePart
     end
-
     local function updateCircle(t)
-        if not target or not isAlive(target) or not target.Character then
-            clearCircle()
-            return
-        end
-
-        local character = target.Character
-        local boxCFrame, boxSize = character:GetBoundingBox()
-        local bottomY = boxCFrame.Position.Y - boxSize.Y * 0.5
-        local topY = boxCFrame.Position.Y + boxSize.Y * 0.5
-        local height = math.max(0.1, topY - bottomY)
-
-        ensureCircle()
-        local cycle = math.max(0.05, speed.Value / 180)
-        local phase = (t * cycle) % 2
-        local progress = phase <= 1 and phase or 2 - phase
-        local eased = progress * progress * (3 - 2 * progress)
-        local y = bottomY + eased * height
-
-        circlePart.Position = Vector3.new(boxCFrame.Position.X, y, boxCFrame.Position.Z)
-        local diameter = math.max(0.1, circleRadius.Value * 2)
-        circlePart.Size = Vector3.new(diameter, 0.05, diameter)
-
-        local texture = circleTextures[circleVariant.Value] or circleTextures["1"]
-        circleDecal.Texture = "rbxassetid://" .. texture
-        circleDecal.Transparency = math.clamp(alpha.Value, 0, 1)
-        circleDecal.Color3 = color.Value
+        if not target or not isAlive(target) or not target.Character then clearCircle(); return end
+        local cf,bs=target.Character:GetBoundingBox(); local bottom=cf.Position.Y-bs.Y*.5; local top=cf.Position.Y+bs.Y*.5; ensureCircle()
+        local phase=(t*math.max(.05,speed.Value/180))%2; local p=phase<=1 and phase or 2-phase; local e=p*p*(3-2*p)
+        circlePart.Position=Vector3.new(cf.Position.X,bottom+e*(top-bottom),cf.Position.Z); circleDecal.Texture="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"]); circleDecal.Transparency=math.clamp(alpha.Value,0,1); circleDecal.Color3=color.Value
     end
-
-    local function updateScreen()
-        if not target or not isAlive(target) then
-            clearScreen()
-            return
+    local function updateDiamond()
+        if not target or not isAlive(target) then if billboard then billboard.Enabled=false end; return end
+        local c=target.Character; local anchor=c and (c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso") or getHumanoidRootPart(target)); if not anchor then if billboard then billboard.Enabled=false end; return end
+        if not billboard then
+            billboard=Instance.new("BillboardGui"); billboard.Name="NightixTargetESP"; billboard.AlwaysOnTop=true; billboard.LightInfluence=0; billboard.Size=UDim2.fromOffset(size.Value,size.Value); billboard.StudsOffset=Vector3.new(0,0,0); billboard.MaxDistance=1000; billboard.ResetOnSpawn=false; billboard.Parent=CoreGui
+            img=Instance.new("ImageLabel"); img.Name="TargetDiamond"; img.AnchorPoint=Vector2.new(.5,.5); img.Position=UDim2.fromScale(.5,.5); img.Size=UDim2.fromScale(1,1); img.BackgroundTransparency=1; img.ScaleType=Enum.ScaleType.Fit; img.Parent=billboard
         end
-
-        if not sg then
-            sg = Instance.new("ScreenGui")
-            sg.Name = "NightixTargetESP"
-            sg.IgnoreGuiInset = true
-            sg.ResetOnSpawn = false
-            sg.Parent = CoreGui
-            img = Instance.new("ImageLabel")
-            img.Name = "TargetDiamond"
-            img.AnchorPoint = Vector2.new(0.5, 0.5)
-            img.BackgroundTransparency = 1
-            img.Parent = sg
-        end
-
-        local character = target.Character
-        -- Diamond belongs on the body, not the head.
-        local anchor = character and (
-            character:FindFirstChild("UpperTorso") or
-            character:FindFirstChild("Torso") or
-            getHumanoidRootPart(target)
-        )
-        if not anchor then
-            img.Visible = false
-            return
-        end
-
-        local pos, onScreen = Camera:WorldToViewportPoint(anchor.Position)
-        img.Visible = onScreen
-        if not onScreen then return end
-        img.Size = UDim2.fromOffset(size.Value, size.Value)
-        img.Position = UDim2.fromOffset(pos.X, pos.Y)
-        img.Image = "rbxassetid://" .. (diamonds[diamond.Value] or diamonds["1"])
-        img.ImageColor3 = color.Value
-        img.ImageTransparency = math.clamp(alpha.Value, 0, 1)
-        img.Rotation = (tick() * speed.Value) % 360
+        billboard.Adornee=anchor; billboard.Enabled=true; billboard.Size=UDim2.fromOffset(size.Value,size.Value); img.Image="rbxassetid://"..(diamonds[diamond.Value] or diamonds["1"]); img.ImageColor3=color.Value; img.ImageTransparency=math.clamp(alpha.Value,0,1); img.Rotation=(tick()*speed.Value)%360
     end
-
-    local function findAuraTarget()
-        local auraTarget = shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget()
-        if auraTarget and isAlive(auraTarget) then return auraTarget end
-        return nil
-    end
-
-    local function setVisibility(control, value)
-        if control and control.Container then
-            control.Container.Visible = value
-        end
-    end
-
-    targetESP = Tabs.Render:CreateToggle({
-        Name = "Target ESP",
-        HoverText = "Показывает ESP только на текущей цели AttackAura.",
-        Callback = function(on)
-            if on then
-                RunLoops:BindToRenderStep("TargetESP", function()
-                    target = findAuraTarget()
-                    if mode.Value == "Circle" then
-                        clearScreen()
-                        updateCircle(tick())
-                    else
-                        clearCircle()
-                        updateScreen()
-                    end
-                end)
-            else
-                RunLoops:UnbindFromRenderStep("TargetESP")
-                clearScreen()
-                clearCircle()
-                target = nil
-            end
-        end
-    })
-
-    mode = targetESP:CreateDropdown({
-        Name = "Режим",
-        List = {"Ромб", "Circle"},
-        Default = "Ромб",
-        Function = function(v)
-            mode.Value = v
-            setVisibility(diamond, v == "Ромб")
-            setVisibility(size, v == "Ромб")
-            setVisibility(circleVariant, v == "Circle")
-            setVisibility(circleRadius, v == "Circle")
-        end
-    })
-
-    diamond = targetESP:CreateDropdown({
-        Name = "Ромб",
-        List = {"1", "2", "3", "4"},
-        Default = "1",
-        Function = function(v) diamond.Value = v end
-    })
-
-    size = targetESP:CreateSlider({Name = "Размер ромба", Function = function(v) size.Value = v end, Min = 60, Max = 300, Default = 150, Round = 0})
-    speed = targetESP:CreateSlider({Name = "Скорость", Function = function(v) speed.Value = v end, Min = 0, Max = 720, Default = 180, Round = 0})
-    alpha = targetESP:CreateSlider({Name = "Прозрачность", Function = function(v) alpha.Value = v end, Min = 0, Max = 1, Default = 0.2, Round = 2})
-    color = targetESP:CreateColorSlider({
-        Name = "Цвет Target ESP",
-        Default = Color3.fromRGB(123, 131, 243),
-        Function = function(v) color.Value = v end
-    })
-    circleVariant = targetESP:CreateDropdown({
-        Name = "Вариант круга",
-        List = {"1", "2", "3", "4"},
-        Default = "1",
-        Function = function(v) circleVariant.Value = v; clearCircle() end
-    })
-    circleRadius = targetESP:CreateSlider({Name = "Радиус круга", Function = function(v) circleRadius.Value = v end, Min = 1, Max = 5, Default = 2.4, Round = 1})
-
-    setVisibility(diamond, true)
-    setVisibility(size, true)
-    setVisibility(circleVariant, false)
-    setVisibility(circleRadius, false)
+    local function findAuraTarget() local t=shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget(); return (t and isAlive(t)) and t or nil end
+    local function vis(x,v) if x and x.Container then x.Container.Visible=v end end
+    targetESP=Tabs.Render:CreateToggle({Name="Target ESP",HoverText="Показывает ESP только на текущей цели AttackAura.",Callback=function(on) if on then RunLoops:BindToRenderStep("TargetESP",function() target=findAuraTarget(); if mode.Value=="Circle" then clearDiamond(); updateCircle(tick()) else clearCircle(); updateDiamond() end end) else RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); target=nil end end})
+    mode=targetESP:CreateDropdown({Name="Режим",List={"Ромб","Circle"},Default="Ромб",Function=function(v) mode.Value=v; vis(diamond,v=="Ромб"); vis(size,v=="Ромб"); vis(circleVariant,v=="Circle") end})
+    diamond=targetESP:CreateDropdown({Name="Ромб",List={"1","2","3","4"},Default="1",Function=function(v) diamond.Value=v end})
+    size=targetESP:CreateSlider({Name="Размер ромба",Min=60,Max=300,Default=150,Round=0,Function=function(v) size.Value=v end})
+    speed=targetESP:CreateSlider({Name="Скорость",Min=0,Max=720,Default=180,Round=0,Function=function(v) speed.Value=v end})
+    alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
+    color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
+    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
+    vis(diamond,true); vis(size,true); vis(circleVariant,false)
 end)
 
 runFunction(function()
@@ -2190,6 +2020,19 @@ runFunction(function()
     })
 end)
 
+runFunction(function()
+    local particles={Enabled=false}; local fallSpeed={Value=15}; local particleSize={Value=1}; local randomize={Value=false}; local particleCount={Value=100}; local renderDistance={Value=80}; local style={Value="Snowflake"}; local part,effect
+    local textures={Snowflake="124817818052929",Genshin="137041927888173",Star="125468853085498"}
+    local function configure() if not effect or not part then return end; local d=math.max(10,renderDistance.Value); part.Size=Vector3.new(d*2,d*.75,d*2); effect.Texture="rbxassetid://"..textures[style.Value]; effect.Speed=NumberRange.new(fallSpeed.Value*.9,fallSpeed.Value*1.1); effect.Size=NumberSequence.new(particleSize.Value); effect.EmissionDirection=Enum.NormalId.Bottom; effect.SpreadAngle=randomize.Value and Vector2.new(85,85) or Vector2.new(0,0); effect.Lifetime=NumberRange.new(math.max(1,d/math.max(1,fallSpeed.Value)),math.max(1.1,d/math.max(1,fallSpeed.Value)+1)); effect.Rate=math.max(1,math.floor(particleCount.Value/2)) end
+    particles=Tabs.Render:CreateToggle({Name="Particles",HoverText="Визуальные частицы вокруг игрока.",Callback=function(on) if on then local h=getHead(); if not h then return end; part=Instance.new("Part"); part.Name="NightixParticles"; part.Transparency=1; part.Anchored=true; part.CanCollide=false; part.CanQuery=false; part.CanTouch=false; part.CastShadow=false; part.CFrame=CFrame.new(h.Position); part.Parent=workspace; effect=Instance.new("ParticleEmitter"); effect.Parent=part; configure(); effect.Rate=0; effect:Emit(math.clamp(particleCount.Value,1,500)); configure(); RunLoops:BindToHeartbeat("Particles",function() local head=getHead(); if head and part then part.CFrame=CFrame.new(head.Position) end end) else RunLoops:UnbindFromHeartbeat("Particles"); if effect then effect:Destroy(); effect=nil end; if part then part:Destroy(); part=nil end end end})
+    fallSpeed=particles:CreateSlider({Name="Скорость падения",Min=1,Max=50,Default=15,Round=0,Function=function(v) fallSpeed.Value=v; configure() end})
+    particleSize=particles:CreateSlider({Name="Размер",Min=.1,Max=5,Default=1,Round=1,Function=function(v) particleSize.Value=v; configure() end})
+    randomize=particles:CreateToggle({Name="Random",Default=false,Function=function(v) randomize.Value=v; configure() end})
+    particleCount=particles:CreateSlider({Name="Количество частиц",Min=10,Max=500,Default=100,Round=0,Function=function(v) particleCount.Value=v; configure() end})
+    renderDistance=particles:CreateSlider({Name="Дистанция прорисовки",Min=10,Max=200,Default=80,Round=0,Function=function(v) renderDistance.Value=v; configure() end})
+    style=particles:CreateDropdown({Name="Стиль",List={"Snowflake","Genshin","Star"},Default="Snowflake",Function=function(v) style.Value=v; configure() end})
+end)
+
 -- Nightix NameTags (Catlavan base, compact layout)
 runFunction(function()
     local nameTags = {Enabled = false}
@@ -2222,8 +2065,8 @@ runFunction(function()
         g.Name = "NameTag_" .. plr.Name
         g.Adornee = plr.Character:FindFirstChild("Head")
         g.AlwaysOnTop = true
-        g.Size = UDim2.fromOffset(185, 31)
-        g.StudsOffset = Vector3.new(0, 3.45, 0)
+        g.Size = UDim2.fromOffset(175, 26)
+        g.StudsOffset = Vector3.new(0, 3.55, 0)
         g.ResetOnSpawn = false
         g.Parent = folder
 
@@ -2260,7 +2103,7 @@ runFunction(function()
         n.Size = UDim2.fromOffset(0, 20)
         n.AutomaticSize = Enum.AutomaticSize.X
         n.Font = guifont or Enum.Font.GothamMedium
-        n.TextSize = 12
+        n.TextSize = 10
         n.TextColor3 = Color3.fromRGB(255,255,255)
         n.TextStrokeTransparency = 1
         n.TextXAlignment = Enum.TextXAlignment.Left
@@ -2269,7 +2112,7 @@ runFunction(function()
         local hpIcon = Instance.new("ImageLabel")
         hpIcon.Name = "HealthIcon"
         hpIcon.BackgroundTransparency = 1
-        hpIcon.Size = UDim2.fromOffset(12,12)
+        hpIcon.Size = UDim2.fromOffset(11,11)
         hpIcon.Image = "rbxassetid://99142118523333"
         hpIcon.ImageColor3 = Color3.fromRGB(255,255,255)
         hpIcon.ScaleType = Enum.ScaleType.Fit
@@ -2281,7 +2124,7 @@ runFunction(function()
         hp.Size = UDim2.fromOffset(0, 20)
         hp.AutomaticSize = Enum.AutomaticSize.X
         hp.Font = guifont or Enum.Font.GothamMedium
-        hp.TextSize = 12
+        hp.TextSize = 10
         hp.TextColor3 = Color3.fromRGB(255,255,255)
         hp.TextStrokeTransparency = 1
         hp.TextXAlignment = Enum.TextXAlignment.Left
@@ -2335,433 +2178,6 @@ end)
 
 
 runFunction(function()
-    local rainbowSkin = {Enabled = false}
-    local mode = {Value = "FullCharacter"}
-    local colorMode = {Value = "Random"}
-    local color = {Value = Color3.fromRGB(255, 255, 255)}
-    local delay = {Value = 0.1}
-    local newColor
-
-    rainbowSkin = Tabs.Render:CreateToggle({
-        Name = "RainbowSkin",
-        HoverText = "Makes your skin rainbow/random color.",
-        Callback = function(callback)
-            repeat
-                for _, part in next, getCharacter():GetDescendants() do
-                    if part:IsA("BasePart") then
-                        if mode.Value == "FullCharacter" then
-                            part.Color = (colorMode.Value == "Random") and Color3.new(math.random(), math.random(), math.random()) or color.Value
-                        else
-                            part.Color = (colorMode.Value == "Random") and Color3.new(math.random(), math.random(), math.random()) or color.Value
-                        end
-                    end
-                end
-                wait(delay.Value)
-            until not rainbowSkin.Enabled
-        end
-    })
-
-    mode = rainbowSkin:CreateDropdown({
-        Name = "Mode",
-        List = {"FullCharacter", "PerPart"},
-        Default = "PerPart",
-        Function = function(v) end
-    })
-
-    colorMode = rainbowSkin:CreateDropdown({
-        Name = "ColorMode",
-        List = {"Random", "Custom"},
-        Default = "Random",
-        Function = function(v)
-            if delay.MainObject then
-                delay.MainObject.Visible = v == "Random"
-            end
-        end
-    })
-
-    color = rainbowSkin:CreateColorSlider({
-        Name = "Color",
-        Default = Color3.fromRGB(255, 255, 255),
-        Function = function(v) end
-    })
-
-    delay = rainbowSkin:CreateSlider({
-        Name = "Delay",
-        Function = function(v) end,
-        Min = 0.1,
-        Max = 5,
-        Default = 0.1,
-        Round = 1
-    })
-end)
-
---[[
-runFunction(function()
-    --6018555426
-    local santaHat = {Enabled = false}
-    local color = {Value = Color3.fromRGB(255, 255, 255)}
-    local hat
-    santaHat = Tabs.Render:CreateToggle({
-        Name = "SantaHat",
-        HoverText = "Puts a china hat on your head.",
-        Callback = function(callback)
-            if callback then
-                RunLoops:BindToHeartbeat("santaHat", function()
-					if isAlive() then
-                        local head = getHead(LocalPlayer)
-						if hat == nil or hat.Parent == nil then
-							hat = Instance.new("Part")
-							hat.CFrame = head.CFrame * CFrame.new(0, 1.1, 0)
-							hat.Size = Vector3.new(3, 0.7, 3)
-							hat.Name = "santaHat"
-							hat.Material = Enum.Material.Neon
-							hat.CanCollide = false
-							hat.Transparency = 0.3
-                            hat.Color = color.Value
-                            hat.Parent = Camera
-							local mesh = Instance.new("SpecialMesh")
-							mesh.Parent = hat
-							mesh.MeshType = "FileMesh"
-							mesh.MeshId = "http://www.roblox.com/asset/?id=15854272807" --15854272807 rbxassetid://15854272807
-							mesh.Scale = Vector3.new(3, 0.6, 3)
-						end
-						hat.CFrame = head.CFrame * CFrame.new(0, 1.1, 0)
-						hat.Velocity = Vector3.zero
-						hat.LocalTransparencyModifier = head.LocalTransparencyModifier--((Camera.CFrame.Position - Camera.Focus.Position).Magnitude <= 0.6 and 1 or 0)
-					else
-						if hat then
-							hat:Destroy()
-							hat = nil
-						end
-					end
-				end)
-            else
-                RunLoops:UnbindFromHeartbeat("santaHat")
-				if hat then
-					hat:Destroy()
-					hat = nil
-				end
-            end
-        end
-    })
-
-    color = santaHat:CreateColorSlider({
-        Name = "Color",
-        Default = Color3.fromRGB(255, 255, 255),
-        Function = function(v)
-            if hat then
-                hat.Color = v
-            end
-        end
-    })
-end)
-]]
-
--- // first time in life using number range :omg:
-runFunction(function()
-    local snowing = {Enabled = false}
-    local fallSpeed = {Value = 15}
-    local particleSize = {Value = 1}
-    local randomize = {Value = false}
-    local particleCount = {Value = 1000}
-    local particleStyle = {Value = "Snowflake"}
-    local particleTextures = {
-        Snowflake = "124817818052929",
-        Genshin = "137041927888173",
-        Star = "125468853085498"
-    }
-    local part, effect
-
-    snowing = Tabs.Render:CreateToggle({
-        Name = "Particles",
-        HoverText = "Визуальные частицы вокруг игрока.",
-        Callback = function(callback)
-            if callback then
-                RunLoops:BindToHeartbeat("snowing", function()
-                    if not isAlive() then return end
-                    local head = getHead()
-                    part = part or Instance.new("Part")
-                    part.Name = "NightixParticles"
-                    part.Size = Vector3.new(300, 2, 300)
-                    part.CFrame = head.CFrame * CFrame.new(0, 100, 0)
-                    part.Transparency = 1
-                    part.Anchored = true
-                    part.CanCollide = false
-                    part.CanQuery = false
-                    part.CanTouch = false
-                    part.Parent = Camera
-
-                    effect = effect or Instance.new("ParticleEmitter")
-                    effect.Parent = part
-                    effect.Texture = "rbxassetid://" .. particleTextures[particleStyle.Value]
-                    effect.Rate = math.max(0, particleCount.Value)
-                    effect.Lifetime = NumberRange.new(30, 35)
-                    effect.Speed = NumberRange.new(math.max(0.1, fallSpeed.Value * 0.9), math.max(0.1, fallSpeed.Value * 1.1))
-                    effect.Size = NumberSequence.new(particleSize.Value)
-                    effect.EmissionDirection = Enum.NormalId.Bottom
-                    -- Random mode spreads particles around the downward axis.
-                    -- The cone remains downward-facing so particles do not get
-                    -- a deliberate upward launch.
-                    effect.SpreadAngle = randomize.Value and Vector2.new(70, 70) or Vector2.new(0, 0)
-                end)
-            else
-                RunLoops:UnbindFromHeartbeat("snowing")
-                if effect then effect:Destroy(); effect = nil end
-                if part then part:Destroy(); part = nil end
-            end
-        end
-    })
-
-    fallSpeed = snowing:CreateSlider({
-        Name = "Скорость падения", Min = 1, Max = 50, Default = 15, Round = 0,
-        Function = function(v) fallSpeed.Value = v end
-    })
-    particleSize = snowing:CreateSlider({
-        Name = "Размер", Min = 0.1, Max = 5, Default = 1, Round = 1,
-        Function = function(v) particleSize.Value = v end
-    })
-    randomize = snowing:CreateToggle({
-        Name = "Random", Default = false,
-        Function = function(v) randomize.Value = v end
-    })
-    particleCount = snowing:CreateSlider({
-        Name = "Количество частиц", Min = 50, Max = 2000, Default = 1000, Round = 0,
-        Function = function(v) particleCount.Value = v end
-    })
-    particleStyle = snowing:CreateDropdown({
-        Name = "Стиль", List = {"Snowflake", "Genshin", "Star"}, Default = "Snowflake",
-        Function = function(v) particleStyle.Value = v end
-    })
-end)
-
-runFunction(function()
-    local soundPlayer = {Enabled = false}
-    local mode = {Value = "Random"}
-    local sounds = {List = {}}
-    local volume = {Value = 1}
-    local sound
-    local current, max = 1, 1
-    local currentID
-
-    soundPlayer = Tabs.Render:CreateToggle({
-        Name = "SoundPlayer",
-        HoverText = "Plays music.",
-        Callback = function(callback)
-            repeat
-                if mode.Value == "Random" then
-                    currentID = #sounds.List > 0 and sounds.List[math.random(1, #sounds.List)] or "142376088"
-                elseif mode.Value == "Order" then
-                    max = #sounds.List
-                    currentID = sounds.List[current] or "142376088"
-                    current = current + 1
-                    if current > max then current = 1 end
-                end
-                if currentID and currentID ~= "" then
-                    if sound then
-                        sound:Stop()
-                        sound:Destroy()
-                    end
-
-                    sound = Instance.new("Sound")
-                    sound.SoundId = tonumber(currentID) and "rbxassetid://" .. currentID or currentID
-                    sound.Volume = volume.Value
-                    sound.Parent = workspace
-                    sound:Play()
-
-                    repeat task.wait() until sound.IsLoaded
-
-                    sound.Ended:Wait()
-                end
-            until not soundPlayer.Enabled
-            if not soundPlayer.Enabled and sound then
-                sound:Stop()
-                sound:Destroy()
-                sound = nil
-            end
-        end
-    })
-
-    mode = soundPlayer:CreateDropdown({
-        Name = "Mode",
-        List = {"Random", "Order"},
-        Default = "Random",
-        Function = function(v) end
-    })
-
-    sounds = soundPlayer:CreateTextList({
-        Name = "Sounds",
-        PlaceholderText = "sound id",
-        List = {},
-        Default = "",
-        HideAdd = true,
-        Function = function(v) end
-    })
-
-    volume = soundPlayer:CreateSlider({
-        Name = "Volume",
-        Function = function(v)
-            if sound then
-                sound.Volume = v
-            end
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 1,
-        Round = 1
-    })
-end)
-
-runFunction(function()
-    local spawnEsp = {Enabled = false}
-    local outline = {Value = true}
-    local outlineColor = {Value = Color3.fromRGB(255, 0, 0)}
-    local outlineTransparency = {Value = 0}
-    local fill = {Value = false}
-    local fillColor = {Value = Color3.fromRGB(255, 0, 0)}
-    local fillTransparency = {Value = 0}
-    local objects = {}
-    local connection
-
-    local function addHighlight(obj)
-        if obj:FindFirstChild("SpawnESP") then return end
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "SpawnESP"
-        highlight.Adornee = obj
-        highlight.Parent = obj
-        highlight.FillColor = fillColor.Value
-        highlight.FillTransparency = fill.Value and fillTransparency.Value or 1
-        highlight.OutlineColor = outlineColor.Value
-        highlight.OutlineTransparency = outline.Value and outlineTransparency.Value or 1
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        table.insert(objects, highlight)
-    end
-
-    spawnEsp = Tabs.Render:CreateToggle({
-        Name = "SpawnESP",
-        HoverText = "Highlights every spawn that has 0 transparency.",
-        Callback = function(callback)
-            if callback then
-                for _, obj in pairs(workspace:GetDescendants()) do
-                    if obj:IsA("SpawnLocation") then
-                        addHighlight(obj)
-                    end
-                end
-                connection = workspace.ChildAdded:Connect(function(child)
-                    if child:IsA("SpawnLocation") then
-                        addHighlight(child)
-                    end
-                end)
-            else
-                for _, obj in pairs(objects) do
-                    if obj and obj.Parent then
-                        obj:Destroy()
-                    end
-                end
-                table.clear(objects)
-                if connection then
-                    connection:Disconnect()
-                    connection = nil
-                end
-            end
-        end
-    })
-
-    outline = spawnEsp:CreateToggle({
-        Name = "Outline",
-        Default = true,
-        Function = function(v)
-            for _, obj in pairs(objects) do
-                if obj and obj.Parent then
-                    obj.OutlineTransparency = v and outlineTransparency.Value or 1
-                end
-            end
-            if outlineColor.Container then
-                outlineColor.Container.Visible = v
-            end
-            if outlineTransparency.Container then
-                outlineTransparency.Container.Visible = v
-            end
-        end
-    })
-
-    outlineColor = spawnEsp:CreateColorSlider({
-        Name = "Outline color",
-        Default = Color3.fromRGB(255, 0, 0),
-        Function = function(v)
-            for _, obj in pairs(objects) do
-                if obj and obj.Parent then
-                    obj.OutlineColor = v
-                end
-            end
-        end
-    })
-    outlineColor.Container.Visible = false
-
-    outlineTransparency = spawnEsp:CreateSlider({
-        Name = "Outline Transparency",
-        Function = function(v)
-            for _, obj in pairs(objects) do
-                if obj and obj.Parent then
-                    obj.OutlineTransparency = outline.Value and v or 1
-                end
-            end
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 0,
-        Round = 1
-    })
-    outlineTransparency.Container.Visible = false
-
-    fill = spawnEsp:CreateToggle({
-        Name = "Fill",
-        Default = false,
-        Function = function(v)
-            for _, obj in pairs(objects) do
-                if obj and obj.Parent then
-                    obj.FillTransparency = v and fillTransparency.Value or 1
-                end
-            end
-            if fillColor.Container then
-                fillColor.Container.Visible = v
-            end
-            if fillTransparency.Container then
-                fillTransparency.Container.Visible = v
-            end
-        end
-    })
-
-    fillColor = spawnEsp:CreateColorSlider({
-        Name = "Fill color",
-        Default = Color3.fromRGB(255, 0, 0),
-        Function = function(v)
-            for _, obj in pairs(objects) do
-                if obj and obj.Parent then
-                    obj.FillColor = v
-                end
-            end
-        end
-    })
-    fillColor.Container.Visible = false
-
-    fillTransparency = spawnEsp:CreateSlider({
-        Name = "Fill Transparency",
-        Function = function(v)
-            for _, obj in pairs(objects) do
-                if obj and obj.Parent then
-                    obj.FillTransparency = fill.Value and v or 1
-                end
-            end
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 0,
-        Round = 1
-    })
-    fillTransparency.Container.Visible = false
-end)
-
-runFunction(function()
     local usernameHider = {Enabled = false}
     local mode = {Value = "DisplayName"}
     local customName = {Value = ""}
@@ -2775,7 +2191,7 @@ runFunction(function()
         end
     end
     usernameHider = Tabs.Render:CreateToggle({
-        Name = "UsernameHider",
+        Name = "NameProtect",
         HoverText = "Hides your username and if choosed then display name too.\nNote that this is client sided.",
         Callback = function(callback)
             if callback then
@@ -2911,69 +2327,19 @@ runFunction(function()
 end)
 
 runFunction(function()
-    local antiFling = {Enabled = false}
-    local safeCFrame
-    local savedCollision = {}
-    local LINEAR_LIMIT = 140
-    local ANGULAR_LIMIT = 140
-
-    local function saveCollision(character)
-        table.clear(savedCollision)
-        for _, obj in ipairs(character:GetDescendants()) do
-            if obj:IsA("BasePart") then
-                savedCollision[obj] = obj.CanCollide
-                obj.CanCollide = false
-            end
-        end
-    end
-
-    local function restoreCollision()
-        for obj, value in pairs(savedCollision) do
-            if obj and obj.Parent then
-                obj.CanCollide = value
-            end
-        end
-        table.clear(savedCollision)
-    end
-
-    antiFling = Tabs.Utility:CreateToggle({
-        Name = "AntiFling",
-        HoverText = "Защищает локального персонажа от резких физически вызванных отбрасываний.",
-        Callback = function(callback)
-            if callback then
-                safeCFrame = nil
-                local character = getCharacter()
-                if character then saveCollision(character) end
-                RunLoops:BindToHeartbeat("AntiFling", function()
-                    local character = getCharacter()
-                    local root = character and getHumanoidRootPart(LocalPlayer)
-                    local humanoid = character and getHumanoid(LocalPlayer)
-                    if not root or not humanoid then return end
-
-                    if not safeCFrame then safeCFrame = root.CFrame end
-                    local linear = root.AssemblyLinearVelocity
-                    local angular = root.AssemblyAngularVelocity
-                    local flung = linear.Magnitude > LINEAR_LIMIT or angular.Magnitude > ANGULAR_LIMIT
-
-                    if flung then
-                        root.AssemblyLinearVelocity = Vector3.zero
-                        root.AssemblyAngularVelocity = Vector3.zero
-                        root.CFrame = safeCFrame
-                        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                    else
-                        -- Only advance the safe position when physics are sane.
-                        safeCFrame = root.CFrame
-                    end
-                end)
-            else
-                RunLoops:UnbindFromHeartbeat("AntiFling")
-                restoreCollision()
-                safeCFrame = nil
-            end
-        end
-    })
+    local antiFling={Enabled=false}; local safeCFrame; local safeVelocity=Vector3.zero
+    antiFling=Tabs.Utility:CreateToggle({Name="AntiFling",HoverText="Защищает локального персонажа от резкого физического отбрасывания.",Callback=function(on)
+        if on then
+            local r=getHumanoidRootPart(LocalPlayer); safeCFrame=r and r.CFrame or nil; safeVelocity=Vector3.zero
+            RunLoops:BindToHeartbeat("AntiFling",function()
+                local root=getHumanoidRootPart(LocalPlayer); local h=getHumanoid(LocalPlayer); if not root or not h then return end
+                if not safeCFrame then safeCFrame=root.CFrame end
+                local lv=root.AssemblyLinearVelocity; local av=root.AssemblyAngularVelocity
+                if lv.Magnitude>75 or av.Magnitude>75 then root.AssemblyLinearVelocity=Vector3.new(safeVelocity.X,math.clamp(safeVelocity.Y,-35,35),safeVelocity.Z); root.AssemblyAngularVelocity=Vector3.zero; root.CFrame=safeCFrame; h.PlatformStand=false; h:ChangeState(Enum.HumanoidStateType.GettingUp) else safeVelocity=Vector3.new(lv.X,math.clamp(lv.Y,-80,80),lv.Z); safeCFrame=root.CFrame end
+            end)
+        else RunLoops:UnbindFromHeartbeat("AntiFling"); safeCFrame=nil; safeVelocity=Vector3.zero end
+    end})
 end)
-
 
 --[[patched but i don't want to remove it
 runFunction(function()
@@ -3942,8 +3308,8 @@ end)
 runFunction(function()
     local infiniteJump = {Enabled = false}
     local connection
-    infiniteJump = Tabs.Utility:CreateToggle({
-        Name = "InfinityJump",
+    infiniteJump = Tabs.Movement:CreateToggle({
+        Name = "InfiniteJump",
         HoverText  = "Allows you to jump infinitely.",
         Callback = function(callback) 
             if callback then 
@@ -4492,7 +3858,7 @@ runFunction(function()
         Lighting.TimeOfDay = hours.Value..":"..minutes.Value..":"..seconds.Value
     end
     timeOfDay = Tabs.Render:CreateToggle({
-        Name = "TimeOfDay",
+        Name = "Time",
         HoverText = "Customizes the time of the game.",
         Callback = function(callback)
             if callback then

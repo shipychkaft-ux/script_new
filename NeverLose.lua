@@ -1139,7 +1139,8 @@ function NeverLose:RollingEffect(parent)
 	return UIGradient;
 end;
 
-function NeverLose:CreateShadow(parent , RollingEffect)
+function NeverLose:CreateShadow(parent , RollingEffect, thicknessScale)
+	thicknessScale = thicknessScale or 1
 	local Shadow = {};
 
 	local UIShadowSafe85 = Instance.new("UIStroke")
@@ -1147,19 +1148,19 @@ function NeverLose:CreateShadow(parent , RollingEffect)
 	local UIShadowSafe50 = Instance.new("UIStroke")
 	local UIShadowSafe45 = Instance.new("UIStroke")
 
-	UIShadowSafe85.Thickness = 6.000
+	UIShadowSafe85.Thickness = 6.000 * thicknessScale
 	UIShadowSafe85.Transparency = 1
 	UIShadowSafe85.Parent = parent
 
-	UIShadowSafe65.Thickness = 5.000
+	UIShadowSafe65.Thickness = 5.000 * thicknessScale
 	UIShadowSafe65.Transparency = 1
 	UIShadowSafe65.Parent = parent
 
-	UIShadowSafe50.Thickness = 4.000
+	UIShadowSafe50.Thickness = 4.000 * thicknessScale
 	UIShadowSafe50.Transparency = 1
 	UIShadowSafe50.Parent = parent
 
-	UIShadowSafe45.Thickness = 3.000
+	UIShadowSafe45.Thickness = 3.000 * thicknessScale
 	UIShadowSafe45.Transparency = 1
 	UIShadowSafe45.Parent = parent
 
@@ -1299,7 +1300,32 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 		end
 	end)));
 
-	local FollowingThread;
+	-- Small draggable header for option windows.
+	local DragHandle = Instance.new("Frame")
+	DragHandle.Name = NeverLose.RandomString()
+	DragHandle.Parent = OptionHandler
+	DragHandle.BackgroundTransparency = 1
+	DragHandle.BorderSizePixel = 0
+	DragHandle.Position = UDim2.fromOffset(0, 0)
+	DragHandle.Size = UDim2.new(1, 0, 0, 16)
+	DragHandle.ZIndex = Zindex + 20
+
+	local FollowingThread; local ManualPosition = false
+	local Dragging = false; local DragStart; local StartPosition
+	DragHandle.InputBegan:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			Dragging=true; ManualPosition=true; DragStart=input.Position; StartPosition=OptionHandler.Position
+		end
+	end)
+	DragHandle.InputEnded:Connect(function(input)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then Dragging=false end
+	end)
+	UserInputService.InputChanged:Connect(function(input)
+		if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			local delta=input.Position-DragStart
+			OptionHandler.Position=UDim2.fromOffset(StartPosition.X.Offset+delta.X,StartPosition.Y.Offset+delta.Y)
+		end
+	end)
 	local SetPosition = LPH_NO_VIRTUALIZE(function()
 		if NeverLose:MoreThanHalfY(Frame.AbsolutePosition.Y + 65) then
 			OptionHandler.AnchorPoint = Vector2.new(0,1)
@@ -1307,6 +1333,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 			OptionHandler.AnchorPoint = Vector2.new(0,0)
 		end;
 
+		if ManualPosition then return end
 		OptionHandler.Position = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65);
 	end);
 
@@ -4965,6 +4992,9 @@ function NeverLose:CreateWindow(Config)
 				end
                 setActiveSolid(TabIconGradient)
                 setActiveSolid(TabTextGradient)
+                TabContentLabel.TextColor3 = NeverLose.AccentColor
+                TabContentLabel.TextColor3 = NeverLose.AccentColor
+                TabContentLabel.TextColor3 = NeverLose.AccentColor
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0
@@ -4986,6 +5016,9 @@ function NeverLose:CreateWindow(Config)
 				end
                 setInactiveGradient(TabIconGradient, 0.15)
                 setInactiveGradient(TabTextGradient, 0.35)
+                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
+                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
+                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0.5
@@ -5999,7 +6032,7 @@ function NeverLose:CreateWindow(Config)
 		local Watermark = Instance.new("Frame")
 		local UICorner = Instance.new("UICorner")
 		local UIListLayout = Instance.new("UIListLayout")
-		local Shadow = NeverLose:CreateShadow(Watermark);
+		local Shadow = NeverLose:CreateShadow(Watermark, false, 0.5);
 
 		Watermark.Name = NeverLose.RandomString();
 		Watermark.Parent = NeverLose.ScreenGui
@@ -6231,18 +6264,19 @@ function NeverLose:CreateNotification()
 
 	Notification.Name = NeverLose.RandomString();
 	Notification.Parent = NeverLose.ScreenGui;
-	Notification.AnchorPoint = Vector2.new(1, 0)
+	Notification.AnchorPoint = Vector2.new(1, 1)
 	Notification.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 	Notification.BackgroundTransparency = 1.000
 	Notification.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	Notification.BorderSizePixel = 0
-	Notification.Position = UDim2.new(1, -25, 0, 25)
+	Notification.Position = UDim2.new(1, -25, 1, -25)
 	Notification.Size = UDim2.new(0, 25, 0, 25)
 
 	UIListLayout.Parent = Notification
 	UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 	UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-	UIListLayout.Padding = UDim.new(0, 0)
+	UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	UIListLayout.Padding = UDim.new(0, 6)
 
 	NeverLose.__Notification_Cache = Notifier;
 
@@ -6256,7 +6290,7 @@ function NeverLose:CreateNotification()
 
 		if NeverLose.__WatermarkCache then
 			NeverLose.PlayAnimate(Notification,SlowyTween , {
-				Position = UDim2.new(1, -25, 0, 55)
+				Position = UDim2.new(1, -25, 1, -55)
 			});
 		end;
 
@@ -6363,7 +6397,7 @@ function NeverLose:CreateNotification()
 
 			if NeverLose.__WatermarkCache then
 				NeverLose.PlayAnimate(Notification,SlowyTween , {
-					Position = UDim2.new(1, -25, 0, 55)
+					Position = UDim2.new(1, -25, 1, -55)
 				});
 			end;
 
