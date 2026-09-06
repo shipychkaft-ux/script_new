@@ -578,25 +578,16 @@ runFunction(function()
 
         r.CFrame = CFrame.new(r.Position) * CFrame.Angles(0, newYaw, 0)
 
-        -- Roblox tools commonly resolve their hit from the mouse/camera ray.
-        -- Rotate the camera for a real hit instead of only rotating the body.
-        if not silentRotate.Value then
-            local camPos = Camera.CFrame.Position
-            Camera.CFrame = CFrame.lookAt(camPos, a.Position)
-        end
     end
 
     local function clickAttack()
-        local targetPart = currentTarget and part(currentTarget)
-        local oldCamera = Camera.CFrame
-        if silentRotate.Value and targetPart then
-            Camera.CFrame = CFrame.lookAt(oldCamera.Position, targetPart.Position)
-        end
+        -- Never modify Camera.CFrame here. The old implementation briefly
+        -- pointed the camera at the target on every click, which caused the
+        -- visible screen flicker reported by the user.
         if mouse1click then pcall(mouse1click) end
         local character = LocalPlayer.Character
         local tool = character and character:FindFirstChildOfClass("Tool")
         if tool then pcall(function() tool:Activate() end) end
-        if silentRotate.Value then Camera.CFrame = oldCamera end
     end
 
     attackAura = Tabs.Combat:CreateToggle({
@@ -615,9 +606,7 @@ runFunction(function()
                         currentTarget = acquire()
                     end
                     if currentTarget then
-                        -- Camera aiming is intentionally forced so attacks are
-                        -- registered on the selected player, not merely beside them.
-                        aim(currentTarget, dt, true)
+                        aim(currentTarget, dt, false)
                     end
                 end)
 
@@ -1571,7 +1560,7 @@ runFunction(function()
     })
 end)
 
--- Target ESP: circle/diamond, synchronized strictly with AttackAura.
+-- Target ESP: synchronized strictly with AttackAura.
 runFunction(function()
     local targetESP = {Enabled = false}
     local mode = {Value = "Ромб"}
@@ -1579,14 +1568,13 @@ runFunction(function()
     local size = {Value = 150}
     local speed = {Value = 180}
     local alpha = {Value = 0.2}
+    local color = {Value = Color3.fromRGB(123, 131, 243)}
     local circleVariant = {Value = "1"}
     local circleRadius = {Value = 2.4}
-    local circleGlow = {Value = 1.5}
-    local circleTrail = {Value = "Без кругов"}
 
     local target
     local sg, img
-    local circleParts = {}
+    local circlePart, circleDecal
 
     local diamonds = {
         ["1"] = "113363639205880",
@@ -1608,53 +1596,33 @@ runFunction(function()
     end
 
     local function clearCircle()
-        for _, entry in ipairs(circleParts) do
-            if entry.part then pcall(function() entry.part:Destroy() end) end
-        end
-        table.clear(circleParts)
+        if circlePart then pcall(function() circlePart:Destroy() end) end
+        circlePart, circleDecal = nil, nil
     end
 
-    local function makeCirclePart(texture)
-        local part = Instance.new("Part")
-        part.Name = "NightixTargetESPCircle"
-        part.Anchored = true
-        part.CanCollide = false
-        part.CanQuery = false
-        part.CanTouch = false
-        part.CastShadow = false
-        part.Transparency = 1
-        part.Size = Vector3.new(5, 0.02, 5)
-        part.Parent = workspace
+    local function ensureCircle()
+        if circlePart and circlePart.Parent then return end
+        circlePart = Instance.new("Part")
+        circlePart.Name = "NightixTargetESPCircle"
+        circlePart.Anchored = true
+        circlePart.CanCollide = false
+        circlePart.CanQuery = false
+        circlePart.CanTouch = false
+        circlePart.CastShadow = false
+        circlePart.Transparency = 1
+        circlePart.Size = Vector3.new(0.05, 0.05, 0.05)
+        circlePart.Parent = workspace
 
-        local surface = Instance.new("SurfaceGui")
-        surface.Name = "CircleSurface"
-        surface.Face = Enum.NormalId.Top
-        surface.AlwaysOnTop = true
-        surface.LightInfluence = 0
-        surface.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-        surface.PixelsPerStud = 100
-        surface.Parent = part
+        -- Original 3D circle construction: a real horizontal disk with the
+        -- supplied texture, moved through the target's exact body height.
+        local mesh = Instance.new("CylinderMesh")
+        mesh.Scale = Vector3.new(2, 0.035, 2)
+        mesh.Parent = circlePart
 
-        local image = Instance.new("ImageLabel")
-        image.Name = "CircleTexture"
-        image.BackgroundTransparency = 1
-        image.Size = UDim2.fromScale(1, 1)
-        image.Image = "rbxassetid://" .. texture
-        image.ScaleType = Enum.ScaleType.Stretch
-        image.ImageColor3 = Color3.new(1, 1, 1)
-        image.Parent = surface
-        return part, image
-    end
-
-    local function ensureCircle(count)
-        while #circleParts < count do
-            local part, image = makeCirclePart(circleTextures[circleVariant.Value] or circleTextures["1"])
-            table.insert(circleParts, {part = part, image = image})
-        end
-        while #circleParts > count do
-            local entry = table.remove(circleParts)
-            if entry and entry.part then pcall(function() entry.part:Destroy() end) end
-        end
+        circleDecal = Instance.new("Decal")
+        circleDecal.Name = "CircleTexture"
+        circleDecal.Face = Enum.NormalId.Top
+        circleDecal.Parent = circlePart
     end
 
     local function updateCircle(t)
@@ -1665,33 +1633,25 @@ runFunction(function()
 
         local character = target.Character
         local boxCFrame, boxSize = character:GetBoundingBox()
-        local bottomY = boxCFrame.Position.Y - boxSize.Y * 0.5 + 0.025
-        local topY = boxCFrame.Position.Y + boxSize.Y * 0.5 - 0.025
-        local height = math.max(0.05, topY - bottomY)
+        local bottomY = boxCFrame.Position.Y - boxSize.Y * 0.5
+        local topY = boxCFrame.Position.Y + boxSize.Y * 0.5
+        local height = math.max(0.1, topY - bottomY)
 
-        -- This is the original 3D SurfaceGui circle approach, not a
-        -- screen-space ImageLabel and not a Beam ring.
-        local phase = (t * math.max(0.05, speed.Value / 180)) % 2
+        ensureCircle()
+        local cycle = math.max(0.05, speed.Value / 180)
+        local phase = (t * cycle) % 2
         local progress = phase <= 1 and phase or 2 - phase
         local eased = progress * progress * (3 - 2 * progress)
         local y = bottomY + eased * height
-        local diameter = math.max(0.5, circleRadius.Value * 2)
 
-        local count = circleTrail.Value == "С кругами" and 8 or 1
-        ensureCircle(count)
-        local direction = phase <= 1 and 1 or -1
-        local spacing = math.max(0.08, height * 0.055)
+        circlePart.Position = Vector3.new(boxCFrame.Position.X, y, boxCFrame.Position.Z)
+        local diameter = math.max(0.1, circleRadius.Value * 2)
+        circlePart.Size = Vector3.new(diameter, 0.05, diameter)
 
-        for i, entry in ipairs(circleParts) do
-            local fade = (i - 1) / math.max(1, count - 1)
-            local offset = (i - 1) * spacing * direction
-            local trailY = math.clamp(y - offset, bottomY, topY)
-            local scale = 1 + fade * 0.14
-            entry.part.Size = Vector3.new(diameter * scale, 0.02, diameter * scale)
-            entry.part.Position = Vector3.new(boxCFrame.Position.X, trailY, boxCFrame.Position.Z)
-            entry.image.Image = "rbxassetid://" .. (circleTextures[circleVariant.Value] or circleTextures["1"])
-            entry.image.ImageTransparency = math.clamp(alpha.Value + fade * (0.55 + circleGlow.Value * 0.08), 0, 0.97)
-        end
+        local texture = circleTextures[circleVariant.Value] or circleTextures["1"]
+        circleDecal.Texture = "rbxassetid://" .. texture
+        circleDecal.Transparency = math.clamp(alpha.Value, 0, 1)
+        circleDecal.Color3 = color.Value
     end
 
     local function updateScreen()
@@ -1699,6 +1659,7 @@ runFunction(function()
             clearScreen()
             return
         end
+
         if not sg then
             sg = Instance.new("ScreenGui")
             sg.Name = "NightixTargetESP"
@@ -1709,31 +1670,35 @@ runFunction(function()
             img.Name = "TargetDiamond"
             img.AnchorPoint = Vector2.new(0.5, 0.5)
             img.BackgroundTransparency = 1
-            img.ImageColor3 = Color3.new(1, 1, 1)
             img.Parent = sg
         end
 
         local character = target.Character
-        local anchor = character and (character:FindFirstChild("Head") or getHumanoidRootPart(target))
+        -- Diamond belongs on the body, not the head.
+        local anchor = character and (
+            character:FindFirstChild("UpperTorso") or
+            character:FindFirstChild("Torso") or
+            getHumanoidRootPart(target)
+        )
         if not anchor then
             img.Visible = false
             return
         end
+
         local pos, onScreen = Camera:WorldToViewportPoint(anchor.Position)
         img.Visible = onScreen
         if not onScreen then return end
         img.Size = UDim2.fromOffset(size.Value, size.Value)
         img.Position = UDim2.fromOffset(pos.X, pos.Y)
         img.Image = "rbxassetid://" .. (diamonds[diamond.Value] or diamonds["1"])
+        img.ImageColor3 = color.Value
         img.ImageTransparency = math.clamp(alpha.Value, 0, 1)
         img.Rotation = (tick() * speed.Value) % 360
     end
 
     local function findAuraTarget()
         local auraTarget = shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget()
-        if auraTarget and isAlive(auraTarget) then
-            return auraTarget
-        end
+        if auraTarget and isAlive(auraTarget) then return auraTarget end
         return nil
     end
 
@@ -1749,9 +1714,8 @@ runFunction(function()
         Callback = function(on)
             if on then
                 RunLoops:BindToRenderStep("TargetESP", function()
-                    -- Never select a target independently. Target ESP follows Aura 1:1.
                     target = findAuraTarget()
-                    if mode.Value == "Кольцо (Circle)" then
+                    if mode.Value == "Circle" then
                         clearScreen()
                         updateCircle(tick())
                     else
@@ -1770,16 +1734,14 @@ runFunction(function()
 
     mode = targetESP:CreateDropdown({
         Name = "Режим",
-        List = {"Ромб", "Кольцо (Circle)"},
+        List = {"Ромб", "Circle"},
         Default = "Ромб",
         Function = function(v)
             mode.Value = v
             setVisibility(diamond, v == "Ромб")
             setVisibility(size, v == "Ромб")
-            setVisibility(circleVariant, v == "Кольцо (Circle)")
-            setVisibility(circleTrail, v == "Кольцо (Circle)")
-            setVisibility(circleRadius, v == "Кольцо (Circle)")
-            setVisibility(circleGlow, v == "Кольцо (Circle)")
+            setVisibility(circleVariant, v == "Circle")
+            setVisibility(circleRadius, v == "Circle")
         end
     })
 
@@ -1789,38 +1751,27 @@ runFunction(function()
         Default = "1",
         Function = function(v) diamond.Value = v end
     })
+
     size = targetESP:CreateSlider({Name = "Размер ромба", Function = function(v) size.Value = v end, Min = 60, Max = 300, Default = 150, Round = 0})
     speed = targetESP:CreateSlider({Name = "Скорость", Function = function(v) speed.Value = v end, Min = 0, Max = 720, Default = 180, Round = 0})
     alpha = targetESP:CreateSlider({Name = "Прозрачность", Function = function(v) alpha.Value = v end, Min = 0, Max = 1, Default = 0.2, Round = 2})
+    color = targetESP:CreateColorSlider({
+        Name = "Цвет Target ESP",
+        Default = Color3.fromRGB(123, 131, 243),
+        Function = function(v) color.Value = v end
+    })
     circleVariant = targetESP:CreateDropdown({
         Name = "Вариант круга",
         List = {"1", "2", "3", "4"},
         Default = "1",
-        Function = function(v)
-            circleVariant.Value = v
-            clearCircle()
-        end
-    })
-    circleTrail = targetESP:CreateDropdown({
-        Name = "Круги",
-        List = {"Без кругов", "С кругами"},
-        Default = "Без кругов",
-        Function = function(v)
-            circleTrail.Value = v
-            clearCircle()
-        end
+        Function = function(v) circleVariant.Value = v; clearCircle() end
     })
     circleRadius = targetESP:CreateSlider({Name = "Радиус круга", Function = function(v) circleRadius.Value = v end, Min = 1, Max = 5, Default = 2.4, Round = 1})
-    circleGlow = targetESP:CreateSlider({Name = "Свечение круга", Function = function(v) circleGlow.Value = v end, Min = 0, Max = 5, Default = 1.5, Round = 1})
 
-    -- Never touch .Container until every control exists; this prevents the
-    -- CreateDropdown initialization crash shown in the user's stack trace.
     setVisibility(diamond, true)
     setVisibility(size, true)
     setVisibility(circleVariant, false)
-    setVisibility(circleTrail, false)
     setVisibility(circleRadius, false)
-    setVisibility(circleGlow, false)
 end)
 
 runFunction(function()
@@ -2239,7 +2190,7 @@ runFunction(function()
     })
 end)
 
--- Nightix NameTags (Catlavan base, cleaned to the requested layout)
+-- Nightix NameTags (Catlavan base, compact layout)
 runFunction(function()
     local nameTags = {Enabled = false}
     local showHP = {Value = true}
@@ -2271,8 +2222,8 @@ runFunction(function()
         g.Name = "NameTag_" .. plr.Name
         g.Adornee = plr.Character:FindFirstChild("Head")
         g.AlwaysOnTop = true
-        g.Size = UDim2.fromOffset(230, 52)
-        g.StudsOffset = Vector3.new(0, 3.15, 0)
+        g.Size = UDim2.fromOffset(185, 31)
+        g.StudsOffset = Vector3.new(0, 3.45, 0)
         g.ResetOnSpawn = false
         g.Parent = folder
 
@@ -2280,25 +2231,24 @@ runFunction(function()
         f.Name = "TagFrame"
         f.Size = UDim2.fromScale(1, 1)
         f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        f.BackgroundTransparency = 0.15
+        f.BackgroundTransparency = 0.25
         f.BorderSizePixel = 0
         f.Parent = g
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 6)
+        corner.CornerRadius = UDim.new(0, 5)
         corner.Parent = f
-        -- No UIStroke: the tag itself has no outline.
 
         local layout = Instance.new("UIListLayout")
         layout.FillDirection = Enum.FillDirection.Horizontal
         layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         layout.VerticalAlignment = Enum.VerticalAlignment.Center
-        layout.Padding = UDim.new(0, 5)
+        layout.Padding = UDim.new(0, 3)
         layout.Parent = f
 
         local tag = Instance.new("ImageLabel")
         tag.Name = "TagTexture"
         tag.BackgroundTransparency = 1
-        tag.Size = UDim2.fromOffset(70, 22)
+        tag.Size = UDim2.fromOffset(52, 16)
         tag.Image = "rbxassetid://" .. playerTags[plr]
         tag.ScaleType = Enum.ScaleType.Fit
         tag.ResampleMode = Enum.ResamplerMode.Pixelated
@@ -2307,10 +2257,10 @@ runFunction(function()
         local n = Instance.new("TextLabel")
         n.Name = "Nickname"
         n.BackgroundTransparency = 1
-        n.Size = UDim2.fromOffset(0, 28)
+        n.Size = UDim2.fromOffset(0, 20)
         n.AutomaticSize = Enum.AutomaticSize.X
-        n.Font = guifont or Enum.Font.GothamBold
-        n.TextSize = 16
+        n.Font = guifont or Enum.Font.GothamMedium
+        n.TextSize = 12
         n.TextColor3 = Color3.fromRGB(255,255,255)
         n.TextStrokeTransparency = 1
         n.TextXAlignment = Enum.TextXAlignment.Left
@@ -2319,18 +2269,19 @@ runFunction(function()
         local hpIcon = Instance.new("ImageLabel")
         hpIcon.Name = "HealthIcon"
         hpIcon.BackgroundTransparency = 1
-        hpIcon.Size = UDim2.fromOffset(17,17)
+        hpIcon.Size = UDim2.fromOffset(12,12)
         hpIcon.Image = "rbxassetid://99142118523333"
+        hpIcon.ImageColor3 = Color3.fromRGB(255,255,255)
         hpIcon.ScaleType = Enum.ScaleType.Fit
         hpIcon.Parent = f
 
         local hp = Instance.new("TextLabel")
         hp.Name = "Health"
         hp.BackgroundTransparency = 1
-        hp.Size = UDim2.fromOffset(0, 28)
+        hp.Size = UDim2.fromOffset(0, 20)
         hp.AutomaticSize = Enum.AutomaticSize.X
-        hp.Font = guifont or Enum.Font.GothamBold
-        hp.TextSize = 16
+        hp.Font = guifont or Enum.Font.GothamMedium
+        hp.TextSize = 12
         hp.TextColor3 = Color3.fromRGB(255,255,255)
         hp.TextStrokeTransparency = 1
         hp.TextXAlignment = Enum.TextXAlignment.Left
@@ -2355,14 +2306,14 @@ runFunction(function()
         hp.Text = tostring(math.floor(h.Health))
         hp.Visible = showHP.Value
         icon.Visible = showHP.Value
-        g.Size = UDim2.fromOffset(230, showHP.Value and 52 or 36)
-        g.StudsOffset = Vector3.new(0, showHP.Value and 3.15 or 2.9, 0)
+        g.Size = UDim2.fromOffset(185, showHP.Value and 31 or 24)
+        g.StudsOffset = Vector3.new(0, showHP.Value and 3.45 or 3.2, 0)
     end
 
     local conns = {}
     nameTags = Tabs.Render:CreateToggle({
         Name = "NameTags",
-        HoverText = "Показывает новый полноразмерный тег.",
+        HoverText = "Компактный тег из Catlavan без дистанции.",
         Callback = function(on)
             if on then
                 for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then make(p) end end
@@ -2509,68 +2460,76 @@ end)
 -- // first time in life using number range :omg:
 runFunction(function()
     local snowing = {Enabled = false}
-    local speed = {Value = 15}
-    local rate = {Value = 1000}
+    local fallSpeed = {Value = 15}
+    local particleSize = {Value = 1}
+    local randomize = {Value = false}
+    local particleCount = {Value = 1000}
     local particleStyle = {Value = "Snowflake"}
-    local particleTextures = {Snowflake = "124817818052929", Genshin = "137041927888173", Star = "125468853085498"}
-    local part, effect, connection
+    local particleTextures = {
+        Snowflake = "124817818052929",
+        Genshin = "137041927888173",
+        Star = "125468853085498"
+    }
+    local part, effect
 
     snowing = Tabs.Render:CreateToggle({
         Name = "Particles",
-        HoverText = "Makes it snow in game.",
+        HoverText = "Визуальные частицы вокруг игрока.",
         Callback = function(callback)
             if callback then
-                RunLoops:BindToHeartbeat("snowing", function(dt)
-                    if isAlive() then
-                        local head = getHead()
-                        part = part or Instance.new("Part", Camera)
-                        part.Size = Vector3.new(300, 2, 300)
-                        part.CFrame = head.CFrame * CFrame.new(0, 100, 0)
-                        part.Transparency = 1
-                        part.Anchored = true
-                        part.CanCollide = false
-                        effect = effect or Instance.new("ParticleEmitter", part)
-                        effect.EmissionDirection = Enum.NormalId.Bottom
-                        effect.Lifetime = NumberRange.new(30, 35)
-                        effect.Rate = rate.Value
-                        effect.Speed = NumberRange.new(speed.Value - 5, speed.Value + 5)
-                        effect.Texture = "rbxassetid://" .. particleTextures[particleStyle.Value]
-                    end
+                RunLoops:BindToHeartbeat("snowing", function()
+                    if not isAlive() then return end
+                    local head = getHead()
+                    part = part or Instance.new("Part")
+                    part.Name = "NightixParticles"
+                    part.Size = Vector3.new(300, 2, 300)
+                    part.CFrame = head.CFrame * CFrame.new(0, 100, 0)
+                    part.Transparency = 1
+                    part.Anchored = true
+                    part.CanCollide = false
+                    part.CanQuery = false
+                    part.CanTouch = false
+                    part.Parent = Camera
+
+                    effect = effect or Instance.new("ParticleEmitter")
+                    effect.Parent = part
+                    effect.Texture = "rbxassetid://" .. particleTextures[particleStyle.Value]
+                    effect.Rate = math.max(0, particleCount.Value)
+                    effect.Lifetime = NumberRange.new(30, 35)
+                    effect.Speed = NumberRange.new(math.max(0.1, fallSpeed.Value * 0.9), math.max(0.1, fallSpeed.Value * 1.1))
+                    effect.Size = NumberSequence.new(particleSize.Value)
+                    effect.EmissionDirection = Enum.NormalId.Bottom
+                    -- Random mode spreads particles around the downward axis.
+                    -- The cone remains downward-facing so particles do not get
+                    -- a deliberate upward launch.
+                    effect.SpreadAngle = randomize.Value and Vector2.new(70, 70) or Vector2.new(0, 0)
                 end)
             else
                 RunLoops:UnbindFromHeartbeat("snowing")
-                if part then
-                    part:Destroy()
-                    part = nil
-                end
-                if effect then
-                    effect:Destroy()
-                    effect = nil
-                end
+                if effect then effect:Destroy(); effect = nil end
+                if part then part:Destroy(); part = nil end
             end
         end
     })
 
-    speed = snowing:CreateSlider({
-        Name = "Speed",
-        Min = 1,
-        Max = 50,
-        Default = 15,
-        Round = 0
+    fallSpeed = snowing:CreateSlider({
+        Name = "Скорость падения", Min = 1, Max = 50, Default = 15, Round = 0,
+        Function = function(v) fallSpeed.Value = v end
     })
-
-    rate = snowing:CreateSlider({
-        Name = "Rate",
-        Min = 500,
-        Max = 2000,
-        Default = 1000,
-        Round = 0
+    particleSize = snowing:CreateSlider({
+        Name = "Размер", Min = 0.1, Max = 5, Default = 1, Round = 1,
+        Function = function(v) particleSize.Value = v end
     })
-
+    randomize = snowing:CreateToggle({
+        Name = "Random", Default = false,
+        Function = function(v) randomize.Value = v end
+    })
+    particleCount = snowing:CreateSlider({
+        Name = "Количество частиц", Min = 50, Max = 2000, Default = 1000, Round = 0,
+        Function = function(v) particleCount.Value = v end
+    })
     particleStyle = snowing:CreateDropdown({
-        Name = "Style",
-        List = {"Snowflake", "Genshin", "Star"},
-        Default = "Snowflake",
+        Name = "Стиль", List = {"Snowflake", "Genshin", "Star"}, Default = "Snowflake",
         Function = function(v) particleStyle.Value = v end
     })
 end)
@@ -2953,25 +2912,63 @@ end)
 
 runFunction(function()
     local antiFling = {Enabled = false}
+    local safeCFrame
+    local savedCollision = {}
+    local LINEAR_LIMIT = 140
+    local ANGULAR_LIMIT = 140
+
+    local function saveCollision(character)
+        table.clear(savedCollision)
+        for _, obj in ipairs(character:GetDescendants()) do
+            if obj:IsA("BasePart") then
+                savedCollision[obj] = obj.CanCollide
+                obj.CanCollide = false
+            end
+        end
+    end
+
+    local function restoreCollision()
+        for obj, value in pairs(savedCollision) do
+            if obj and obj.Parent then
+                obj.CanCollide = value
+            end
+        end
+        table.clear(savedCollision)
+    end
+
     antiFling = Tabs.Utility:CreateToggle({
         Name = "AntiFling",
-        HoverText = "Makes people unable to push/fling you.\nDisables collision.",
-        Callback = function(callback) 
-            if callback then 
+        HoverText = "Защищает локального персонажа от резких физически вызванных отбрасываний.",
+        Callback = function(callback)
+            if callback then
+                safeCFrame = nil
+                local character = getCharacter()
+                if character then saveCollision(character) end
                 RunLoops:BindToHeartbeat("AntiFling", function()
-                    for _, part in next, getCharacter():GetChildren() do
-                        if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                            part.CanCollide = false
-                        end
+                    local character = getCharacter()
+                    local root = character and getHumanoidRootPart(LocalPlayer)
+                    local humanoid = character and getHumanoid(LocalPlayer)
+                    if not root or not humanoid then return end
+
+                    if not safeCFrame then safeCFrame = root.CFrame end
+                    local linear = root.AssemblyLinearVelocity
+                    local angular = root.AssemblyAngularVelocity
+                    local flung = linear.Magnitude > LINEAR_LIMIT or angular.Magnitude > ANGULAR_LIMIT
+
+                    if flung then
+                        root.AssemblyLinearVelocity = Vector3.zero
+                        root.AssemblyAngularVelocity = Vector3.zero
+                        root.CFrame = safeCFrame
+                        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    else
+                        -- Only advance the safe position when physics are sane.
+                        safeCFrame = root.CFrame
                     end
                 end)
             else
                 RunLoops:UnbindFromHeartbeat("AntiFling")
-                for _, part in next, getCharacter():GetChildren() do
-                    if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
-                        part.CanCollide = true
-                    end
-                end
+                restoreCollision()
+                safeCFrame = nil
             end
         end
     })
@@ -4308,7 +4305,7 @@ runFunction(function()
     local gravity = {Enabled = false}
     local value = {Value = 196}
     local oldGravity
-    gravity = Tabs.Render:CreateToggle({
+    gravity = Tabs.Movement:CreateToggle({
         Name = "Gravity",
         HoverText = "Changes the game gravity.",
         Callback = function(callback)

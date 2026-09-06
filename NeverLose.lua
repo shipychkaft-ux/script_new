@@ -2518,7 +2518,10 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 			while not Selected do
 				local Key = UserInputService.InputBegan:Wait();
 
-				if Key.KeyCode ~= Enum.KeyCode.Unknown and not IsBlacklist(Key.KeyCode) and not IsBlacklist(Key.KeyCode.Name) then
+				-- Escape/Delete while binding explicitly clears the bind.
+				if Key.KeyCode == Enum.KeyCode.Escape or Key.KeyCode == Enum.KeyCode.Delete then
+					Selected = "__UNBIND__";
+				elseif Key.KeyCode ~= Enum.KeyCode.Unknown and not IsBlacklist(Key.KeyCode) and not IsBlacklist(Key.KeyCode.Name) then
 					Selected = Key.KeyCode;
 				else
 					if Key.UserInputType == Enum.UserInputType.MouseButton1 and not IsBlacklist(Enum.UserInputType.MouseButton1) and not IsBlacklist("M1B") then
@@ -2531,7 +2534,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 			IsBinding = false;
 
-			local KeyName = typeof(Selected) == "string" and Selected or Selected.Name;
+			local KeyName = Selected == "__UNBIND__" and "None" or (typeof(Selected) == "string" and Selected or Selected.Name);
 
 			Config.Default = KeyName;
 
@@ -4765,6 +4768,8 @@ function NeverLose:CreateWindow(Config)
 		local TabIcon = Instance.new("TextLabel")
 		local TabIconImage = nil
 		local TabContentLabel = Instance.new("TextLabel")
+        local TabIconGradient = Instance.new("UIGradient")
+        local TabTextGradient = Instance.new("UIGradient")
 
 		Tab.Idx = TabButton;
 
@@ -4830,6 +4835,32 @@ function NeverLose:CreateWindow(Config)
 		TabContentLabel.TextSize = 12.000
 		TabContentLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+        local function setInactiveGradient(gradient, alpha)
+            gradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 108, 176)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(87, 92, 170))
+            })
+            gradient.Transparency = NumberSequence.new(alpha or 0)
+        end
+        local function setActiveSolid(gradient)
+            gradient.Color = ColorSequence.new(Color3.fromRGB(123, 131, 243))
+            gradient.Transparency = NumberSequence.new(0)
+        end
+        TabIconGradient.Parent = TabIconImage or TabIcon
+        TabTextGradient.Parent = TabContentLabel
+        setInactiveGradient(TabIconGradient, 0.15)
+        setInactiveGradient(TabTextGradient, 0.35)
+        task.spawn(function()
+            while TabButton and TabButton.Parent do
+                if Window.Tabs[Window.CurrentTab] ~= Tab then
+                    local offset = ((tick() * 0.18) % 2)
+                    offset = offset <= 1 and offset or 2 - offset
+                    TabIconGradient.Offset = Vector2.new(offset - 0.5, 0)
+                    TabTextGradient.Offset = Vector2.new(offset - 0.5, 0)
+                end
+                task.wait()
+            end
+        end)
 		local TabFrame = Instance.new("Frame")
 		local LeftScroll = Instance.new("ScrollingFrame")
 		local UIListLayout = Instance.new("UIListLayout")
@@ -4932,6 +4963,8 @@ function NeverLose:CreateWindow(Config)
 						ImageColor3 = NeverLose.AccentColor
 					})
 				end
+                setActiveSolid(TabIconGradient)
+                setActiveSolid(TabTextGradient)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0
@@ -4951,6 +4984,8 @@ function NeverLose:CreateWindow(Config)
 						ImageColor3 = Color3.fromRGB(252, 252, 252)
 					})
 				end
+                setInactiveGradient(TabIconGradient, 0.15)
+                setInactiveGradient(TabTextGradient, 0.35)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0.5
@@ -6084,24 +6119,24 @@ function NeverLose:CreateWindow(Config)
 			Icon.Size = UDim2.new(0, 24, 0, 24)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
-			Icon.ImageTransparency = 0.250
+			Icon.ImageTransparency = 0.32
 			Icon.ScaleType = Enum.ScaleType.Fit
 			local WatermarkGradient = Instance.new("UIGradient")
             WatermarkGradient.Rotation = 0
             WatermarkGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00,Color3.fromRGB(131,138,251)),
-                ColorSequenceKeypoint.new(0.08,Color3.fromRGB(131,138,251)),
-                ColorSequenceKeypoint.new(0.16,Color3.fromRGB(220,156,253)),
-                ColorSequenceKeypoint.new(0.24,Color3.fromRGB(220,156,253)),
-                ColorSequenceKeypoint.new(0.32,Color3.fromRGB(131,138,251)),
-                ColorSequenceKeypoint.new(0.40,Color3.fromRGB(131,138,251)),
-                ColorSequenceKeypoint.new(0.48,Color3.fromRGB(220,156,253)),
-                ColorSequenceKeypoint.new(0.56,Color3.fromRGB(220,156,253)),
-                ColorSequenceKeypoint.new(0.64,Color3.fromRGB(131,138,251)),
-                ColorSequenceKeypoint.new(0.72,Color3.fromRGB(131,138,251)),
-                ColorSequenceKeypoint.new(0.80,Color3.fromRGB(220,156,253)),
-                ColorSequenceKeypoint.new(0.88,Color3.fromRGB(220,156,253)),
-                ColorSequenceKeypoint.new(1.00,Color3.fromRGB(131,138,251))
+                ColorSequenceKeypoint.new(0.00,Color3.fromRGB(105,111,205)),
+                ColorSequenceKeypoint.new(0.08,Color3.fromRGB(105,111,205)),
+                ColorSequenceKeypoint.new(0.16,Color3.fromRGB(178,126,208)),
+                ColorSequenceKeypoint.new(0.24,Color3.fromRGB(178,126,208)),
+                ColorSequenceKeypoint.new(0.32,Color3.fromRGB(105,111,205)),
+                ColorSequenceKeypoint.new(0.40,Color3.fromRGB(105,111,205)),
+                ColorSequenceKeypoint.new(0.48,Color3.fromRGB(178,126,208)),
+                ColorSequenceKeypoint.new(0.56,Color3.fromRGB(178,126,208)),
+                ColorSequenceKeypoint.new(0.64,Color3.fromRGB(105,111,205)),
+                ColorSequenceKeypoint.new(0.72,Color3.fromRGB(105,111,205)),
+                ColorSequenceKeypoint.new(0.80,Color3.fromRGB(178,126,208)),
+                ColorSequenceKeypoint.new(0.88,Color3.fromRGB(178,126,208)),
+                ColorSequenceKeypoint.new(1.00,Color3.fromRGB(105,111,205))
             })
             WatermarkGradient.Parent = Icon
             task.spawn(function()
