@@ -4803,29 +4803,16 @@ function NeverLose:CreateWindow(Config)
             image.Parent = TabButton
             image.AnchorPoint = Vector2.new(0, 0.5)
             image.BackgroundTransparency = 1
-            image.Position = UDim2.new(0, 2, 0.5, 0)
-            image.Size = UDim2.new(0, 25, 0, 25)
+            -- Utility asset icon: smaller and dimmer when inactive.
+            image.Position = UDim2.new(0, 5, 0.5, 0)
+            image.Size = UDim2.new(0, 18, 0, 18)
             image.ZIndex = 9
             image.Image = iconAsset:match("^rbxassetid://") and iconAsset or ("rbxassetid://" .. iconAsset)
-            image.ImageColor3 = Color3.fromRGB(255,255,255)
+            image.ImageColor3 = Color3.fromRGB(252, 252, 252)
+            image.ImageTransparency = 0.5
             TabIcon.Visible = false
             TabIconImage = image
         end
-		local iconGradient = Instance.new("UIGradient")
-        iconGradient.Rotation = 0
-        iconGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(216, 148, 245)),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(123, 131, 243))
-        })
-        iconGradient.Parent = TabIconImage or TabIcon
-        task.spawn(function()
-            while (TabIconImage and TabIconImage.Parent) or (TabIcon and TabIcon.Parent) do
-                local t = (tick() * 0.18) % 2
-                local offset = t <= 1 and t or 2 - t
-                iconGradient.Offset = Vector2.new(offset - 0.5, 0)
-                task.wait()
-            end
-        end)
 
 		TabContentLabel.Name = NeverLose.RandomString();
 		TabContentLabel.Parent = TabButton
@@ -4939,6 +4926,12 @@ function NeverLose:CreateWindow(Config)
 					TextTransparency = 0,
 					TextColor3 = NeverLose.AccentColor
 				})
+				if TabIconImage then
+					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
+						ImageTransparency = 0,
+						ImageColor3 = NeverLose.AccentColor
+					})
+				end
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0
@@ -4952,6 +4945,12 @@ function NeverLose:CreateWindow(Config)
 					TextTransparency = 0.5,
 					TextColor3 = Color3.fromRGB(252, 252, 252)
 				})
+				if TabIconImage then
+					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
+						ImageTransparency = 0.5,
+						ImageColor3 = Color3.fromRGB(252, 252, 252)
+					})
+				end
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0.5

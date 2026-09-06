@@ -86,7 +86,8 @@ function library:create(name, oneObject, custom)
             --"SelectionBoxObject",
             "BoxHandleAdornmentObject",
             "HighlightObject"
-        }
+        },
+        targetProvider = nil
     }
     function api:removeEspObject(plr, obj)
         local character
@@ -187,24 +188,42 @@ function library:create(name, oneObject, custom)
         end
     end
     function api:updateAll()
+        local selected = api.targetProvider and api.targetProvider() or nil
         for _, plr in next, players:GetPlayers() do
             if isAlive(plr) then
-                api:updateEspObject(plr)
+                if not api.targetProvider or plr == selected then
+                    api:updateEspObject(plr)
+                else
+                    api:removeEspObject(plr)
+                end
+            else
+                api:removeEspObject(plr)
             end
         end
     end
     function api:start()
         api.enabled = true
         for _, plr in next, players:GetPlayers() do
-            api:updateEspObject(plr)
+            local selected = api.targetProvider and api.targetProvider() or nil
+            if not api.targetProvider or plr == selected then
+                api:updateEspObject(plr)
+            end
             table.insert(connections, plr.CharacterAdded:Connect(function()
                 if api.enabled then
-                    api:updateEspObject(plr)
+                    local selectedNow = api.targetProvider and api.targetProvider() or nil
+                    if not api.targetProvider or plr == selectedNow then
+                        api:updateEspObject(plr)
+                    else
+                        api:removeEspObject(plr)
+                    end
                 end
             end))
         end
         table.insert(connections, players.PlayerAdded:Connect(function(plr)
-            api:updateEspObject(plr)
+            local selectedNow = api.targetProvider and api.targetProvider() or nil
+            if not api.targetProvider or plr == selectedNow then
+                api:updateEspObject(plr)
+            end
             table.insert(connections, plr.CharacterAdded:Connect(function()
                 if api.enabled then
                     api:updateEspObject(plr)
