@@ -70,13 +70,3 @@ Configs are **not** saved automatically. Use the Profiles tab:
 
 - ManaV2ForRoblox — Maanaaaa & Wowzers
 - Nightix-style UI implementation in this project
-
-
-## Fixes in v6.1
-- AttackAura bind now performs a normal toggle and can be disabled with the same bind.
-- AttackAura aims the camera at the selected target before synthetic attack input so the click resolves on the target.
-- Added TriggerBot with target-under-crosshair detection, camera aiming, CPS and aim-speed controls.
-- Target ESP is limited to Ромб (variants 1-4) and Circle.
-- Circle uses asset 107258187506657 as a 3D moving ring from feet to head and back, with Bloom glow and a tight particle trail.
-- Ромб variants: 1 default, 2 132493106112220, 3 108556924043797, 4 139726405706582.
-- Menu logo/watermark gradient was changed to smooth purple/white motion with a seamless wrap.
