@@ -193,19 +193,14 @@ local Tabs = {
         TabIcon = "MovementTabIcon.png"
     }),
     Render = GuiLibrary:CreateTab({
-        Name = "Render",
+        Name = "Visuals",
         Color = Color3.fromRGB(59, 170, 222), --59, 170, 222
         TabIcon = "RenderTabIcon.png"
     }),
     Utility = GuiLibrary:CreateTab({
         Name = "Utility",
         Color = Color3.fromRGB(83, 214, 110),
-        TabIcon = "MiscTabIcon.png" --"UtilityTabIcon",
-    }),
-    World = GuiLibrary:CreateTab({
-        Name = "World",
-        Color = Color3.fromRGB(52, 28, 228), --52, 28, 228
-        TabIcon = "WorldTabIcon.png"
+        TabIcon = "rbxassetid://89294237251926",
     }),
     Settings = GuiLibrary:CreateOptionsTab({
         Name = "Settings",

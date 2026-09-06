@@ -4202,27 +4202,16 @@ function NeverLose:CreateWindow(Config)
 	LogoImage.ImageColor3 = Color3.fromRGB(255,255,255)
 	local NightixGradient = Instance.new("UIGradient")
     NightixGradient.Rotation = 0
-    -- Repeating purple/white bands with interpolated edges. The first and
-    -- last colors match, so the horizontal motion wraps without a visible seam.
     NightixGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(131,138,251)),
-        ColorSequenceKeypoint.new(0.08, Color3.fromRGB(131,138,251)),
-        ColorSequenceKeypoint.new(0.16, Color3.fromRGB(220,156,253)),
-        ColorSequenceKeypoint.new(0.24, Color3.fromRGB(220,156,253)),
-        ColorSequenceKeypoint.new(0.32, Color3.fromRGB(131,138,251)),
-        ColorSequenceKeypoint.new(0.40, Color3.fromRGB(131,138,251)),
-        ColorSequenceKeypoint.new(0.48, Color3.fromRGB(220,156,253)),
-        ColorSequenceKeypoint.new(0.56, Color3.fromRGB(220,156,253)),
-        ColorSequenceKeypoint.new(0.64, Color3.fromRGB(131,138,251)),
-        ColorSequenceKeypoint.new(0.72, Color3.fromRGB(131,138,251)),
-        ColorSequenceKeypoint.new(0.80, Color3.fromRGB(220,156,253)),
-        ColorSequenceKeypoint.new(0.88, Color3.fromRGB(220,156,253)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(131,138,251))
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(216, 148, 245)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(123, 131, 243))
     })
     NightixGradient.Parent = LogoImage
     task.spawn(function()
         while LogoImage and LogoImage.Parent do
-            NightixGradient.Offset = Vector2.new(-((tick() * 0.16) % 1), 0)
+            local t = (tick() * 0.18) % 2
+            local offset = t <= 1 and t or 2 - t
+            NightixGradient.Offset = Vector2.new(offset - 0.5, 0)
             task.wait()
         end
     end)
@@ -4774,6 +4763,7 @@ function NeverLose:CreateWindow(Config)
 		local TabButton = Instance.new("Frame")
 		local UICorner = Instance.new("UICorner")
 		local TabIcon = Instance.new("TextLabel")
+		local TabIconImage = nil
 		local TabContentLabel = Instance.new("TextLabel")
 
 		Tab.Idx = TabButton;
@@ -4805,6 +4795,37 @@ function NeverLose:CreateWindow(Config)
 		TabIcon.TextColor3 = NeverLose.AccentColor
 		TabIcon.TextSize = 16.000
 		TabIcon.TextWrapped = true
+
+        local iconAsset = tostring(Config.Icon or "")
+        if iconAsset:match("^rbxassetid://%d+$") or iconAsset:match("^%d+$") then
+            local image = Instance.new("ImageLabel")
+            image.Name = NeverLose.RandomString()
+            image.Parent = TabButton
+            image.AnchorPoint = Vector2.new(0, 0.5)
+            image.BackgroundTransparency = 1
+            image.Position = UDim2.new(0, 2, 0.5, 0)
+            image.Size = UDim2.new(0, 25, 0, 25)
+            image.ZIndex = 9
+            image.Image = iconAsset:match("^rbxassetid://") and iconAsset or ("rbxassetid://" .. iconAsset)
+            image.ImageColor3 = Color3.fromRGB(255,255,255)
+            TabIcon.Visible = false
+            TabIconImage = image
+        end
+		local iconGradient = Instance.new("UIGradient")
+        iconGradient.Rotation = 0
+        iconGradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(216, 148, 245)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(123, 131, 243))
+        })
+        iconGradient.Parent = TabIconImage or TabIcon
+        task.spawn(function()
+            while (TabIconImage and TabIconImage.Parent) or (TabIcon and TabIcon.Parent) do
+                local t = (tick() * 0.18) % 2
+                local offset = t <= 1 and t or 2 - t
+                iconGradient.Offset = Vector2.new(offset - 0.5, 0)
+                task.wait()
+            end
+        end)
 
 		TabContentLabel.Name = NeverLose.RandomString();
 		TabContentLabel.Parent = TabButton
