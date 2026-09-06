@@ -4864,14 +4864,19 @@ function NeverLose:CreateWindow(Config)
 
         local function setInactiveGradient(gradient, alpha)
             gradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 108, 176)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(87, 92, 170))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(92, 72, 112)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(64, 68, 132)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(74, 78, 150))
             })
             gradient.Transparency = NumberSequence.new(alpha or 0)
         end
-        local function setActiveSolid(gradient)
-            gradient.Color = ColorSequence.new(Color3.fromRGB(123, 131, 243))
-            gradient.Transparency = NumberSequence.new(0)
+        local function setActiveGradient(gradient, alpha)
+            gradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(216, 148, 245)),
+                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(123, 131, 243)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(216, 148, 245))
+            })
+            gradient.Transparency = NumberSequence.new(alpha or 0)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
@@ -4879,12 +4884,10 @@ function NeverLose:CreateWindow(Config)
         setInactiveGradient(TabTextGradient, 0.35)
         task.spawn(function()
             while TabButton and TabButton.Parent do
-                if Window.Tabs[Window.CurrentTab] ~= Tab then
-                    local offset = ((tick() * 0.18) % 2)
-                    offset = offset <= 1 and offset or 2 - offset
-                    TabIconGradient.Offset = Vector2.new(offset - 0.5, 0)
-                    TabTextGradient.Offset = Vector2.new(offset - 0.5, 0)
-                end
+                local offset = ((tick() * 0.22) % 2)
+                offset = offset <= 1 and offset or 2 - offset
+                TabIconGradient.Offset = Vector2.new(offset - 0.5, 0)
+                TabTextGradient.Offset = Vector2.new(offset - 0.5, 0)
                 task.wait()
             end
         end)
@@ -4990,8 +4993,8 @@ function NeverLose:CreateWindow(Config)
 						ImageColor3 = NeverLose.AccentColor
 					})
 				end
-                setActiveSolid(TabIconGradient)
-                setActiveSolid(TabTextGradient)
+                setActiveGradient(TabIconGradient, 0)
+                setActiveGradient(TabTextGradient, 0)
                 TabContentLabel.TextColor3 = NeverLose.AccentColor
                 TabContentLabel.TextColor3 = NeverLose.AccentColor
                 TabContentLabel.TextColor3 = NeverLose.AccentColor
