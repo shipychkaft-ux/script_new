@@ -609,7 +609,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 or (keybind == "M3B" or keybind == "MouseButton3") and input.UserInputType == Enum.UserInputType.MouseButton3
 
             if pressed then
-                ToggleTable:ReToggle(false)
+                -- A keybind is a normal toggle. ReToggle was restarting the
+                -- module instead, which made a bound AttackAura immediately
+                -- return to the wrong state and appear impossible to disable.
+                ToggleTable:Toggle(false)
             end
         end))
 
