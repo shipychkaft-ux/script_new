@@ -206,7 +206,7 @@ NeverLose.IconSettings = {
 };
 NeverLose.ScreenGui = GlobalWindow;
 NeverLose.Flags = {};
-NeverLose.AccentColor = Color3.fromRGB(78, 127, 252);
+NeverLose.AccentColor = Color3.fromRGB(123, 131, 243);
 NeverLose.MainColor = Color3.fromRGB(8, 8, 13);
 NeverLose.RegisiteryColor = {};
 NeverLose.NameRegisitry = {};
@@ -4888,16 +4888,13 @@ function NeverLose:CreateWindow(Config)
         TabButtonGradient.Transparency = NumberSequence.new(1)
 
         local function getThemeAccentSequence()
-            local cfg = NeverLose.IconSettings or {}
-            local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
-            local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
-            return ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00, c1),
-                ColorSequenceKeypoint.new(0.50, c2),
-                ColorSequenceKeypoint.new(1.00, c1)
-            })
+            local palette = shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet
+            local accent = (palette and palette.ToggleColor2) or NeverLose.AccentColor or Color3.fromRGB(123,131,243)
+            return ColorSequence.new(accent)
         end
 
+        -- A repeating one-way gradient. Both ends are identical, so the wrap
+        -- is mathematically continuous instead of visibly snapping backwards.
         local function getIconGradientColor()
             local cfg = NeverLose.IconSettings or {}
             if cfg.Enabled == false then
@@ -4905,13 +4902,13 @@ function NeverLose:CreateWindow(Config)
             elseif cfg.Mode == "Single" then
                 return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255, 255, 255))
             end
-            -- Seamless one-way gradient: both ends have the same color, so
-            -- wrapping from Offset=1 back to 0 has no visible jump.
             local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
             local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
             return ColorSequence.new({
                 ColorSequenceKeypoint.new(0.00, c1),
+                ColorSequenceKeypoint.new(0.25, c1),
                 ColorSequenceKeypoint.new(0.50, c2),
+                ColorSequenceKeypoint.new(0.75, c1),
                 ColorSequenceKeypoint.new(1.00, c1)
             })
         end
@@ -4939,13 +4936,16 @@ function NeverLose:CreateWindow(Config)
                 TabIconGradient.Enabled = true
                 TabTextGradient.Enabled = true
 
-                -- Active section button gets the theme accent and is animated.
+                -- Only the active section is bright/animated. The button background
+                -- itself stays dark; the old version incorrectly brightened the window.
+                TabButtonGradient:SetAttribute("NightixAccent", true)
                 TabButtonGradient.Color = getThemeAccentSequence()
                 TabButtonGradient.Enabled = active
-                TabButtonGradient.Transparency = NumberSequence.new(active and 0.35 or 1)
+                TabButtonGradient.Transparency = NumberSequence.new(active and 0.68 or 1)
 
-                -- One-way, seamless movement. No ping-pong and no visible reset.
-                local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
+                -- One-way infinite movement. The sequence endpoints match, so the
+                -- modulo wrap cannot produce the visible backwards kick.
+                local speed = math.max(0.01, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
                 local offset = -((os.clock() * speed) % 1)
                 TabIconGradient.Offset = Vector2.new(offset, 0)
                 TabTextGradient.Offset = Vector2.new(offset, 0)
@@ -5188,7 +5188,8 @@ function NeverLose:CreateWindow(Config)
 			SectionLabel.ZIndex = 9
 			SectionLabel.Font = Enum.Font.GothamMedium
 			SectionLabel.Text = Config.Name
-			SectionLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+			SectionLabel.TextColor3 = NeverLose.AccentColor or Color3.fromRGB(123,131,243)
+			SectionLabel:SetAttribute("NightixSectionLabel", true)
 			SectionLabel.TextSize = 11.000
 			SectionLabel.TextTransparency = 0.500
 			SectionLabel.TextXAlignment = Enum.TextXAlignment.Left
@@ -6084,16 +6085,38 @@ function NeverLose:CreateWindow(Config)
 	end;
 
 	function Window:RefreshNightixTheme()
-		-- AddTab render loops read IconSettings every frame, so updating these
-		-- values is enough to refresh tabs/icons immediately.  Also refresh
-		-- already-created section labels without touching the function-window
-		-- background (which intentionally stays dark).
-		local cfg = NeverLose.IconSettings or {}
-		local text = (shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet and shared.Mana.GuiLibrary.GuiPallet.TextColor) or Color3.fromRGB(255,255,255)
+		local palette = shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet or {}
+		local oldAccent = NeverLose.AccentColor
+		NeverLose.AccentColor = palette.ToggleColor2 or Color3.fromRGB(123,131,243)
+		local accent = NeverLose.AccentColor
+		local text = palette.TextColor or Color3.fromRGB(255,255,255)
+		local bg1 = palette.Color1 or Color3.fromRGB(14,14,23)
+		local bg2 = palette.Color2 or Color3.fromRGB(47,48,64)
+		local stroke = palette.Color4 or Color3.fromRGB(49,51,64)
+		local old2 = Color3.fromRGB(26,28,36)
+		local old3 = Color3.fromRGB(20,22,27)
+		local old4 = Color3.fromRGB(25,27,33)
+		local old5 = Color3.fromRGB(39,40,49)
+		local old6 = Color3.fromRGB(45,48,58)
 		for _, obj in ipairs(NeverLose.ScreenGui:GetDescendants()) do
-			if obj:IsA("TextLabel") and obj:GetAttribute("NightixSectionLabel") then
-				obj.TextColor3 = text
+			if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+				if obj.TextColor3 == Color3.fromRGB(223,223,223) or obj.TextColor3 == Color3.fromRGB(255,255,255) then
+					obj.TextColor3 = text
+				end
+			elseif obj:IsA("Frame") or obj:IsA("ScrollingFrame") then
+				local c = obj.BackgroundColor3
+				if c == old3 or c == old4 or c == old5 then obj.BackgroundColor3 = bg1
+				elseif c == old2 then obj.BackgroundColor3 = bg2 end
+			elseif obj:IsA("UIStroke") and obj.Color == old6 then
+				obj.Color = stroke
 			end
+			if oldAccent and (obj:IsA("Frame") or obj:IsA("ScrollingFrame")) and obj.BackgroundColor3 == oldAccent then
+				obj.BackgroundColor3 = accent
+			elseif obj:IsA("Frame") and obj:GetAttribute("NightixAccent") then
+				if obj:IsA("Frame") then obj.BackgroundColor3 = accent end
+				if obj:IsA("TextLabel") or obj:IsA("TextButton") then obj.TextColor3 = accent end
+			end
+			if obj:GetAttribute("NightixSectionLabel") then obj.TextColor3 = accent end
 		end
 	end
 
@@ -6164,6 +6187,7 @@ function NeverLose:CreateWindow(Config)
 			local Frame = Instance.new("Frame")
 			local Icon = Instance.new("ImageLabel")
 			local Content = Instance.new("TextLabel")
+			local IconSeparator = Instance.new("TextLabel")
 			local Separator = Instance.new("TextLabel")
 			local UID = Instance.new("TextLabel")
 			local IconGradient = Instance.new("UIGradient")
@@ -6186,6 +6210,17 @@ function NeverLose:CreateWindow(Config)
 			Icon.ScaleType = Enum.ScaleType.Fit
 			IconGradient.Parent = Icon
 			IconGradient.Rotation = 0
+
+			IconSeparator.Parent = Frame
+			IconSeparator.BackgroundTransparency = 1
+			IconSeparator.AnchorPoint = Vector2.new(0, 0.5)
+			IconSeparator.Size = UDim2.fromOffset(5, 20)
+			IconSeparator.ZIndex = 17
+			IconSeparator.Font = Enum.Font.GothamMedium
+			IconSeparator.Text = "|"
+			IconSeparator.TextColor3 = Color3.fromRGB(110,110,118)
+			IconSeparator.TextSize = 14
+			IconSeparator.TextTransparency = 0
 
 			local releaseText, uidText = tostring(Name or "Release"), ""
 			local split = releaseText:find("|", 1, true)
@@ -6238,7 +6273,7 @@ function NeverLose:CreateWindow(Config)
 				if cfg.Mode == "Single" then return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255)) end
 				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
 				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
-				return ColorSequence.new({ColorSequenceKeypoint.new(0,c1),ColorSequenceKeypoint.new(0.5,c2),ColorSequenceKeypoint.new(1,c1)})
+				return ColorSequence.new({ColorSequenceKeypoint.new(0,c1),ColorSequenceKeypoint.new(0.25,c1),ColorSequenceKeypoint.new(0.5,c2),ColorSequenceKeypoint.new(0.75,c1),ColorSequenceKeypoint.new(1,c1)})
 			end
 
 			task.spawn(function()
@@ -6292,6 +6327,7 @@ function NeverLose:CreateWindow(Config)
 				NeverLose.PlayAnimate(Content,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(UID,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(Icon,SlowyTween,{ImageTransparency = alpha})
+				NeverLose.PlayAnimate(IconSeparator,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(Separator,SlowyTween,{TextTransparency = alpha})
 			end
 			function InnerBlock:SetText(t)
