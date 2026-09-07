@@ -31,7 +31,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
     -- watermark
     local Watermark = window:Watermark()
-    Watermark:AddBlock("rbxassetid://106084104602244", "Nightix | UID: " .. tostring(localPlayer.UserId))
+    Watermark:AddBlock("rbxassetid://106084104602244", "Release | UID: " .. tostring(localPlayer.UserId))
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
@@ -657,6 +657,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         if isOptionsTab then
             function tabtable:CreateToggle(argstable)
+                -- Settings -> Icon is a full function so its controls are opened from the gear.
+                if tabname == "Settings" and tostring(argstable.Name or "") == "Icon" then
+                    return createModuleToggle(tabname, argstable)
+                end
                 return createOptionToggle(getSection(tabname), argstable, nil, tabname)
             end
         else

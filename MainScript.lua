@@ -298,70 +298,99 @@ runFunction(function()
         Min = 0.5, Max = 2, Default = 1, Round = 2
     })
 
-    Tabs.Settings:CreateDivider("Icon")
-
-    local iconColor2, iconSpeed
-    local iconMode = Tabs.Settings:CreateDropdown({
-        Name = "Режим",
-        List = {"Одиночный", "Двойной"},
-        Default = "Двойной",
-        Function = function(v)
+    -- Icon is a real function. All appearance controls live inside its option window.
+    local iconFunction = Tabs.Settings:CreateToggle({
+        Name = "Icon",
+        Default = true,
+        Callback = function(v)
             local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if not nl then return end
-            nl.IconSettings = nl.IconSettings or {Mode="Double", Color1=Color3.fromRGB(216,148,245), Color2=Color3.fromRGB(123,131,243), Speed=0.28}
-            nl.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
-            if iconColor2 and iconSpeed then
-                local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-                if not nl then return end
-                local double = nl.IconSettings.Mode == "Double"
-                if iconColor2.Container then iconColor2.Container.Visible = double end
-                if iconSpeed.Container then iconSpeed.Container.Visible = double end
+            if nl then
+                nl.IconSettings = nl.IconSettings or {}
+                nl.IconSettings.Enabled = v
             end
         end
     })
 
-    local iconColor1 = Tabs.Settings:CreateColorSlider({
-        Name = "Первый цвет",
-        Default = (GuiLibrary.NightixMenu.NeverLose.IconSettings or {}).Color1 or Color3.fromRGB(216, 148, 245),
-        Function = function(v) GuiLibrary.NightixMenu.NeverLose.IconSettings.Color1 = v end
-    })
-
-    iconColor2 = Tabs.Settings:CreateColorSlider({
-        Name = "Второй цвет",
-        Default = (GuiLibrary.NightixMenu.NeverLose.IconSettings or {}).Color2 or Color3.fromRGB(123, 131, 243),
-        Function = function(v) GuiLibrary.NightixMenu.NeverLose.IconSettings.Color2 = v end
-    })
-
-    iconSpeed = Tabs.Settings:CreateSlider({
-        Name = "Скорость переливания",
-        Min = 0.05, Max = 1.5, Default = 0.28, Round = 2,
-        Function = function(v) GuiLibrary.NightixMenu.NeverLose.IconSettings.Speed = v end
-    })
-
-    local function updateIconOptionVisibility()
-        local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-        if not nl then return end
-        local double = nl.IconSettings.Mode == "Double"
-        if iconColor2.Container then iconColor2.Container.Visible = double end
-        if iconSpeed.Container then iconSpeed.Container.Visible = double end
+    local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+    if nl then
+        nl.IconSettings = nl.IconSettings or {}
+        nl.IconSettings.Enabled = true
+        nl.IconSettings.Mode = nl.IconSettings.Mode or "Double"
+        nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(216, 148, 245)
+        nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(123, 131, 243)
+        nl.IconSettings.Speed = nl.IconSettings.Speed or 0.28
     end
-    iconMode:Select("Двойной")
-    updateIconOptionVisibility()
 
-    Tabs.Settings:CreateButton({
-        Name = "Сбросить",
-        Callback = function()
-            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if not nl then return end
-            nl.IconSettings.Mode = "Double"
-            nl.IconSettings.Color1 = Color3.fromRGB(216, 148, 245)
-            nl.IconSettings.Color2 = Color3.fromRGB(123, 131, 243)
-            nl.IconSettings.Speed = 0.28
-            iconMode:Select("Двойной")
-            iconColor1:Set(nl.IconSettings.Color1, true)
-            iconColor2:Set(nl.IconSettings.Color2, true)
+    local iconColor2, iconSpeed
+    local iconMode = iconFunction:CreateDropdown({
+        Name = "Режим",
+        List = {"Одиночный", "Двойной"},
+        Default = "Двойной",
+        Function = function(v)
+            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if not nl2 then return end
+            nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
+            local double = nl2.IconSettings.Mode == "Double"
+            if iconColor2 and iconColor2.Container then iconColor2.Container.Visible = double end
+            if iconSpeed and iconSpeed.Container then iconSpeed.Container.Visible = double end
         end
     })
+
+    local iconColor1 = iconFunction:CreateColorSlider({
+        Name = "Первый цвет",
+        Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
+        Function = function(v)
+            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if nl2 then nl2.IconSettings.Color1 = v end
+        end
+    })
+
+    iconColor2 = iconFunction:CreateColorSlider({
+        Name = "Второй цвет",
+        Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
+        Function = function(v)
+            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if nl2 then nl2.IconSettings.Color2 = v end
+        end
+    })
+
+    iconSpeed = iconFunction:CreateSlider({
+        Name = "Скорость переливания",
+        Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.28, Round = 2,
+        Function = function(v)
+            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if nl2 then nl2.IconSettings.Speed = v end
+        end
+    })
+
+    local function applyTheme(v)
+        local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+        if not nl2 then return end
+        if v == "Nursultan 1.16.5" then
+            nl2.IconSettings.Mode = "Double"
+            nl2.IconSettings.Color1 = Color3.fromRGB(207, 156, 211)
+            nl2.IconSettings.Color2 = Color3.fromRGB(94, 74, 103)
+        else
+            nl2.IconSettings.Mode = "Double"
+            nl2.IconSettings.Color1 = Color3.fromRGB(216, 148, 245)
+            nl2.IconSettings.Color2 = Color3.fromRGB(123, 131, 243)
+        end
+        iconMode:Select("Двойной")
+        iconColor1:Set(nl2.IconSettings.Color1, true)
+        iconColor2:Set(nl2.IconSettings.Color2, true)
+    end
+
+    iconFunction:CreateDropdown({
+        Name = "Готовые темы",
+        List = {"Nursultan 1.21.11", "Nursultan 1.16.5"},
+        Default = "Nursultan 1.21.11",
+        Function = applyTheme
+    })
+
+    -- The function itself starts with the default client theme.
+    iconMode:Select("Двойной")
+    if iconColor2.Container then iconColor2.Container.Visible = true end
+    if iconSpeed.Container then iconSpeed.Container.Visible = true end
 end)
 
 -- Profiles tab

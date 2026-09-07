@@ -198,6 +198,7 @@ NeverLose.Scales = {
 NeverLose.IconColor = Color3.fromRGB(255, 255, 255);
 -- Nightix icon appearance settings. Double mode preserves the current client gradient.
 NeverLose.IconSettings = {
+	Enabled = true,
 	Mode = "Double",
 	Color1 = Color3.fromRGB(216, 148, 245),
 	Color2 = Color3.fromRGB(123, 131, 243),
@@ -4880,46 +4881,39 @@ function NeverLose:CreateWindow(Config)
 		TabContentLabel.TextSize = 12.000
 		TabContentLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-        local function setInactiveGradient(gradient, alpha)
-            gradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 108, 176)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(87, 92, 170))
-            })
-            gradient.Transparency = NumberSequence.new(alpha or 0)
-        end
-        local function setActiveGradient(gradient, alpha)
-            local cfg = NeverLose.IconSettings
+        local function getIconGradientColor()
+            local cfg = NeverLose.IconSettings or {}
+            if cfg.Enabled == false then
+                return ColorSequence.new(Color3.fromRGB(255, 255, 255))
+            elseif cfg.Mode == "Single" then
+                return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255, 255, 255))
+            end
             local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
             local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
-            if cfg.Mode == "Single" then
-                gradient.Color = ColorSequence.new(c1)
-            else
-                gradient.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0.00, c1),
-                    ColorSequenceKeypoint.new(0.50, c2),
-                    ColorSequenceKeypoint.new(1.00, c1)
-                })
-            end
+            return ColorSequence.new({
+                ColorSequenceKeypoint.new(0.00, c1),
+                ColorSequenceKeypoint.new(0.50, c2),
+                ColorSequenceKeypoint.new(1.00, c1)
+            })
+        end
+        local function setGradient(gradient, alpha)
+            gradient.Color = getIconGradientColor()
             gradient.Transparency = NumberSequence.new(alpha or 0)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
-        setInactiveGradient(TabIconGradient, 0.15)
-        setInactiveGradient(TabTextGradient, 0.15)
+        setGradient(TabIconGradient, 0.15)
+        setGradient(TabTextGradient, 0.15)
         task.spawn(function()
             while TabButton and TabButton.Parent do
                 local active = Window.Tabs[Window.CurrentTab] == Tab
-                if active then
-                    setActiveGradient(TabIconGradient, 0)
-                    setActiveGradient(TabTextGradient, 0)
-                else
-                    setInactiveGradient(TabIconGradient, 0.15)
-                    setInactiveGradient(TabTextGradient, 0.15)
-                end
-                local offset = ((tick() * math.max(0, NeverLose.IconSettings.Speed or 0.28)) % 2)
-                offset = offset <= 1 and offset or 2 - offset
-                TabIconGradient.Offset = Vector2.new(offset - 0.5, 0)
-                TabTextGradient.Offset = Vector2.new(offset - 0.5, 0)
+                setGradient(TabIconGradient, active and 0 or 0.15)
+                setGradient(TabTextGradient, active and 0 or 0.15)
+                -- Always travel in one direction: left. Never bounce back.
+                local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
+                local offset = -((tick() * speed) % 1)
+                TabIconGradient.Offset = Vector2.new(offset, 0)
+                TabTextGradient.Offset = Vector2.new(offset, 0)
                 task.wait()
             end
         end)
@@ -5025,8 +5019,8 @@ function NeverLose:CreateWindow(Config)
 						ImageColor3 = Color3.fromRGB(255, 255, 255)
 					})
 				end
-                setActiveGradient(TabIconGradient, 0)
-                setActiveGradient(TabTextGradient, 0)
+                setGradient(TabIconGradient, 0)
+                setGradient(TabTextGradient, 0)
                 TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
@@ -5047,8 +5041,8 @@ function NeverLose:CreateWindow(Config)
 						ImageColor3 = Color3.fromRGB(252, 252, 252)
 					})
 				end
-                setInactiveGradient(TabIconGradient, 0.15)
-                setInactiveGradient(TabTextGradient, 0.15)
+                setGradient(TabIconGradient, 0.15)
+                setGradient(TabTextGradient, 0.15)
                 TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
@@ -6063,13 +6057,12 @@ function NeverLose:CreateWindow(Config)
 		local Watermark = Instance.new("Frame")
 		local UICorner = Instance.new("UICorner")
 		local UIListLayout = Instance.new("UIListLayout")
-		local Shadow = NeverLose:CreateShadow(Watermark, false, 0.5);
 
 		Watermark.Name = NeverLose.RandomString();
 		Watermark.Parent = NeverLose.ScreenGui
 		Watermark.AnchorPoint = Vector2.new(1, 0)
 		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
-		Watermark.BackgroundTransparency = 0.200
+		Watermark.BackgroundTransparency = 0
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
@@ -6084,13 +6077,7 @@ function NeverLose:CreateWindow(Config)
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
-
-		local empty_space = Instance.new('Frame');
-
-		empty_space.Size = UDim2.fromOffset(15,0);
-		empty_space.BackgroundTransparency = 1;
-		empty_space.Parent = Watermark;
-		empty_space.LayoutOrder = 5;
+		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 		Watermark:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
 			if Watermark.BackgroundTransparency > 0.9 then
@@ -6104,175 +6091,153 @@ function NeverLose:CreateWindow(Config)
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(Watermark , SlowyTween , {
-				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 5, 0, 36)
+				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 8, 0, 36)
 			})
 		end));
 
 		NeverLose.__WatermarkCache = Watermark_lb;
-
-		Shadow:Render(true);
-
 		Watermark_lb.Renders = {};
 		Watermark_lb.Status = true;
 
 		function Watermark_lb:SetRender(value)
 			Watermark_lb.Status = value;
-
 			if value then
-				NeverLose.PlayAnimate(Watermark,SlowyTween , {
-					BackgroundTransparency = 0.200
-				})
-
-				Shadow:Render(true);
-
-				for i,v in next , Watermark_lb.Renders do
-					pcall(v,true);
-				end;
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0})
+				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
 			else
-				NeverLose.PlayAnimate(Watermark,SlowyTween , {
-					BackgroundTransparency = 1
-				})
-
-				Shadow:Render(false);
-
-				for i,v in next , Watermark_lb.Renders do
-					pcall(v,false);
-				end;
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 1})
+				for i,v in next , Watermark_lb.Renders do pcall(v,false); end;
 			end
 		end;
 
 		function Watermark_lb:AddBlock(IconStr , Name)
 			local InnerBlock = {};
-
 			local Frame = Instance.new("Frame")
-			local Content = Instance.new("TextLabel")
 			local Icon = Instance.new("ImageLabel")
+			local Separator = Instance.new("TextLabel")
+			local Content = Instance.new("TextLabel")
+			local UID = Instance.new("TextLabel")
 
 			Frame.Parent = Watermark
-			Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-			Frame.BackgroundTransparency = 1.000
-			Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
+			Frame.BackgroundTransparency = 1
 			Frame.BorderSizePixel = 0
-			Frame.Size = UDim2.new(0, 50, 0, 36)
+			Frame.Size = UDim2.new(0, 90, 0, 36)
 
-			Content.Name = NeverLose.RandomString();
-			Content.Parent = Frame
-			Content.AnchorPoint = Vector2.new(0, 0.5)
-			Content.BackgroundColor3 = Color3.fromRGB(186, 186, 186)
-			Content.BackgroundTransparency = 1.000
-			Content.BorderColor3 = Color3.fromRGB(0, 0, 0)
-			Content.BorderSizePixel = 0
-			Content.Position = UDim2.new(0, 42, 0.5, 0)
-			Content.Size = UDim2.new(0, 1, 0, 30)
-			Content.ZIndex = 17
-			Content.Font = Enum.Font.GothamBold
-			Content.Text = Name
-			Content.TextColor3 = Color3.fromRGB(186, 186, 186)
-			Content.TextSize = 18.000
-			Content.TextTransparency = 0.200
-			Content.TextXAlignment = Enum.TextXAlignment.Left
-
-			Icon.Name = NeverLose.RandomString();
 			Icon.Parent = Frame
+			Icon.BackgroundTransparency = 1
+			Icon.Position = UDim2.new(0, 7, 0.5, 0)
 			Icon.AnchorPoint = Vector2.new(0, 0.5)
-			Icon.BackgroundColor3 = Color3.fromRGB(186, 186, 186)
-			Icon.BackgroundTransparency = 1.000
-			Icon.BorderColor3 = Color3.fromRGB(0, 0, 0)
-			Icon.BorderSizePixel = 0
-			Icon.Position = UDim2.new(0, 12, 0.5, 0)
-			Icon.Size = UDim2.new(0, 24, 0, 24)
+			Icon.Size = UDim2.fromOffset(22, 22)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
-			Icon.ImageTransparency = 0.32
+			Icon.ImageTransparency = 0
 			Icon.ScaleType = Enum.ScaleType.Fit
-			local WatermarkGradient = Instance.new("UIGradient")
-            WatermarkGradient.Rotation = 0
-            WatermarkGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00,Color3.fromRGB(105,111,205)),
-                ColorSequenceKeypoint.new(0.08,Color3.fromRGB(105,111,205)),
-                ColorSequenceKeypoint.new(0.16,Color3.fromRGB(178,126,208)),
-                ColorSequenceKeypoint.new(0.24,Color3.fromRGB(178,126,208)),
-                ColorSequenceKeypoint.new(0.32,Color3.fromRGB(105,111,205)),
-                ColorSequenceKeypoint.new(0.40,Color3.fromRGB(105,111,205)),
-                ColorSequenceKeypoint.new(0.48,Color3.fromRGB(178,126,208)),
-                ColorSequenceKeypoint.new(0.56,Color3.fromRGB(178,126,208)),
-                ColorSequenceKeypoint.new(0.64,Color3.fromRGB(105,111,205)),
-                ColorSequenceKeypoint.new(0.72,Color3.fromRGB(105,111,205)),
-                ColorSequenceKeypoint.new(0.80,Color3.fromRGB(178,126,208)),
-                ColorSequenceKeypoint.new(0.88,Color3.fromRGB(178,126,208)),
-                ColorSequenceKeypoint.new(1.00,Color3.fromRGB(105,111,205))
-            })
-            WatermarkGradient.Parent = Icon
-            task.spawn(function()
-                while Icon and Icon.Parent do
-                    WatermarkGradient.Offset=Vector2.new(-((tick()*0.16)%1),0)
-                    task.wait()
-                end
-            end)
 
-			InnerBlock.Update = LPH_NO_VIRTUALIZE(function(value)
-				local size = TextService:GetTextSize(Content.Text , Content.TextSize,Content.Font,Vector2.new(math.huge,math.huge))
+			Separator.Parent = Frame
+			Separator.BackgroundTransparency = 1
+			Separator.Position = UDim2.new(0, 34, 0.5, 0)
+			Separator.AnchorPoint = Vector2.new(0, 0.5)
+			Separator.Size = UDim2.fromOffset(5, 22)
+			Separator.ZIndex = 17
+			Separator.Font = Enum.Font.GothamMedium
+			Separator.Text = "|"
+			Separator.TextColor3 = Color3.fromRGB(110, 110, 118)
+			Separator.TextSize = 14
+			Separator.TextTransparency = 0
 
-				if InnerBlock.Visible then
-					NeverLose.PlayAnimate(Frame,VSlowTween,{
-						Size = UDim2.new(0, size.X + 42, 0, 36)
-					})
+			local releaseText, uidText = tostring(Name or "Release"), ""
+			local split = releaseText:find("|", 1, true)
+			if split then
+				uidText = releaseText:sub(split + 1):gsub("^%s+", "")
+				releaseText = releaseText:sub(1, split - 1):gsub("%s+$", "")
+			end
+
+			Content.Parent = Frame
+			Content.BackgroundTransparency = 1
+			Content.Position = UDim2.new(0, 45, 0.5, 0)
+			Content.AnchorPoint = Vector2.new(0, 0.5)
+			Content.Size = UDim2.fromOffset(55, 20)
+			Content.ZIndex = 17
+			Content.Font = Enum.Font.GothamBold
+			Content.Text = releaseText
+			Content.TextColor3 = Color3.fromRGB(255, 255, 255)
+			Content.TextSize = 15
+			Content.TextTransparency = 0
+			Content.TextXAlignment = Enum.TextXAlignment.Left
+
+			UID.Parent = Frame
+			UID.BackgroundTransparency = 1
+			UID.Position = UDim2.new(0, 45, 0.5, 0)
+			UID.AnchorPoint = Vector2.new(0, 0.5)
+			UID.Size = UDim2.fromOffset(1, 20)
+			UID.ZIndex = 17
+			UID.Font = Enum.Font.GothamMedium
+			UID.Text = uidText ~= "" and (" | " .. uidText) or ""
+			UID.TextColor3 = Color3.fromRGB(145, 145, 152)
+			UID.TextSize = 12
+			UID.TextTransparency = 0
+			UID.TextXAlignment = Enum.TextXAlignment.Left
+
+			local Gradient = Instance.new("UIGradient")
+			Gradient.Parent = Content
+			local function refreshGradient()
+				local cfg = NeverLose.IconSettings or {}
+				if cfg.Enabled == false then
+					Gradient.Color = ColorSequence.new(Color3.fromRGB(255,255,255))
+				elseif cfg.Mode == "Single" then
+					Gradient.Color = ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255))
 				else
-					NeverLose.PlayAnimate(Frame,VSlowTween,{
-						Size = UDim2.new(0, 0, 0, 36)
+					local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
+					local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
+					Gradient.Color = ColorSequence.new({
+						ColorSequenceKeypoint.new(0,c1),
+						ColorSequenceKeypoint.new(0.5,c2),
+						ColorSequenceKeypoint.new(1,c1)
 					})
-				end;
-			end);
+				end
+			end
+			task.spawn(function()
+				while Frame and Frame.Parent do
+					refreshGradient()
+					local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
+					local offset = -((tick() * speed) % 1)
+					Gradient.Offset = Vector2.new(offset, 0)
+					task.wait()
+				end
+			end)
 
-			InnerBlock.Visible = true;
+			local function updateSize()
+				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
+				local b = TextService:GetTextSize(UID.Text, UID.TextSize, UID.Font, Vector2.new(math.huge,math.huge))
+				Content.Size = UDim2.fromOffset(a.X + 2, 20)
+				UID.Position = UDim2.new(0, 45 + a.X + 3, 0.5, 0)
+				UID.Size = UDim2.fromOffset(b.X + 2, 20)
+				Frame.Size = UDim2.fromOffset(52 + a.X + b.X, 36)
+			end
+			updateSize()
 
-			InnerBlock.Update();
-
+			InnerBlock.Visible = true
+			InnerBlock.Update = function() updateSize() end
 			function InnerBlock:SetVisible(v)
-				InnerBlock.Visible = v;
-
-				if Watermark_lb.Status then
-					InnerBlock.SetRender(v);
-				end;
-
-				InnerBlock.Update();
-			end;
-
-			InnerBlock.SetRender = LPH_NO_VIRTUALIZE(function(value)
-				if value and InnerBlock.Visible then
-					NeverLose.PlayAnimate(Content,SlowyTween , {
-						TextTransparency = 0.200
-					})
-
-					NeverLose.PlayAnimate(Icon,SlowyTween , {
-						ImageTransparency = 0.250
-					})
-				else
-
-					NeverLose.PlayAnimate(Content,SlowyTween , {
-						TextTransparency = 1
-					})
-
-					NeverLose.PlayAnimate(Icon,SlowyTween , {
-						ImageTransparency = 1
-					})
-				end;
-			end);
-
-			table.insert(Watermark_lb.Renders,InnerBlock.SetRender);
-
+				InnerBlock.Visible = v
+				if Watermark_lb.Status then InnerBlock.SetRender(v) end
+				InnerBlock.Update()
+			end
+			InnerBlock.SetRender = function(value)
+				local alpha = (value and InnerBlock.Visible) and 0 or 1
+				NeverLose.PlayAnimate(Content,SlowyTween,{TextTransparency = alpha})
+				NeverLose.PlayAnimate(UID,SlowyTween,{TextTransparency = alpha})
+				NeverLose.PlayAnimate(Icon,SlowyTween,{ImageTransparency = alpha})
+				NeverLose.PlayAnimate(Separator,SlowyTween,{TextTransparency = alpha})
+			end
 			function InnerBlock:SetText(t)
-				Content.Text = t;
-
-				InnerBlock.Update();
-			end;
-
+				Content.Text = tostring(t or "")
+				updateSize()
+			end
 			function InnerBlock:Input(func)
-				local c,s = NeverLose:CreateInput(Frame,func);
-
-				return s;
-			end;
-
+				return NeverLose:CreateInput(Frame,func)
+			end
+			table.insert(Watermark_lb.Renders,InnerBlock.SetRender)
 			return InnerBlock;
 		end;
 
