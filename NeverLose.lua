@@ -4824,7 +4824,7 @@ function NeverLose:CreateWindow(Config)
 		TabIcon.ZIndex = 9
 		TabIcon.FontFace = NeverLose.BuiltInBold
 		TabIcon.Text = Config.Icon;
-		TabIcon.TextColor3 = NeverLose.AccentColor
+		TabIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
 		TabIcon.TextSize = 16.000
 		TabIcon.TextWrapped = true
 
@@ -4864,27 +4864,34 @@ function NeverLose:CreateWindow(Config)
 
         local function setInactiveGradient(gradient, alpha)
             gradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(92, 72, 112)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(64, 68, 132)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(74, 78, 150))
+                ColorSequenceKeypoint.new(0, Color3.fromRGB(155, 108, 176)),
+                ColorSequenceKeypoint.new(1, Color3.fromRGB(87, 92, 170))
             })
             gradient.Transparency = NumberSequence.new(alpha or 0)
         end
         local function setActiveGradient(gradient, alpha)
             gradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(216, 148, 245)),
-                ColorSequenceKeypoint.new(0.5, Color3.fromRGB(123, 131, 243)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(216, 148, 245))
+                ColorSequenceKeypoint.new(0.00, Color3.fromRGB(216, 148, 245)),
+                ColorSequenceKeypoint.new(0.50, Color3.fromRGB(123, 131, 243)),
+                ColorSequenceKeypoint.new(1.00, Color3.fromRGB(216, 148, 245))
             })
             gradient.Transparency = NumberSequence.new(alpha or 0)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
         setInactiveGradient(TabIconGradient, 0.15)
-        setInactiveGradient(TabTextGradient, 0.35)
+        setInactiveGradient(TabTextGradient, 0.15)
         task.spawn(function()
             while TabButton and TabButton.Parent do
-                local offset = ((tick() * 0.22) % 2)
+                local active = Window.Tabs[Window.CurrentTab] == Tab
+                if active then
+                    setActiveGradient(TabIconGradient, 0)
+                    setActiveGradient(TabTextGradient, 0)
+                else
+                    setInactiveGradient(TabIconGradient, 0.15)
+                    setInactiveGradient(TabTextGradient, 0.15)
+                end
+                local offset = ((tick() * 0.28) % 2)
                 offset = offset <= 1 and offset or 2 - offset
                 TabIconGradient.Offset = Vector2.new(offset - 0.5, 0)
                 TabTextGradient.Offset = Vector2.new(offset - 0.5, 0)
@@ -4985,7 +4992,7 @@ function NeverLose:CreateWindow(Config)
 
 				NeverLose.PlayAnimate(TabIcon , SlowyTween , {
 					TextTransparency = 0,
-					TextColor3 = NeverLose.AccentColor
+					TextColor3 = Color3.fromRGB(255, 255, 255)
 				})
 				if TabIconImage then
 					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
@@ -4995,9 +5002,7 @@ function NeverLose:CreateWindow(Config)
 				end
                 setActiveGradient(TabIconGradient, 0)
                 setActiveGradient(TabTextGradient, 0)
-                TabContentLabel.TextColor3 = NeverLose.AccentColor
-                TabContentLabel.TextColor3 = NeverLose.AccentColor
-                TabContentLabel.TextColor3 = NeverLose.AccentColor
+                TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0
@@ -5018,10 +5023,8 @@ function NeverLose:CreateWindow(Config)
 					})
 				end
                 setInactiveGradient(TabIconGradient, 0.15)
-                setInactiveGradient(TabTextGradient, 0.35)
-                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
-                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
-                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
+                setInactiveGradient(TabTextGradient, 0.15)
+                TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0.5
