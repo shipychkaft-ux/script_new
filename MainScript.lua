@@ -433,13 +433,9 @@ runFunction(function()
         local theme = themes[v]
         if not theme then return end
 
-        for key, value in pairs(theme) do
-            if key ~= "Icon1" and key ~= "Icon2" then
-                GuiLibrary:setColor(key, value)
-            end
-        end
+        -- Presets are text/client-icon themes only. Never repaint menu or
+        -- button backgrounds when switching between presets.
         palette.ThemeMode = "Preset"
-        GuiLibrary:updateObjects()
 
         nl2.IconSettings = nl2.IconSettings or {}
         nl2._LastThemePalette = nl2.ThemePalette
