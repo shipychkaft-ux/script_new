@@ -674,7 +674,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Visuals = "paint-brush",
             Utility = "rbxassetid://89294237251926",
             Settings = "gear",
-            Profiles = "three-dots-horizontal",
+            Confings = "three-dots-horizontal",
             Friends = "person",
         }
 
@@ -763,7 +763,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
             local function notify(text)
                 local notification = NeverLose:CreateNotification()
-                notification.new({Title = "Profiles", Content = tostring(text), Duration = 2.5})
+                notification.new({Title = "Confings", Content = tostring(text), Duration = 2.5})
             end
 
             function manager:Refresh()

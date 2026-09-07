@@ -223,28 +223,37 @@ function NeverLose:RefreshNightixTheme()
     local p = self.ThemePalette or {}
     local c1 = (self.IconSettings and self.IconSettings.Color1) or p.Icon1 or Color3.fromRGB(216, 148, 245)
     local c2 = (self.IconSettings and self.IconSettings.Color2) or p.Icon2 or Color3.fromRGB(123, 131, 243)
-
-    -- Nightix presets are intentionally text/icon-only.  Do NOT recolor
-    -- frames, buttons, toggle backgrounds or menu panels when a theme is
-    -- selected.  Their original UI colors must stay untouched.
     self.MainColor = Color3.fromRGB(8, 8, 13)
-    self.AccentColor = p.ToggleColor2 or self.AccentColor
     self.IconColor = c1
-
+    -- Theme presets intentionally do not recolor menu/button backgrounds.
+    -- Accent is kept for legacy modules, while visual controls use IconSettings.
+    self.AccentColor = c1
     if not self.ScreenGui then return end
     for _,o in ipairs(self.ScreenGui:GetDescendants()) do
         if o:IsA("ImageLabel") and o.Name == "NightixThemeIcon" then
             o.ImageColor3 = c1
-        elseif o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox") then
-            -- Theme text uses the exact theme text/accent color; no lightening
-            -- or darkening is applied here.
-            if o:GetAttribute("NightixThemeAccentText") then
-                o.TextColor3 = c1
-            end
-        elseif o:IsA("UIGradient") and o.Name == "NightixThemeGradient" then
-            o.Color = ColorSequence.new(c1, c2)
+        elseif (o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox")) and o:GetAttribute("NightixThemeAccentText") then
+            o.TextColor3 = c1
         end
     end
+end
+
+function NeverLose:GetNightixGradient(phase, muted)
+    local cfg = self.IconSettings or {}
+    local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
+    local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
+    if muted then
+        c1 = c1:Lerp(Color3.new(0,0,0), 0.45)
+        c2 = c2:Lerp(Color3.new(0,0,0), 0.45)
+    end
+    phase = phase or 0
+    local keys = {}
+    for i = 0, 16 do
+        local x = i / 16
+        local mix = (1 - math.cos((x + phase) * math.pi * 2)) * 0.5
+        keys[#keys + 1] = ColorSequenceKeypoint.new(x, c1:Lerp(c2, mix))
+    end
+    return ColorSequence.new(keys)
 end
 
 NeverLose.ScreenGui = GlobalWindow;
@@ -1832,6 +1841,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		local Toggle = Instance.new("Frame")
 		local UICorner = Instance.new("UICorner")
 		local Circle = Instance.new("Frame")
+		local ToggleGradient = Instance.new("UIGradient")
 		local UICorner_2 = Instance.new("UICorner")
 
 		Toggle.Name = NeverLose.RandomString();
@@ -1846,6 +1856,9 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		UICorner.CornerRadius = UDim.new(1, 0)
 		UICorner.Parent = Toggle
+		ToggleGradient.Name = "NightixToggleGradient"
+		ToggleGradient.Parent = Toggle
+		ToggleGradient.Enabled = false
 
 		Circle.Name = NeverLose.RandomString();
 		Circle.Parent = Toggle
@@ -1867,10 +1880,9 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		ToggleLib.SetUI = LPH_NO_VIRTUALIZE(function(value)
 			if value then
-				NeverLose.PlayAnimate(Toggle,SlowyTween,{
-					BackgroundTransparency = 0,
-					BackgroundColor3 = NeverLose.AccentColor
-				})
+				Toggle.BackgroundTransparency = 0
+				Toggle.BackgroundColor3 = Color3.fromRGB(10, 13, 21)
+				ToggleGradient.Enabled = true
 
 				NeverLose.PlayAnimate(Circle,SlowyTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -1878,6 +1890,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					Position = UDim2.new(0.7, 0, 0.5, 0)
 				})
 			else
+				ToggleGradient.Enabled = false
 				NeverLose.PlayAnimate(Toggle,SlowyTween,{
 					BackgroundTransparency = 0,
 					BackgroundColor3 = Color3.fromRGB(10, 13, 21)
@@ -1890,6 +1903,15 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				})
 			end;
 		end);
+
+		task.spawn(function()
+			while Toggle and Toggle.Parent do
+				if ToggleGradient.Enabled then
+					ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
+				end
+				task.wait(0.033)
+			end
+		end)
 
 		ToggleLib.SetVisible = LPH_NO_VIRTUALIZE(function(value)
 			if value then
@@ -1992,6 +2014,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		local UICorner_3 = Instance.new("UICorner")
 		local SlideMoving = Instance.new("Frame")
 		local UICorner_4 = Instance.new("UICorner")
+		local SliderGradient = Instance.new("UIGradient")
 		local Frame = Instance.new("Frame")
 		local UICorner_5 = Instance.new("UICorner")
 		local boxSize = 2;
@@ -2079,6 +2102,16 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		UICorner_4.CornerRadius = UDim.new(1, 0)
 		UICorner_4.Parent = SlideMoving
+		SliderGradient.Name = "NightixSliderGradient"
+		SliderGradient.Parent = SlideMoving
+		SliderGradient.Enabled = true
+
+		task.spawn(function()
+			while Slider and Slider.Parent do
+				SliderGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
+				task.wait(0.033)
+			end
+		end)
 
 		Frame.Parent = SlideMoving
 		Frame.AnchorPoint = Vector2.new(1, 0.5)
@@ -5015,24 +5048,21 @@ function NeverLose:CreateWindow(Config)
         task.spawn(function()
             while TabButton and TabButton.Parent do
                 local active = Window.Tabs[Window.CurrentTab] == Tab
-                local cfg = NeverLose.IconSettings or {}
-                local palette = NeverLose.ThemePalette or {}
-                local themeC1 = palette.Icon1 or cfg.Color1 or Color3.fromRGB(216,148,245)
-                -- Exact theme color: no Lerp, darkening, lightening or use of
-                -- ToggleColor2. Active tab is text-only; its background remains
-                -- transparent in every theme.
-                local activeTextColor = themeC1
-                local inactiveTextColor = palette.TextColor or Color3.fromRGB(255,255,255)
-                TabIconGradient.Enabled = false
-                TabTextGradient.Enabled = false
+                local speed = tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65
+                local phase = (os.clock() * speed) % 1
+                local gradient = active and NeverLose:GetNightixGradient(phase, false) or NeverLose:GetNightixGradient(phase, true)
+                TabIconGradient.Color = gradient
+                TabTextGradient.Color = gradient
+                TabIconGradient.Enabled = true
+                TabTextGradient.Enabled = true
+                TabIconGradient.Transparency = NumberSequence.new(active and 0 or 0.05)
+                TabTextGradient.Transparency = NumberSequence.new(active and 0 or 0.05)
                 TabButtonGradient.Enabled = false
-                TabButtonGradient.Offset = Vector2.new(0, 0)
                 TabButton.BackgroundTransparency = 1
-                TabIcon.TextColor3 = active and activeTextColor or inactiveTextColor
-                TabContentLabel.TextColor3 = active and activeTextColor or inactiveTextColor
-                if TabIconImage then TabIconImage.ImageColor3 = active and activeTextColor or inactiveTextColor end
-                -- Do not update every gradient every render frame. 30 FPS is
-                -- visually smooth here and avoids a large per-tab CPU cost.
+                -- Keep base text/icon colors neutral; the UIGradient supplies the theme colors.
+                TabIcon.TextColor3 = Color3.fromRGB(255,255,255)
+                TabContentLabel.TextColor3 = Color3.fromRGB(255,255,255)
+                if TabIconImage then TabIconImage.ImageColor3 = Color3.fromRGB(255,255,255) end
                 task.wait(0.033)
             end
         end)
@@ -5131,20 +5161,21 @@ function NeverLose:CreateWindow(Config)
                 local theme = NeverLose.ThemePalette or {}
                 local activeText = theme.Icon1 or (NeverLose.IconSettings and NeverLose.IconSettings.Color1) or Color3.fromRGB(216,148,245)
 				TabIcon.TextTransparency = 0
-				TabIcon.TextColor3 = activeText
+                TabIcon.TextColor3 = Color3.fromRGB(255,255,255)
 				if TabIconImage then
 					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
 						ImageTransparency = 0
 					})
 				end
-                TabIconGradient.Enabled = false
-                TabTextGradient.Enabled = false
-                TabIcon.TextColor3 = activeText
-                TabContentLabel.TextColor3 = activeText
-                if TabIconImage then TabIconImage.ImageColor3 = activeText end
+                TabIconGradient.Enabled = true
+                TabTextGradient.Enabled = true
+                TabIcon.TextColor3 = Color3.fromRGB(255,255,255)
+                TabContentLabel.TextColor3 = Color3.fromRGB(255,255,255)
+                if TabIconImage then TabIconImage.ImageColor3 = Color3.fromRGB(255,255,255) end
 
-				TabContentLabel.TextTransparency = 0
-				TabContentLabel.TextColor3 = activeText
+				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
+					TextTransparency = 0
+				})
 			else
 				NeverLose.PlayAnimate(TabButton , SlowyTween , {
 					BackgroundTransparency = 1
@@ -5153,20 +5184,21 @@ function NeverLose:CreateWindow(Config)
                 local theme = NeverLose.ThemePalette or {}
                 local inactiveText = theme.TextColor or Color3.fromRGB(255,255,255)
 				TabIcon.TextTransparency = 0.5
-				TabIcon.TextColor3 = inactiveText
+                TabIcon.TextColor3 = Color3.fromRGB(255,255,255)
 				if TabIconImage then
 					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
 						ImageTransparency = 0.5
 					})
 				end
-                TabIconGradient.Enabled = false
-                TabTextGradient.Enabled = false
-                TabIcon.TextColor3 = inactiveText
-                TabContentLabel.TextColor3 = inactiveText
-                if TabIconImage then TabIconImage.ImageColor3 = inactiveText end
+                TabIconGradient.Enabled = true
+                TabTextGradient.Enabled = true
+                TabIcon.TextColor3 = Color3.fromRGB(255,255,255)
+                TabContentLabel.TextColor3 = Color3.fromRGB(255,255,255)
+                if TabIconImage then TabIconImage.ImageColor3 = Color3.fromRGB(255,255,255) end
 
-				TabContentLabel.TextTransparency = 0.5
-				TabContentLabel.TextColor3 = inactiveText
+				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
+					TextTransparency = 0.5
+				})
 			end;
 		end);
 
@@ -5227,9 +5259,13 @@ function NeverLose:CreateWindow(Config)
 					BackgroundTransparency = 1
 				})
 
-				TabIcon.TextTransparency = 1
+				NeverLose.PlayAnimate(TabIcon , SlowyTween , {
+					TextTransparency = 1,
+				})
 
-				TabContentLabel.TextTransparency = 1
+				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
+					TextTransparency = 1
+				})
 			end;
 		end));
 
@@ -6210,7 +6246,7 @@ function NeverLose:CreateWindow(Config)
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(Watermark , SlowyTween , {
-				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 14, 0, 36)
+				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 36)
 			})
 		end));
 
@@ -6363,8 +6399,8 @@ function NeverLose:CreateWindow(Config)
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
 				local b = TextService:GetTextSize(UID.Text, UID.TextSize, UID.Font, Vector2.new(math.huge,math.huge))
-				local separatorX = 30
-				local contentX = separatorX + 7
+				local separatorX = 28
+				local contentX = separatorX + 6
 				local separator2X = contentX + a.X + 5
 				local uidX = separator2X + 7
 				Content.Position = UDim2.new(0, contentX, 0.5, 0)
@@ -6373,7 +6409,7 @@ function NeverLose:CreateWindow(Config)
 				Separator2.Position = UDim2.new(0, separator2X, 0.5, 0)
 				UID.Position = UDim2.new(0, uidX, 0.5, 0)
 				UID.Size = UDim2.fromOffset(b.X + 1, 20)
-				Frame.Size = UDim2.fromOffset(uidX + b.X + 9, 36)
+				Frame.Size = UDim2.fromOffset(uidX + b.X + 7, 36)
 			end
 			updateSize()
 

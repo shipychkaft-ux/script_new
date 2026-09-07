@@ -4096,9 +4096,81 @@ runFunction(function()
 end)
 
 runFunction(function()
-    local customSky={Enabled=false}; local choice={Value="Dune"}; local sky; local old={}; local ids={Dune="138907351102721",Celestial="86696473016531",Day="8613979186",Space="15983996673",Luminar="140307474008766"}
-    local function apply() if not sky then return end; local a="rbxassetid://"..ids[choice.Value]; sky.SkyboxBk=a; sky.SkyboxDn=a; sky.SkyboxFt=a; sky.SkyboxLf=a; sky.SkyboxRt=a; sky.SkyboxUp=a end
-    customSky=Tabs.Render:CreateToggle({Name="SkyShader",HoverText="Меняет небо.",Callback=function(on) if on then table.clear(old); for _,v in ipairs(Lighting:GetChildren()) do if v:IsA("Sky") then table.insert(old,v); v.Parent=nil end end; sky=Instance.new("Sky"); sky.Name="NightixSkyShader"; sky.Parent=Lighting; apply() else if sky then sky:Destroy(); sky=nil end; for _,v in ipairs(old) do if v and v.Parent==nil then v.Parent=Lighting end end; table.clear(old) end end}); choice=customSky:CreateDropdown({Name="Небо",List={"Dune","Celestial","Day","Space","Luminar"},Default="Dune",Function=function(v) choice.Value=v; if customSky.Enabled then apply() end end})
+    local customSky = {Enabled = false}
+    local choice = {Value = "1"}
+    local sky
+    local old = {}
+
+    -- Sky presets are copied from the Roblox Studio Sky properties supplied by the user.
+    -- Each entry is a complete six-face skybox; no single asset is reused for all faces.
+    local skies = {
+        ["1"] = {
+            Bk = "600830446", Dn = "600831635", Ft = "600832720",
+            Lf = "600826090", Rt = "600833862", Up = "600835177",
+        },
+        ["2"] = {
+            Bk = "15983968922", Dn = "15983966825", Ft = "15983965025",
+            Lf = "15983967420", Rt = "15983966246", Up = "15983964246",
+        },
+        ["3"] = {
+            Bk = "119761561936004", Dn = "112913253029218", Ft = "71766471664507",
+            Lf = "73469705958603", Rt = "130460752130304", Up = "73402351227920",
+        },
+        ["4"] = {
+            Bk = "15502525195", Dn = "15502522797", Ft = "15502524520",
+            Lf = "15502522129", Rt = "15502523711", Up = "15502526102",
+        },
+    }
+
+    local function apply()
+        if not sky then return end
+        local data = skies[choice.Value] or skies["1"]
+        sky.SkyboxBk = "rbxassetid://" .. data.Bk
+        sky.SkyboxDn = "rbxassetid://" .. data.Dn
+        sky.SkyboxFt = "rbxassetid://" .. data.Ft
+        sky.SkyboxLf = "rbxassetid://" .. data.Lf
+        sky.SkyboxRt = "rbxassetid://" .. data.Rt
+        sky.SkyboxUp = "rbxassetid://" .. data.Up
+        sky.SkyboxOrientation = Vector3.new(0,0,0)
+        sky.StarCount = 3000
+        sky.MoonTextureId = "rbxasset://sky/moon.jpg"
+        sky.SunTextureId = "rbxasset://sky/sun.jpg"
+    end
+
+    customSky = Tabs.Render:CreateToggle({
+        Name = "SkyShader",
+        HoverText = "Меняет небо.",
+        Callback = function(on)
+            if on then
+                table.clear(old)
+                for _, v in ipairs(Lighting:GetChildren()) do
+                    if v:IsA("Sky") then
+                        table.insert(old, v)
+                        v.Parent = nil
+                    end
+                end
+                sky = Instance.new("Sky")
+                sky.Name = "NightixSkyShader"
+                sky.Parent = Lighting
+                apply()
+            else
+                if sky then sky:Destroy(); sky = nil end
+                for _, v in ipairs(old) do
+                    if v and v.Parent == nil then v.Parent = Lighting end
+                end
+                table.clear(old)
+            end
+        end
+    })
+    choice = customSky:CreateDropdown({
+        Name = "Небо",
+        List = {"1", "2", "3", "4"},
+        Default = "1",
+        Function = function(v)
+            choice.Value = tostring(v)
+            if customSky.Enabled then apply() end
+        end
+    })
 end)
 
 runFunction(function()
@@ -4106,64 +4178,48 @@ runFunction(function()
     local hours = {Value = 13}
     local minutes = {Value = 0}
     local seconds = {Value = 0}
+    local oldClockTime
     local connection
-    local oldTime
+
     local function updateTime()
-        Lighting.TimeOfDay = hours.Value..":"..minutes.Value..":"..seconds.Value
+        local h = math.clamp(math.floor(tonumber(hours.Value) or 13), 0, 23)
+        local m = math.clamp(math.floor(tonumber(minutes.Value) or 0), 0, 59)
+        local sec = math.clamp(math.floor(tonumber(seconds.Value) or 0), 0, 59)
+        Lighting.ClockTime = h + (m / 60) + (sec / 3600)
     end
+
     timeOfDay = Tabs.Render:CreateToggle({
         Name = "Time",
         HoverText = "Customizes the time of the game.",
-        Callback = function(callback)
-            if callback then
-                oldTime = Lighting.TimeOfDay
+        Callback = function(enabled)
+            if enabled then
+                oldClockTime = Lighting.ClockTime
                 updateTime()
-                connection = Lighting.Changed:Connect(updateTime)
+                if connection then connection:Disconnect() end
+                connection = RunService.RenderStepped:Connect(function()
+                    if timeOfDay.Enabled then updateTime() end
+                end)
             else
-                betterDisconnect(connection)
-                connection = nil
-                if oldTime then Lighting.TimeOfDay = oldTime end
+                if connection then connection:Disconnect(); connection = nil end
+                if oldClockTime ~= nil then Lighting.ClockTime = oldClockTime end
             end
         end
     })
 
     hours = timeOfDay:CreateSlider({
         Name = "Hours",
-        Function = function(v)
-            if timeOfDay.Enabled then
-                updateTime()
-            end
-        end,
-        Min = 0,
-        Max = 24,
-        Default = 13,
-        Round = 0
+        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
+        Min = 0, Max = 23, Default = 13, Round = 0
     })
-
     minutes = timeOfDay:CreateSlider({
         Name = "Minutes",
-        Function = function(v)
-            if timeOfDay.Enabled then
-                updateTime()
-            end
-        end,
-        Min = 0,
-        Max = 60,
-        Default = 0,
-        Round = 0
+        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
+        Min = 0, Max = 59, Default = 0, Round = 0
     })
-
     seconds = timeOfDay:CreateSlider({
         Name = "Seconds",
-        Function = function(v)
-            if timeOfDay.Enabled then
-                updateTime()
-            end
-        end,
-        Min = 0,
-        Max = 60,
-        Default = 0,
-        Round = 0
+        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
+        Min = 0, Max = 59, Default = 0, Round = 0
     })
 end)
 

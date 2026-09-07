@@ -207,8 +207,8 @@ local Tabs = {
         Color = Color3.fromRGB(240, 157, 62), --240, 157, 62
         TabIcon = "MiscTabIcon.png"
     }),
-    Profiles = GuiLibrary:CreateOptionsTab({
-        Name = "Profiles",
+    Confings = GuiLibrary:CreateOptionsTab({
+        Name = "Confings",
         Color = Color3.fromRGB(255, 255, 255), --255, 255, 255
         TabIcon = "MiscTabIcon.png"
     }),
@@ -471,9 +471,9 @@ runFunction(function()
     if iconSpeed.Container then iconSpeed.Container.Visible = true end
 end)
 
--- Profiles tab
+-- Confings tab
 runFunction(function()
-    Tabs.Profiles:CreateConfigManager({
+    Tabs.Confings:CreateConfigManager({
         Name = "Configs",
     })
 end)
