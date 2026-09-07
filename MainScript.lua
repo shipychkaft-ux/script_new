@@ -306,9 +306,14 @@ runFunction(function()
         List = {"Одиночный", "Двойной"},
         Default = "Двойной",
         Function = function(v)
-            NeverLose.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
+            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if not nl then return end
+            nl.IconSettings = nl.IconSettings or {Mode="Double", Color1=Color3.fromRGB(216,148,245), Color2=Color3.fromRGB(123,131,243), Speed=0.28}
+            nl.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
             if iconColor2 and iconSpeed then
-                local double = NeverLose.IconSettings.Mode == "Double"
+                local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+                if not nl then return end
+                local double = nl.IconSettings.Mode == "Double"
                 if iconColor2.Container then iconColor2.Container.Visible = double end
                 if iconSpeed.Container then iconSpeed.Container.Visible = double end
             end
@@ -317,24 +322,26 @@ runFunction(function()
 
     local iconColor1 = Tabs.Settings:CreateColorSlider({
         Name = "Первый цвет",
-        Default = NeverLose.IconSettings.Color1,
-        Function = function(v) NeverLose.IconSettings.Color1 = v end
+        Default = (GuiLibrary.NightixMenu.NeverLose.IconSettings or {}).Color1 or Color3.fromRGB(216, 148, 245),
+        Function = function(v) GuiLibrary.NightixMenu.NeverLose.IconSettings.Color1 = v end
     })
 
     iconColor2 = Tabs.Settings:CreateColorSlider({
         Name = "Второй цвет",
-        Default = NeverLose.IconSettings.Color2,
-        Function = function(v) NeverLose.IconSettings.Color2 = v end
+        Default = (GuiLibrary.NightixMenu.NeverLose.IconSettings or {}).Color2 or Color3.fromRGB(123, 131, 243),
+        Function = function(v) GuiLibrary.NightixMenu.NeverLose.IconSettings.Color2 = v end
     })
 
     iconSpeed = Tabs.Settings:CreateSlider({
         Name = "Скорость переливания",
         Min = 0.05, Max = 1.5, Default = 0.28, Round = 2,
-        Function = function(v) NeverLose.IconSettings.Speed = v end
+        Function = function(v) GuiLibrary.NightixMenu.NeverLose.IconSettings.Speed = v end
     })
 
     local function updateIconOptionVisibility()
-        local double = NeverLose.IconSettings.Mode == "Double"
+        local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+        if not nl then return end
+        local double = nl.IconSettings.Mode == "Double"
         if iconColor2.Container then iconColor2.Container.Visible = double end
         if iconSpeed.Container then iconSpeed.Container.Visible = double end
     end
@@ -344,13 +351,15 @@ runFunction(function()
     Tabs.Settings:CreateButton({
         Name = "Сбросить",
         Callback = function()
-            NeverLose.IconSettings.Mode = "Double"
-            NeverLose.IconSettings.Color1 = Color3.fromRGB(216, 148, 245)
-            NeverLose.IconSettings.Color2 = Color3.fromRGB(123, 131, 243)
-            NeverLose.IconSettings.Speed = 0.28
+            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if not nl then return end
+            nl.IconSettings.Mode = "Double"
+            nl.IconSettings.Color1 = Color3.fromRGB(216, 148, 245)
+            nl.IconSettings.Color2 = Color3.fromRGB(123, 131, 243)
+            nl.IconSettings.Speed = 0.28
             iconMode:Select("Двойной")
-            iconColor1:Set(NeverLose.IconSettings.Color1, true)
-            iconColor2:Set(NeverLose.IconSettings.Color2, true)
+            iconColor1:Set(nl.IconSettings.Color1, true)
+            iconColor2:Set(nl.IconSettings.Color2, true)
         end
     })
 end)

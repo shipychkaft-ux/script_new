@@ -1348,7 +1348,11 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 			return
 		end
 		if ManualPosition then return end
-		OptionHandler.Position = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65);
+		-- The first opened options window establishes the shared position.
+		-- Every other module options window then opens at exactly that position
+		-- instead of jumping back next to its own feature row.
+		SharedOptionWindowPosition = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65)
+		OptionHandler.Position = SharedOptionWindowPosition;
 	end);
 
 	Window.SetRender = LPH_NO_VIRTUALIZE(function(value)

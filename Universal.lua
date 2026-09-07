@@ -1585,52 +1585,47 @@ runFunction(function()
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
     local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
     local function clearDiamond() if billboard then billboard:Destroy(); billboard=nil; img=nil end end
-    local function clearCircle() if circlePart then circlePart:Destroy() end; circlePart=nil; circleGui=nil; circleImage=nil end
+    local function clearCircle()
+        if circleGui then pcall(function() circleGui:Destroy() end) end
+        circleGui=nil; circleImage=nil
+        circlePart=nil
+    end
     local function ensureCircle()
-        if circlePart and circlePart.Parent then return end
-        circlePart=Instance.new("Part")
-        circlePart.Name="NightixTargetESPCircle"
-        circlePart.Anchored=true
-        circlePart.CanCollide=false
-        circlePart.CanQuery=false
-        circlePart.CanTouch=false
-        circlePart.CastShadow=false
-        circlePart.Transparency=1
-        circlePart.Size=Vector3.new(1,0.05,1)
-        circlePart.Parent=workspace
-
-        circleGui=Instance.new("SurfaceGui")
-        circleGui.Name="CircleSurface"
-        circleGui.Face=Enum.NormalId.Top
+        if circleGui and circleGui.Parent then return end
+        circleGui=Instance.new("BillboardGui")
+        circleGui.Name="NightixTargetESPCircle"
         circleGui.AlwaysOnTop=true
         circleGui.LightInfluence=0
-        circleGui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
-        circleGui.PixelsPerStud=80
-        circleGui.Parent=circlePart
+        circleGui.MaxDistance=1000
+        circleGui.Size=UDim2.fromOffset(150,150)
+        circleGui.StudsOffset=Vector3.new(0,0,0)
+        circleGui.Parent=CoreGui
 
         circleImage=Instance.new("ImageLabel")
         circleImage.Name="CircleTexture"
-        circleImage.BackgroundTransparency=1
+        circleImage.AnchorPoint=Vector2.new(.5,.5)
+        circleImage.Position=UDim2.fromScale(.5,.5)
         circleImage.Size=UDim2.fromScale(1,1)
-        circleImage.Position=UDim2.fromScale(0,0)
+        circleImage.BackgroundTransparency=1
         circleImage.ScaleType=Enum.ScaleType.Fit
         circleImage.Parent=circleGui
     end
     local function updateCircle(t)
         if not target or not isAlive(target) or not target.Character then clearCircle(); return end
-        local cf,bs=target.Character:GetBoundingBox()
-        local bottom=cf.Position.Y-bs.Y*.5
-        local top=cf.Position.Y+bs.Y*.5
+        local c=target.Character
+        local anchor=c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso")
+        if not anchor then clearCircle(); return end
         ensureCircle()
-        local diameter=math.max(2.5, math.max(bs.X,bs.Z)*1.15)
-        local phase=(t*math.max(.05,speed.Value/180))%2
-        local p=phase<=1 and phase or 2-phase
-        local e=p*p*(3-2*p)
-        circlePart.Size=Vector3.new(diameter,0.05,diameter)
-        circlePart.Position=Vector3.new(cf.Position.X,bottom+e*(top-bottom),cf.Position.Z)
+        circleGui.Adornee=anchor
+        local _,bs=c:GetBoundingBox()
+        local worldSize=math.max(bs.X,bs.Z)
+        local pixelSize=math.clamp(math.floor(110 + worldSize*25), 110, 210)
+        circleGui.Size=UDim2.fromOffset(pixelSize,pixelSize)
+        circleGui.StudsOffset=Vector3.new(0,-math.max(.25,bs.Y*.45),0)
         circleImage.Image="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"])
         circleImage.ImageTransparency=math.clamp(alpha.Value,0,1)
         circleImage.ImageColor3=color.Value
+        circleImage.Rotation=(t*speed.Value)%360
     end
     local function updateDiamond()
         if not target or not isAlive(target) then if billboard then billboard.Enabled=false end; return end
@@ -2115,8 +2110,8 @@ runFunction(function()
         g.Name = "NameTag_" .. plr.Name
         g.Adornee = plr.Character:FindFirstChild("Head")
         g.AlwaysOnTop = true
-        g.Size = UDim2.fromOffset(175, 26)
-        g.StudsOffset = Vector3.new(0, 3.55, 0)
+        g.Size = UDim2.fromOffset(185, 22)
+        g.StudsOffset = Vector3.new(0, 3.2, 0)
         g.ResetOnSpawn = false
         g.Parent = folder
 
@@ -2140,7 +2135,7 @@ runFunction(function()
 
         local tag = Instance.new("ImageLabel")
         tag.Name = "TagTexture"
-        tag.LayoutOrder = 3
+        tag.LayoutOrder = 0
         tag.BackgroundTransparency = 1
         tag.Size = UDim2.fromOffset(52, 16)
         tag.Image = "rbxassetid://" .. playerTags[plr]
@@ -2150,12 +2145,12 @@ runFunction(function()
 
         local n = Instance.new("TextLabel")
         n.Name = "Nickname"
-        n.LayoutOrder = 2
+        n.LayoutOrder = 1
         n.BackgroundTransparency = 1
         n.Size = UDim2.fromOffset(0, 20)
         n.AutomaticSize = Enum.AutomaticSize.X
         n.Font = guifont or Enum.Font.GothamMedium
-        n.TextSize = 12
+        n.TextSize = 14
         n.TextColor3 = Color3.fromRGB(255,255,255)
         n.TextStrokeTransparency = 1
         n.TextXAlignment = Enum.TextXAlignment.Left
@@ -2163,7 +2158,7 @@ runFunction(function()
 
         local hpIcon = Instance.new("ImageLabel")
         hpIcon.Name = "HealthIcon"
-        hpIcon.LayoutOrder = 0
+        hpIcon.LayoutOrder = 2
         hpIcon.BackgroundTransparency = 1
         hpIcon.Size = UDim2.fromOffset(11,11)
         hpIcon.Image = "rbxassetid://99142118523333"
@@ -2173,12 +2168,12 @@ runFunction(function()
 
         local hp = Instance.new("TextLabel")
         hp.Name = "Health"
-        hp.LayoutOrder = 1
+        hp.LayoutOrder = 3
         hp.BackgroundTransparency = 1
         hp.Size = UDim2.fromOffset(0, 20)
         hp.AutomaticSize = Enum.AutomaticSize.X
         hp.Font = guifont or Enum.Font.GothamMedium
-        hp.TextSize = 12
+        hp.TextSize = 14
         hp.TextColor3 = Color3.fromRGB(255,255,255)
         hp.TextStrokeTransparency = 1
         hp.TextXAlignment = Enum.TextXAlignment.Left
@@ -2203,8 +2198,8 @@ runFunction(function()
         hp.Text = tostring(math.floor(h.Health))
         hp.Visible = showHP.Value
         icon.Visible = showHP.Value
-        g.Size = UDim2.fromOffset(185, showHP.Value and 24 or 21)
-        g.StudsOffset = Vector3.new(0, showHP.Value and 3.15 or 3.0, 0)
+        g.Size = UDim2.fromOffset(185, showHP.Value and 22 or 20)
+        g.StudsOffset = Vector3.new(0, showHP.Value and 3.05 or 2.95, 0)
     end
 
     local conns = {}
