@@ -181,23 +181,6 @@ end
 
 GuiLibrary:CreateWindow()
 
--- Nursultan 1.21.11 is the default palette from the first frame.
-local defaultTheme = {
-    Color1 = Color3.fromRGB(14, 14, 23), Color2 = Color3.fromRGB(47, 48, 64),
-    Color3 = Color3.fromRGB(66, 68, 66), Color4 = Color3.fromRGB(49, 51, 64),
-    Color5 = Color3.fromRGB(20, 20, 20), Color6 = Color3.fromRGB(200, 200, 200),
-    ToggleColor = Color3.fromRGB(0, 0, 0), ToggleColor2 = Color3.fromRGB(123, 131, 243),
-    TextColor = Color3.fromRGB(255, 255, 255), PlaceholderColor = Color3.fromRGB(220, 220, 220),
-    PlaceholderColor2 = Color3.fromRGB(200, 200, 200), InfoColor = Color3.fromRGB(180, 180, 180),
-    WarningColor = Color3.fromRGB(198, 205, 64), ErrorColor = Color3.fromRGB(205, 64, 78),
-}
-for k,v in pairs(defaultTheme) do GuiLibrary:setColor(k,v) end
-if GuiLibrary.GuiPallet then GuiLibrary.GuiPallet.ThemeMode = "Preset" end
-if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose then
-    GuiLibrary.NightixMenu.NeverLose.AccentColor = defaultTheme.ToggleColor2
-    if GuiLibrary.NightixMenu.NeverLose.RefreshNightixTheme then GuiLibrary.NightixMenu.NeverLose:RefreshNightixTheme() end
-end
-
 local Tabs = {
     Combat = GuiLibrary:CreateTab({
         Name = "Combat",
@@ -307,11 +290,8 @@ runFunction(function()
         Name = "UI scale",
         Function = function(v)
             GuiLibrary.UIScale.Scale = v
-            GuiLibrary.Scale = v
             local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
             if w then
-                w.__NightixScale = v
-                if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetScale then GuiLibrary.NightixMenu.SetScale(v) end
                 w:SetSize(UDim2.fromOffset(math.floor(640 * v), math.floor(480 * v)))
             end
         end,
@@ -323,11 +303,8 @@ runFunction(function()
         Function = function()
             local defaultScale = 1
             GuiLibrary.UIScale.Scale = defaultScale
-            GuiLibrary.Scale = defaultScale
             local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
             if w then
-                w.__NightixScale = 1
-                if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetScale then GuiLibrary.NightixMenu.SetScale(1) end
                 w:SetSize(UDim2.fromOffset(640, 480))
             end
         end
@@ -346,9 +323,6 @@ runFunction(function()
         end
     })
 
-    local iconColor2, iconSpeed
-    local doubleColor1 = Color3.fromRGB(216, 148, 245)
-    local doubleColor2 = Color3.fromRGB(123, 131, 243)
     local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
     if nl then
         nl.IconSettings = nl.IconSettings or {}
@@ -357,9 +331,9 @@ runFunction(function()
         nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(216, 148, 245)
         nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(123, 131, 243)
         nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
-        doubleColor1 = nl.IconSettings.Color1
-        doubleColor2 = nl.IconSettings.Color2
     end
+
+    local iconColor2, iconSpeed
     local iconMode = iconFunction:CreateDropdown({
         Name = "Режим",
         List = {"Одиночный", "Двойной"},
@@ -367,24 +341,14 @@ runFunction(function()
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
             if not nl2 then return end
-            nl2.IconSettings = nl2.IconSettings or {}
-            if v == "Одиночный" then
-                -- Single mode is always white by default, while preserving the
-                -- user's double-mode colors for when they switch back.
-                doubleColor1 = nl2.IconSettings.Color1 or doubleColor1
-                doubleColor2 = nl2.IconSettings.Color2 or doubleColor2
-                nl2.IconSettings.Mode = "Single"
-                nl2.IconSettings.Color1 = Color3.fromRGB(255,255,255)
-            else
-                nl2.IconSettings.Mode = "Double"
-                nl2.IconSettings.Color1 = doubleColor1
-                nl2.IconSettings.Color2 = doubleColor2
+            nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
+            if nl2.IconSettings.Mode == "Single" and not nl2.IconSettings.SingleInitialized then
+                nl2.IconSettings.Color1 = Color3.fromRGB(255, 255, 255)
+                nl2.IconSettings.SingleInitialized = true
             end
             local double = nl2.IconSettings.Mode == "Double"
             if iconColor2 and iconColor2.Container then iconColor2.Container.Visible = double end
             if iconSpeed and iconSpeed.Container then iconSpeed.Container.Visible = double end
-            if iconColor1 and nl2.IconSettings.Color1 then iconColor1:SetColor(nl2.IconSettings.Color1, false, true) end
-            if iconColor2 and double and nl2.IconSettings.Color2 then iconColor2:SetColor(nl2.IconSettings.Color2, false, true) end
         end
     })
 
@@ -393,10 +357,7 @@ runFunction(function()
         Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then
-                nl2.IconSettings.Color1 = v
-                if nl2.IconSettings.Mode == "Double" then doubleColor1 = v end
-            end
+            if nl2 then nl2.IconSettings.Color1 = v end
         end
     })
 
@@ -405,10 +366,7 @@ runFunction(function()
         Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then
-                nl2.IconSettings.Color2 = v
-                if nl2.IconSettings.Mode == "Double" then doubleColor2 = v end
-            end
+            if nl2 then nl2.IconSettings.Color2 = v end
         end
     })
 
@@ -430,29 +388,42 @@ runFunction(function()
         -- preset immediately writes the complete client palette and refreshes
         -- already-created UI objects. A custom theme can therefore be replaced
         -- instantly without changing any separate theme state.
-        -- Every preset contains a complete palette. The previous version only
-        -- changed the accent for 1.16.5, while the NeverLose controls still had
-        -- hard-coded 1.21.11 colors, which produced the half-light/half-dark UI.
         local themes = {
             ["Nursultan 1.21.11"] = {
-                Color1 = Color3.fromRGB(14, 14, 23), Color2 = Color3.fromRGB(47, 48, 64),
-                Color3 = Color3.fromRGB(66, 68, 66), Color4 = Color3.fromRGB(49, 51, 64),
-                Color5 = Color3.fromRGB(20, 20, 20), Color6 = Color3.fromRGB(200, 200, 200),
-                ToggleColor = Color3.fromRGB(0, 0, 0), ToggleColor2 = Color3.fromRGB(123, 131, 243),
-                TextColor = Color3.fromRGB(255, 255, 255), PlaceholderColor = Color3.fromRGB(220, 220, 220),
-                PlaceholderColor2 = Color3.fromRGB(200, 200, 200), InfoColor = Color3.fromRGB(180, 180, 180),
-                WarningColor = Color3.fromRGB(198, 205, 64), ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(216, 148, 245), Icon2 = Color3.fromRGB(123, 131, 243),
+                Color1 = Color3.fromRGB(14, 14, 23),
+                Color2 = Color3.fromRGB(47, 48, 64),
+                Color3 = Color3.fromRGB(66, 68, 66),
+                Color4 = Color3.fromRGB(49, 51, 64),
+                Color5 = Color3.fromRGB(20, 20, 20),
+                Color6 = Color3.fromRGB(200, 200, 200),
+                ToggleColor = Color3.fromRGB(0, 0, 0),
+                ToggleColor2 = Color3.fromRGB(123, 131, 243),
+                TextColor = Color3.fromRGB(255, 255, 255),
+                PlaceholderColor = Color3.fromRGB(220, 220, 220),
+                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
+                InfoColor = Color3.fromRGB(180, 180, 180),
+                WarningColor = Color3.fromRGB(198, 205, 64),
+                ErrorColor = Color3.fromRGB(205, 64, 78),
+                Icon1 = Color3.fromRGB(216, 148, 245),
+                Icon2 = Color3.fromRGB(123, 131, 243),
             },
             ["Nursultan 1.16.5"] = {
-                Color1 = Color3.fromRGB(14, 14, 23), Color2 = Color3.fromRGB(47, 48, 64),
-                Color3 = Color3.fromRGB(66, 68, 66), Color4 = Color3.fromRGB(49, 51, 64),
-                Color5 = Color3.fromRGB(20, 20, 20), Color6 = Color3.fromRGB(200, 200, 200),
-                ToggleColor = Color3.fromRGB(0, 0, 0), ToggleColor2 = Color3.fromRGB(94, 74, 103),
-                TextColor = Color3.fromRGB(255, 255, 255), PlaceholderColor = Color3.fromRGB(220, 220, 220),
-                PlaceholderColor2 = Color3.fromRGB(200, 200, 200), InfoColor = Color3.fromRGB(180, 180, 180),
-                WarningColor = Color3.fromRGB(198, 205, 64), ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(207, 156, 211), Icon2 = Color3.fromRGB(94, 74, 103),
+                Color1 = Color3.fromRGB(14, 14, 23),
+                Color2 = Color3.fromRGB(47, 48, 64),
+                Color3 = Color3.fromRGB(66, 68, 66),
+                Color4 = Color3.fromRGB(49, 51, 64),
+                Color5 = Color3.fromRGB(20, 20, 20),
+                Color6 = Color3.fromRGB(200, 200, 200),
+                ToggleColor = Color3.fromRGB(0, 0, 0),
+                ToggleColor2 = Color3.fromRGB(94, 74, 103),
+                TextColor = Color3.fromRGB(255, 255, 255),
+                PlaceholderColor = Color3.fromRGB(220, 220, 220),
+                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
+                InfoColor = Color3.fromRGB(180, 180, 180),
+                WarningColor = Color3.fromRGB(198, 205, 64),
+                ErrorColor = Color3.fromRGB(205, 64, 78),
+                Icon1 = Color3.fromRGB(207, 156, 211),
+                Icon2 = Color3.fromRGB(94, 74, 103),
             },
         }
         local theme = themes[v]
@@ -471,19 +442,12 @@ runFunction(function()
         nl2.IconSettings.Color1 = theme.Icon1
         nl2.IconSettings.Color2 = theme.Icon2
         nl2.IconSettings.Speed = 0.65
-        doubleColor1 = theme.Icon1
-        doubleColor2 = theme.Icon2
-        if iconColor1 then iconColor1:SetColor(theme.Icon1, false, true) end
-        if iconColor2 then iconColor2:SetColor(theme.Icon2, false, true) end
-        if iconSpeed and iconSpeed.Set then pcall(function() iconSpeed:Set(0.65, false) end) end
-        if iconMode then iconMode:Select("Двойной") end
         if nl2.RefreshNightixTheme then
             nl2:RefreshNightixTheme()
         end
     end
 
-    -- Ready themes are actions: they immediately apply the complete palette.
-    iconFunction:CreateDivider("Готовые темы")
+    -- Presets are buttons: pressing one applies the palette immediately.
     iconFunction:CreateButton({
         Name = "Nursultan 1.21.11",
         Callback = function() applyTheme("Nursultan 1.21.11") end

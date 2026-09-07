@@ -1962,12 +1962,6 @@ function OptionFunctions:CreateColorSlider(argstable)
     end
     ]]
 
-    function colorsliderapi:SetColor(color, rainbow, load)
-        color = color or Color3.fromRGB(255, 255, 255)
-        local h, satValue, valValue = Color3.toHSV(color)
-        colorsliderapi:Set(h, satValue, valValue, rainbow, load)
-    end
-
     function colorsliderapi:Set(hueValue, satValue, valValue, rainbow, load)
         hue = hueValue or hue
         sat = satValue or sat
@@ -1976,13 +1970,6 @@ function OptionFunctions:CreateColorSlider(argstable)
         relativeSat = sat
         relativeVal = val
         local color = guilibrary:HSVtoRGB(hue, sat, val)
-        -- Keep the picker controls themselves synchronized when a preset or
-        -- config changes the color programmatically.
-        pcall(function()
-            hueKnob.Position = UDim2.new(math.clamp(hue, 0, 1), -2.5, 0, -6)
-            saturationKnob.Position = UDim2.new(math.clamp(sat, 0, 1), -2.5, 0, -6)
-            valueKnob.Position = UDim2.new(math.clamp(val, 0, 1), -2.5, 0, -6)
-        end)
         rainbow = rainbow or false
         value = color
         local newColorTable = {
@@ -2115,10 +2102,7 @@ function OptionFunctions:CreateColorSlider(argstable)
         end
     end))
 
-    do
-        local initial = argstable.Default or argstable.DefaultValue or Color3.fromRGB(255,255,255)
-        colorsliderapi:SetColor(initial, false, true)
-    end
+    colorsliderapi:Set(0, 1, 1, false)
 
     colorPickerFrame.Size = UDim2.new(1, 0, 0, 44)
 
