@@ -4104,10 +4104,11 @@ runFunction(function()
     -- Sky presets copied from the Roblox Studio property screenshots.
     -- Each preset is a complete Sky configuration (all six faces + celestial settings).
     local skies = {
+        -- 1: replaced with the first supplied Studio screenshot
         ["1"] = {
             CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,
-            Bk = "15470149279", Dn = "15470151245", Ft = "15470153860",
-            Lf = "15470155938", Rt = "15470152022", Up = "15470160563",
+            Bk = "16262356578", Dn = "16262358026", Ft = "16262360469",
+            Lf = "16262362003", Rt = "16262363873", Up = "16262366016",
         },
         ["2"] = {
             CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 0, SunAngularSize = 21,
@@ -4119,10 +4120,11 @@ runFunction(function()
             Bk = "4495864450", Dn = "4495864887", Ft = "4495865458",
             Lf = "4495866035", Rt = "4495866584", Up = "4495867486",
         },
+        -- 4: replaced with the second supplied Studio screenshot
         ["4"] = {
-            CelestialBodiesShown = true, MoonAngularSize = 0, StarCount = 3000, SunAngularSize = 0,
-            Bk = "119761561936004", Dn = "112913253029218", Ft = "71766471664507",
-            Lf = "73469705958603", Rt = "130460752130304", Up = "73402351227920",
+            CelestialBodiesShown = true, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,
+            Bk = "11336725935", Dn = "11336722286", Ft = "11336720418",
+            Lf = "11336725016", Rt = "11336726887", Up = "11336723758",
         },
         ["5"] = {
             CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,

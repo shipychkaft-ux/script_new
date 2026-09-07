@@ -1859,7 +1859,8 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		UICorner.Parent = Toggle
 		ToggleGradient.Name = "NightixToggleGradient"
 		ToggleGradient.Parent = Toggle
-		ToggleGradient.Enabled = false
+		ToggleGradient.Enabled = true
+		ToggleGradient.Transparency = NumberSequence.new(0)
 
 		Circle.Name = NeverLose.RandomString();
 		Circle.Parent = Toggle
@@ -1887,8 +1888,8 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				Toggle.BackgroundTransparency = 0
 				ToggleGradient.Enabled = true
 				CircleGradient.Enabled = true
-                ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
-                CircleGradient.Color = ToggleGradient.Color
+                ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, true)
+                CircleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
 
 				NeverLose.PlayAnimate(Circle,SlowyTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -1896,11 +1897,11 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					Position = UDim2.new(0.7, 0, 0.5, 0)
 				})
 			else
-				ToggleGradient.Enabled = false
+				ToggleGradient.Enabled = true
 				CircleGradient.Enabled = false
+				ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, true)
 				NeverLose.PlayAnimate(Toggle,SlowyTween,{
-					BackgroundTransparency = 0,
-					BackgroundColor3 = Color3.fromRGB(10, 13, 21)
+					BackgroundTransparency = 0
 				})
 
 				NeverLose.PlayAnimate(Circle,SlowyTween,{
@@ -1914,9 +1915,11 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		task.spawn(function()
 			while Toggle and Toggle.Parent do
 				if ToggleGradient.Enabled then
-					local gradient = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
-					ToggleGradient.Color = gradient
-					CircleGradient.Color = gradient
+					local phase = (os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1
+					ToggleGradient.Color = NeverLose:GetNightixGradient(phase, true)
+					if CircleGradient.Enabled then
+						CircleGradient.Color = NeverLose:GetNightixGradient(phase, false)
+					end
 				end
 				task.wait(0.033)
 			end
