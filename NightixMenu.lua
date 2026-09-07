@@ -50,7 +50,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local previousCameraMinZoomDistance
     local previousCameraMaxZoomDistance
     local previousCameraMode
-    local menuWasFirstPerson = false
     local menuInputConnection
     local optionWindows = {}
     local toggleOnSound = "rbxassetid://95856755098572"
@@ -872,30 +871,16 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             previousCameraMinZoomDistance = localPlayer.CameraMinZoomDistance
             previousCameraMaxZoomDistance = localPlayer.CameraMaxZoomDistance
             previousCameraMode = localPlayer.CameraMode
-            local camera = workspace.CurrentCamera
-            local cameraDistance = 10
-            pcall(function()
-                cameraDistance = (camera.CFrame.Position - camera.Focus.Position).Magnitude
-            end)
-            menuWasFirstPerson = (previousCameraMode == Enum.CameraMode.LockFirstPerson) or cameraDistance <= 0.75
-
-            -- Only force the camera out of first person. If the player already
-            -- is in third person, opening the menu must not zoom them in.
-            if menuWasFirstPerson then
-                localPlayer.CameraMode = Enum.CameraMode.Classic
-                localPlayer.CameraMinZoomDistance = 1.5
-                localPlayer.CameraMaxZoomDistance = 1.5
-            end
-
+            localPlayer.CameraMode = Enum.CameraMode.Classic
+            localPlayer.CameraMinZoomDistance = 1.5
+            localPlayer.CameraMaxZoomDistance = 1.5
             userInputService.MouseBehavior = Enum.MouseBehavior.Default
             userInputService.MouseIconEnabled = true
             menuInputConnection = runService.RenderStepped:Connect(function()
                 if guilibrary.Toggled then
-                    if menuWasFirstPerson then
-                        localPlayer.CameraMode = Enum.CameraMode.Classic
-                        localPlayer.CameraMinZoomDistance = 1.5
-                        localPlayer.CameraMaxZoomDistance = 1.5
-                    end
+                    localPlayer.CameraMode = Enum.CameraMode.Classic
+                    localPlayer.CameraMinZoomDistance = 1.5
+                    localPlayer.CameraMaxZoomDistance = 1.5
                     userInputService.MouseBehavior = Enum.MouseBehavior.Default
                     userInputService.MouseIconEnabled = true
                 end
@@ -932,7 +917,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             previousMouseIconEnabled = nil
             previousCameraMinZoomDistance = nil
             previousCameraMaxZoomDistance = nil
-            menuWasFirstPerson = false
         end
     end
 

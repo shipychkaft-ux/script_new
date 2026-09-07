@@ -196,13 +196,6 @@ NeverLose.Scales = {
 };
 
 NeverLose.IconColor = Color3.fromRGB(255, 255, 255);
--- Nightix icon appearance settings. Double mode preserves the current client gradient.
-NeverLose.IconSettings = {
-	Mode = "Double",
-	Color1 = Color3.fromRGB(216, 148, 245),
-	Color2 = Color3.fromRGB(123, 131, 243),
-	Speed = 0.28,
-};
 NeverLose.ScreenGui = GlobalWindow;
 NeverLose.Flags = {};
 NeverLose.AccentColor = Color3.fromRGB(78, 127, 252);
@@ -1248,8 +1241,6 @@ function NeverLose:CreateShadow(parent , RollingEffect, thicknessScale)
 	return Shadow;
 end;
 
-local SharedOptionWindowPosition = nil
-
 function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	Zindex = Zindex or 9;
 
@@ -1332,8 +1323,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UserInputService.InputChanged:Connect(function(input)
 		if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local delta=input.Position-DragStart
-			SharedOptionWindowPosition = UDim2.fromOffset(StartPosition.X.Offset+delta.X,StartPosition.Y.Offset+delta.Y)
-			OptionHandler.Position = SharedOptionWindowPosition
+			OptionHandler.Position=UDim2.fromOffset(StartPosition.X.Offset+delta.X,StartPosition.Y.Offset+delta.Y)
 		end
 	end)
 	local SetPosition = LPH_NO_VIRTUALIZE(function()
@@ -1343,16 +1333,8 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 			OptionHandler.AnchorPoint = Vector2.new(0,0)
 		end;
 
-		if SharedOptionWindowPosition then
-			OptionHandler.Position = SharedOptionWindowPosition
-			return
-		end
 		if ManualPosition then return end
-		-- The first opened options window establishes the shared position.
-		-- Every other module options window then opens at exactly that position
-		-- instead of jumping back next to its own feature row.
-		SharedOptionWindowPosition = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65)
-		OptionHandler.Position = SharedOptionWindowPosition;
+		OptionHandler.Position = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65);
 	end);
 
 	Window.SetRender = LPH_NO_VIRTUALIZE(function(value)
@@ -4842,7 +4824,7 @@ function NeverLose:CreateWindow(Config)
 		TabIcon.ZIndex = 9
 		TabIcon.FontFace = NeverLose.BuiltInBold
 		TabIcon.Text = Config.Icon;
-		TabIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+		TabIcon.TextColor3 = NeverLose.AccentColor
 		TabIcon.TextSize = 16.000
 		TabIcon.TextWrapped = true
 
@@ -4887,39 +4869,22 @@ function NeverLose:CreateWindow(Config)
             })
             gradient.Transparency = NumberSequence.new(alpha or 0)
         end
-        local function setActiveGradient(gradient, alpha)
-            local cfg = NeverLose.IconSettings
-            local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
-            local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
-            if cfg.Mode == "Single" then
-                gradient.Color = ColorSequence.new(c1)
-            else
-                gradient.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0.00, c1),
-                    ColorSequenceKeypoint.new(0.50, c2),
-                    ColorSequenceKeypoint.new(1.00, c1)
-                })
-            end
-            gradient.Transparency = NumberSequence.new(alpha or 0)
+        local function setActiveSolid(gradient)
+            gradient.Color = ColorSequence.new(Color3.fromRGB(123, 131, 243))
+            gradient.Transparency = NumberSequence.new(0)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
         setInactiveGradient(TabIconGradient, 0.15)
-        setInactiveGradient(TabTextGradient, 0.15)
+        setInactiveGradient(TabTextGradient, 0.35)
         task.spawn(function()
             while TabButton and TabButton.Parent do
-                local active = Window.Tabs[Window.CurrentTab] == Tab
-                if active then
-                    setActiveGradient(TabIconGradient, 0)
-                    setActiveGradient(TabTextGradient, 0)
-                else
-                    setInactiveGradient(TabIconGradient, 0.15)
-                    setInactiveGradient(TabTextGradient, 0.15)
+                if Window.Tabs[Window.CurrentTab] ~= Tab then
+                    local offset = ((tick() * 0.18) % 2)
+                    offset = offset <= 1 and offset or 2 - offset
+                    TabIconGradient.Offset = Vector2.new(offset - 0.5, 0)
+                    TabTextGradient.Offset = Vector2.new(offset - 0.5, 0)
                 end
-                local offset = ((tick() * math.max(0, NeverLose.IconSettings.Speed or 0.28)) % 2)
-                offset = offset <= 1 and offset or 2 - offset
-                TabIconGradient.Offset = Vector2.new(offset - 0.5, 0)
-                TabTextGradient.Offset = Vector2.new(offset - 0.5, 0)
                 task.wait()
             end
         end)
@@ -5017,17 +4982,19 @@ function NeverLose:CreateWindow(Config)
 
 				NeverLose.PlayAnimate(TabIcon , SlowyTween , {
 					TextTransparency = 0,
-					TextColor3 = Color3.fromRGB(255, 255, 255)
+					TextColor3 = NeverLose.AccentColor
 				})
 				if TabIconImage then
 					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
 						ImageTransparency = 0,
-						ImageColor3 = Color3.fromRGB(255, 255, 255)
+						ImageColor3 = NeverLose.AccentColor
 					})
 				end
-                setActiveGradient(TabIconGradient, 0)
-                setActiveGradient(TabTextGradient, 0)
-                TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                setActiveSolid(TabIconGradient)
+                setActiveSolid(TabTextGradient)
+                TabContentLabel.TextColor3 = NeverLose.AccentColor
+                TabContentLabel.TextColor3 = NeverLose.AccentColor
+                TabContentLabel.TextColor3 = NeverLose.AccentColor
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0
@@ -5048,8 +5015,10 @@ function NeverLose:CreateWindow(Config)
 					})
 				end
                 setInactiveGradient(TabIconGradient, 0.15)
-                setInactiveGradient(TabTextGradient, 0.15)
-                TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                setInactiveGradient(TabTextGradient, 0.35)
+                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
+                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
+                TabContentLabel.TextColor3 = Color3.fromRGB(252, 252, 252)
 
 				NeverLose.PlayAnimate(TabContentLabel , SlowyTween , {
 					TextTransparency = 0.5
