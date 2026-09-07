@@ -515,6 +515,7 @@ runFunction(function()
     local silentRotate = {Value = true}
     local fov = {Value = 360}
     local aimSpeed = {Value = 12}
+    local targetDead = {Value = false}
     local currentTarget = nil
     local oldAutoRotate = true
 
@@ -524,7 +525,10 @@ runFunction(function()
         local r = getHumanoidRootPart(plr)
         local mr = getHumanoidRootPart(LocalPlayer)
         local h = getHumanoid(plr)
-        return r and mr and h and h.Health > 0 and (r.Position - mr.Position).Magnitude <= range.Value
+        if not r or not mr or not h then return false end
+        local health = h.Health
+        local allowedHealth = health > 0 or (targetDead.Value and health <= 0)
+        return allowedHealth and (r.Position - mr.Position).Magnitude <= range.Value
     end
 
     local function part(plr)
@@ -598,16 +602,24 @@ runFunction(function()
             if on then
                 local h = getHumanoid(LocalPlayer)
                 oldAutoRotate = h and h.AutoRotate or true
-                if h then h.AutoRotate = false end
                 currentTarget = acquire()
+                if h then h.AutoRotate = oldAutoRotate end
 
                 RunLoops:BindToRenderStep("AttackAuraAim", function(dt)
                     if not attackAura.Enabled then return end
                     if not valid(currentTarget) then
                         currentTarget = acquire()
                     end
-                    if currentTarget then
+                    local h = getHumanoid(LocalPlayer)
+                    if not currentTarget or not valid(currentTarget) then
+                        currentTarget = acquire()
+                    end
+                    if currentTarget and valid(currentTarget) then
+                        if h then h.AutoRotate = false end
                         aim(currentTarget, dt, false)
+                    elseif h then
+                        currentTarget = nil
+                        h.AutoRotate = oldAutoRotate
                     end
                 end)
 
@@ -641,10 +653,81 @@ runFunction(function()
     aimPart = attackAura:CreateDropdown({Name="Часть наведения", Function=function(v) aimPart.Value=v end, List={"Голова","Тело"}, Default="Голова"})
     teamCheck = attackAura:CreateToggle({Name="Проверка команды", Default=false, Function=function(v) teamCheck.Value=v end})
     silentRotate = attackAura:CreateToggle({Name="Без поворота камеры", Default=true, Function=function(v) silentRotate.Value=v end})
+    targetDead = attackAura:CreateToggle({Name="Таргетить мертвых", Default=false, Function=function(v) targetDead.Value=v end})
 
     shared.NightixAttackAuraTarget = function()
         return currentTarget
     end
+end)
+
+-- // HeadRotate
+runFunction(function()
+    local headRotate = {Enabled = false}
+    local direction = {Value = "Вниз"}
+    local savedTransforms = {}
+
+    local directions = {
+        ["Вверх"] = {math.rad(-25), 0},
+        ["Вниз"] = {math.rad(25), 0},
+        ["Влево"] = {0, math.rad(-25)},
+        ["Вправо"] = {0, math.rad(25)},
+        ["Вверх влево"] = {math.rad(-25), math.rad(-25)},
+        ["Вверх вправо"] = {math.rad(-25), math.rad(25)},
+        ["Вниз влево"] = {math.rad(25), math.rad(-25)},
+        ["Вниз вправо"] = {math.rad(25), math.rad(25)},
+        ["Прямо"] = {0, 0},
+    }
+
+    local function getNeck(character)
+        if not character then return nil end
+        local upper = character:FindFirstChild("UpperTorso")
+        if upper then
+            return upper:FindFirstChild("Neck")
+        end
+        local torso = character:FindFirstChild("Torso")
+        if torso then
+            return torso:FindFirstChild("Neck")
+        end
+        return character:FindFirstChild("Neck", true)
+    end
+
+    local function apply()
+        local character = LocalPlayer.Character
+        local neck = getNeck(character)
+        if not neck or not neck:IsA("Motor6D") then return end
+        if savedTransforms[neck] == nil then savedTransforms[neck] = neck.Transform end
+        local d = directions[direction.Value] or directions["Вниз"]
+        neck.Transform = CFrame.Angles(d[1], d[2], 0)
+    end
+
+    local function restore()
+        for neck, transform in pairs(savedTransforms) do
+            if neck and neck.Parent then pcall(function() neck.Transform = transform end) end
+        end
+        table.clear(savedTransforms)
+    end
+
+    headRotate = Tabs.Movement:CreateToggle({
+        Name = "HeadRotate",
+        HoverText = "Поворачивает голову в выбранном направлении, как обычный поворот головы в Minecraft.",
+        Callback = function(on)
+            if on then
+                RunLoops:BindToRenderStep("HeadRotate", function()
+                    if headRotate.Enabled then apply() end
+                end)
+            else
+                RunLoops:UnbindFromRenderStep("HeadRotate")
+                restore()
+            end
+        end
+    })
+
+    direction = headRotate:CreateDropdown({
+        Name = "Направление",
+        List = {"Прямо", "Вверх", "Вниз", "Влево", "Вправо", "Вверх влево", "Вверх вправо", "Вниз влево", "Вниз вправо"},
+        Default = "Вниз",
+        Function = function(v) direction.Value = v; if headRotate.Enabled then apply() end end
+    })
 end)
 
 -- // Movement tab
@@ -1584,9 +1667,11 @@ runFunction(function()
     local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
     local target; local billboard; local img
     local circlePart; local circleSurfaceTop; local circleSurfaceBottom; local circleImageTop; local circleImageBottom
-    local circleSize={Value=2.0}
+    local circleGlowTop; local circleGlowBottom
+    -- Circle size is in world studs and is independent of the target's body size.
+    local circleSize={Value=4.0}
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
-    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
+    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043" }
 
     local function clearDiamond()
         if billboard then pcall(function() billboard:Destroy() end) end
@@ -1595,7 +1680,7 @@ runFunction(function()
 
     local function clearCircle()
         if circlePart then pcall(function() circlePart:Destroy() end) end
-        circlePart=nil; circleSurfaceTop=nil; circleSurfaceBottom=nil; circleImageTop=nil; circleImageBottom=nil
+        circlePart=nil; circleSurfaceTop=nil; circleSurfaceBottom=nil; circleImageTop=nil; circleImageBottom=nil; circleGlowTop=nil; circleGlowBottom=nil
     end
 
     local function createCircleSurface(face)
@@ -1606,8 +1691,20 @@ runFunction(function()
         surface.LightInfluence=0
         surface.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
         surface.PixelsPerStud=256
+        surface.ZOffset=1
         surface.CanvasSize=Vector2.new(512,512)
         surface.Parent=circlePart
+
+        local glow=Instance.new("ImageLabel")
+        glow.Name="CircleGlow"
+        glow.AnchorPoint=Vector2.new(.5,.5)
+        glow.Position=UDim2.fromScale(.5,.5)
+        glow.Size=UDim2.fromScale(1.06,1.06)
+        glow.BackgroundTransparency=1
+        glow.ScaleType=Enum.ScaleType.Fit
+        glow.ImageTransparency=0.78
+        glow.ZIndex=1
+        glow.Parent=surface
 
         local image=Instance.new("ImageLabel")
         image.Name="CircleTexture"
@@ -1616,8 +1713,9 @@ runFunction(function()
         image.Size=UDim2.fromScale(1,1)
         image.BackgroundTransparency=1
         image.ScaleType=Enum.ScaleType.Fit
+        image.ZIndex=2
         image.Parent=surface
-        return surface,image
+        return surface,image,glow
     end
 
     local function ensureCircle()
@@ -1633,8 +1731,8 @@ runFunction(function()
         circlePart.Material=Enum.Material.SmoothPlastic
         circlePart.Parent=workspace
         -- Two-sided rendering: the same 3D texture is visible from above and below.
-        circleSurfaceTop,circleImageTop=createCircleSurface(Enum.NormalId.Top)
-        circleSurfaceBottom,circleImageBottom=createCircleSurface(Enum.NormalId.Bottom)
+        circleSurfaceTop,circleImageTop,circleGlowTop=createCircleSurface(Enum.NormalId.Top)
+        circleSurfaceBottom,circleImageBottom,circleGlowBottom=createCircleSurface(Enum.NormalId.Bottom)
     end
 
     local function updateCircle(t)
@@ -1650,8 +1748,7 @@ runFunction(function()
         local center=boxCF.Position
         local bottomY=center.Y-boxSize.Y*0.5
         local headTop=head and (head.Position.Y+head.Size.Y*0.5) or (center.Y+boxSize.Y*0.5)
-        local headRadius=head and math.max(head.Size.X,head.Size.Z)*0.62 or math.max(boxSize.X,boxSize.Z)*0.7
-        local diameter=math.max(2.0,headRadius*2*math.max(0.25,circleSize.Value))
+        local diameter=math.max(0.5, circleSize.Value)
 
         -- Smooth endless head -> feet -> head motion.
         local phase=(t*math.max(0,speed.Value)*0.003)%2
@@ -1668,6 +1765,14 @@ runFunction(function()
                 image.ImageColor3=color.Value
                 image.ImageTransparency=transparency
                 image.Rotation=0
+            end
+        end
+        for _,glow in ipairs({circleGlowTop,circleGlowBottom}) do
+            if glow then
+                glow.Image=texture
+                glow.ImageColor3=color.Value
+                glow.ImageTransparency=math.clamp(0.82 + transparency * 0.12, 0, 1)
+                glow.Rotation=0
             end
         end
     end
@@ -1701,8 +1806,8 @@ runFunction(function()
     speed=targetESP:CreateSlider({Name="Скорость",Min=0,Max=720,Default=180,Round=0,Function=function(v) speed.Value=v end})
     alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
     color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
-    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
-    circleSize=targetESP:CreateSlider({Name="Размер круга",Min=0.5,Max=4,Default=2,Round=2,Function=function(v) circleSize.Value=v end})
+    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
+    circleSize=targetESP:CreateSlider({Name="Размер круга",Min=1,Max=12,Default=4,Round=1,Function=function(v) circleSize.Value=v end})
     vis(diamond,true); vis(size,true); vis(circleVariant,false); vis(circleSize,false)
 end)
 
@@ -2167,57 +2272,36 @@ runFunction(function()
         g.Name = "NameTag_" .. plr.Name
         g.Adornee = plr.Character:FindFirstChild("Head")
         g.AlwaysOnTop = true
-        g.Size = UDim2.fromOffset(185, 22)
-        g.StudsOffset = Vector3.new(0, 3.2, 0)
+        g.Size = UDim2.fromOffset(190, 20)
+        g.StudsOffset = Vector3.new(0, 3.0, 0)
         g.ResetOnSpawn = false
         g.Parent = folder
 
         local f = Instance.new("Frame")
         f.Name = "TagFrame"
         f.Size = UDim2.fromScale(1, 1)
-        f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        f.BackgroundTransparency = 0.25
+        f.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        f.BackgroundTransparency = 0.15
         f.BorderSizePixel = 0
         f.Parent = g
         local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 5)
+        corner.CornerRadius = UDim.new(0, 4)
         corner.Parent = f
 
         local layout = Instance.new("UIListLayout")
         layout.FillDirection = Enum.FillDirection.Horizontal
         layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         layout.VerticalAlignment = Enum.VerticalAlignment.Center
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
         layout.Padding = UDim.new(0, 3)
         layout.Parent = f
 
-        local tag = Instance.new("ImageLabel")
-        tag.Name = "TagTexture"
-        tag.LayoutOrder = 0
-        tag.BackgroundTransparency = 1
-        tag.Size = UDim2.fromOffset(52, 16)
-        tag.Image = "rbxassetid://" .. playerTags[plr]
-        tag.ScaleType = Enum.ScaleType.Fit
-        tag.ResampleMode = Enum.ResamplerMode.Pixelated
-        tag.Parent = f
-
-        local n = Instance.new("TextLabel")
-        n.Name = "Nickname"
-        n.LayoutOrder = 1
-        n.BackgroundTransparency = 1
-        n.Size = UDim2.fromOffset(0, 20)
-        n.AutomaticSize = Enum.AutomaticSize.X
-        n.Font = guifont or Enum.Font.GothamMedium
-        n.TextSize = 14
-        n.TextColor3 = Color3.fromRGB(255,255,255)
-        n.TextStrokeTransparency = 1
-        n.TextXAlignment = Enum.TextXAlignment.Left
-        n.Parent = f
-
+        -- Requested order: health first, then nickname, then donation texture.
         local hpIcon = Instance.new("ImageLabel")
         hpIcon.Name = "HealthIcon"
-        hpIcon.LayoutOrder = 2
+        hpIcon.LayoutOrder = 1
         hpIcon.BackgroundTransparency = 1
-        hpIcon.Size = UDim2.fromOffset(11,11)
+        hpIcon.Size = UDim2.fromOffset(12,12)
         hpIcon.Image = "rbxassetid://99142118523333"
         hpIcon.ImageColor3 = Color3.fromRGB(255,255,255)
         hpIcon.ScaleType = Enum.ScaleType.Fit
@@ -2225,16 +2309,39 @@ runFunction(function()
 
         local hp = Instance.new("TextLabel")
         hp.Name = "Health"
-        hp.LayoutOrder = 3
+        hp.LayoutOrder = 2
         hp.BackgroundTransparency = 1
-        hp.Size = UDim2.fromOffset(0, 20)
+        hp.Size = UDim2.fromOffset(0, 19)
         hp.AutomaticSize = Enum.AutomaticSize.X
         hp.Font = guifont or Enum.Font.GothamMedium
-        hp.TextSize = 14
+        hp.TextSize = 16
         hp.TextColor3 = Color3.fromRGB(255,255,255)
         hp.TextStrokeTransparency = 1
         hp.TextXAlignment = Enum.TextXAlignment.Left
         hp.Parent = f
+
+        local n = Instance.new("TextLabel")
+        n.Name = "Nickname"
+        n.LayoutOrder = 3
+        n.BackgroundTransparency = 1
+        n.Size = UDim2.fromOffset(0, 19)
+        n.AutomaticSize = Enum.AutomaticSize.X
+        n.Font = guifont or Enum.Font.GothamMedium
+        n.TextSize = 16
+        n.TextColor3 = Color3.fromRGB(255,255,255)
+        n.TextStrokeTransparency = 1
+        n.TextXAlignment = Enum.TextXAlignment.Left
+        n.Parent = f
+
+        local tag = Instance.new("ImageLabel")
+        tag.Name = "TagTexture"
+        tag.LayoutOrder = 4
+        tag.BackgroundTransparency = 1
+        tag.Size = UDim2.fromOffset(52, 15)
+        tag.Image = "rbxassetid://" .. playerTags[plr]
+        tag.ScaleType = Enum.ScaleType.Fit
+        tag.ResampleMode = Enum.ResamplerMode.Pixelated
+        tag.Parent = f
 
         guis[plr.Name] = g
         return g
@@ -2249,14 +2356,15 @@ runFunction(function()
         local n = f and f:FindFirstChild("Nickname")
         local hp = f and f:FindFirstChild("Health")
         local icon = f and f:FindFirstChild("HealthIcon")
+        local tag = f and f:FindFirstChild("TagTexture")
         local h = getHumanoid(plr)
-        if not n or not hp or not icon or not h then return end
+        if not n or not hp or not icon or not tag or not h then return end
         n.Text = plr.Name
-        hp.Text = tostring(math.floor(h.Health))
+        hp.Text = tostring(math.floor(math.max(0, h.Health)))
         hp.Visible = showHP.Value
         icon.Visible = showHP.Value
-        g.Size = UDim2.fromOffset(185, showHP.Value and 22 or 20)
-        g.StudsOffset = Vector3.new(0, showHP.Value and 3.05 or 2.95, 0)
+        g.Size = UDim2.fromOffset(190, showHP.Value and 20 or 19)
+        g.StudsOffset = Vector3.new(0, showHP.Value and 3.0 or 2.95, 0)
     end
 
     local conns = {}
