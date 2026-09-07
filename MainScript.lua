@@ -181,19 +181,6 @@ end
 
 GuiLibrary:CreateWindow()
 
--- Nursultan 1.21.11 is the default palette from the first frame.
-local defaultTheme = {
-    Color1 = Color3.fromRGB(14, 14, 23), Color2 = Color3.fromRGB(47, 48, 64),
-    Color3 = Color3.fromRGB(66, 68, 66), Color4 = Color3.fromRGB(49, 51, 64),
-    Color5 = Color3.fromRGB(20, 20, 20), Color6 = Color3.fromRGB(200, 200, 200),
-    ToggleColor = Color3.fromRGB(0, 0, 0), ToggleColor2 = Color3.fromRGB(123, 131, 243),
-    TextColor = Color3.fromRGB(255, 255, 255), PlaceholderColor = Color3.fromRGB(220, 220, 220),
-    PlaceholderColor2 = Color3.fromRGB(200, 200, 200), InfoColor = Color3.fromRGB(180, 180, 180),
-    WarningColor = Color3.fromRGB(198, 205, 64), ErrorColor = Color3.fromRGB(205, 64, 78),
-}
-for k,v in pairs(defaultTheme) do GuiLibrary:setColor(k,v) end
-if GuiLibrary.GuiPallet then GuiLibrary.GuiPallet.ThemeMode = "Preset" end
-
 local Tabs = {
     Combat = GuiLibrary:CreateTab({
         Name = "Combat",
@@ -303,10 +290,8 @@ runFunction(function()
         Name = "UI scale",
         Function = function(v)
             GuiLibrary.UIScale.Scale = v
-            GuiLibrary.Scale = v
             local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
             if w then
-                w.__NightixScale = v
                 w:SetSize(UDim2.fromOffset(math.floor(640 * v), math.floor(480 * v)))
             end
         end,
@@ -318,7 +303,6 @@ runFunction(function()
         Function = function()
             local defaultScale = 1
             GuiLibrary.UIScale.Scale = defaultScale
-            GuiLibrary.Scale = defaultScale
             local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
             if w then
                 w:SetSize(UDim2.fromOffset(640, 480))

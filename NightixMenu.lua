@@ -42,9 +42,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     })
 
     -- guilibrary state
-    -- Proxy Scale so Settings changes are retained by the real Nightix window.
-    local scaleProxy = { Scale = 1 }
-    guilibrary.UIScale = scaleProxy
+    guilibrary.UIScale = { Scale = 1 }
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
     local previousMouseBehavior
@@ -924,10 +922,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     userInputService.MouseIconEnabled = true
                 end
             end)
-            local currentScale = (window.__NightixScale or scaleProxy.Scale or 1)
-            window.__NightixScale = currentScale
-            scaleProxy.Scale = currentScale
-            window:SetSize(UDim2.fromOffset(math.floor(640 * currentScale), math.floor(480 * currentScale)))
+            window:SetSize(menuScale)
         else
             for _, optionWindow in ipairs(optionWindows) do
                 if optionWindow.Signal then

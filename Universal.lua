@@ -598,20 +598,16 @@ runFunction(function()
             if on then
                 local h = getHumanoid(LocalPlayer)
                 oldAutoRotate = h and h.AutoRotate or true
+                if h then h.AutoRotate = false end
                 currentTarget = acquire()
-                if h and currentTarget then h.AutoRotate = false end
 
                 RunLoops:BindToRenderStep("AttackAuraAim", function(dt)
                     if not attackAura.Enabled then return end
                     if not valid(currentTarget) then
                         currentTarget = acquire()
                     end
-                    local h = getHumanoid(LocalPlayer)
                     if currentTarget then
-                        if h then h.AutoRotate = false end
                         aim(currentTarget, dt, false)
-                    elseif h then
-                        h.AutoRotate = oldAutoRotate
                     end
                 end)
 
@@ -1588,8 +1584,7 @@ runFunction(function()
     local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
     local target; local billboard; local img
     local circlePart; local circleSurfaceTop; local circleSurfaceBottom; local circleImageTop; local circleImageBottom
-    -- Circle size is in world studs and is independent of the target's body size.
-    local circleSize={Value=4.0}
+    local circleSize={Value=2.0}
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
     local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
 
@@ -1655,7 +1650,8 @@ runFunction(function()
         local center=boxCF.Position
         local bottomY=center.Y-boxSize.Y*0.5
         local headTop=head and (head.Position.Y+head.Size.Y*0.5) or (center.Y+boxSize.Y*0.5)
-        local diameter=math.max(0.5, circleSize.Value)
+        local headRadius=head and math.max(head.Size.X,head.Size.Z)*0.62 or math.max(boxSize.X,boxSize.Z)*0.7
+        local diameter=math.max(2.0,headRadius*2*math.max(0.25,circleSize.Value))
 
         -- Smooth endless head -> feet -> head motion.
         local phase=(t*math.max(0,speed.Value)*0.003)%2
@@ -1705,8 +1701,8 @@ runFunction(function()
     speed=targetESP:CreateSlider({Name="Скорость",Min=0,Max=720,Default=180,Round=0,Function=function(v) speed.Value=v end})
     alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
     color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
-    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
-    circleSize=targetESP:CreateSlider({Name="Размер круга",Min=1,Max=12,Default=4,Round=1,Function=function(v) circleSize.Value=v end})
+    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
+    circleSize=targetESP:CreateSlider({Name="Размер круга",Min=0.5,Max=4,Default=2,Round=2,Function=function(v) circleSize.Value=v end})
     vis(diamond,true); vis(size,true); vis(circleVariant,false); vis(circleSize,false)
 end)
 
