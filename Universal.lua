@@ -4101,24 +4101,48 @@ runFunction(function()
     local sky
     local old = {}
 
-    -- Sky presets are copied from the Roblox Studio Sky properties supplied by the user.
-    -- Each entry is a complete six-face skybox; no single asset is reused for all faces.
+    -- Sky presets copied from the Roblox Studio property screenshots.
+    -- Each preset is a complete Sky configuration (all six faces + celestial settings).
     local skies = {
         ["1"] = {
-            Bk = "600830446", Dn = "600831635", Ft = "600832720",
-            Lf = "600826090", Rt = "600833862", Up = "600835177",
+            CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,
+            Bk = "15470149279", Dn = "15470151245", Ft = "15470153860",
+            Lf = "15470155938", Rt = "15470152022", Up = "15470160563",
         },
         ["2"] = {
-            Bk = "15983968922", Dn = "15983966825", Ft = "15983965025",
-            Lf = "15983967420", Rt = "15983966246", Up = "15983964246",
+            CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 0, SunAngularSize = 21,
+            Bk = "159454299", Dn = "159454296", Ft = "159454293",
+            Lf = "159454286", Rt = "159454300", Up = "159454288",
         },
         ["3"] = {
+            CelestialBodiesShown = true, MoonAngularSize = 1, StarCount = 3000, SunAngularSize = 1,
+            Bk = "4495864450", Dn = "4495864887", Ft = "4495865458",
+            Lf = "4495866035", Rt = "4495866584", Up = "4495867486",
+        },
+        ["4"] = {
+            CelestialBodiesShown = true, MoonAngularSize = 0, StarCount = 3000, SunAngularSize = 0,
             Bk = "119761561936004", Dn = "112913253029218", Ft = "71766471664507",
             Lf = "73469705958603", Rt = "130460752130304", Up = "73402351227920",
         },
-        ["4"] = {
+        ["5"] = {
+            CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,
             Bk = "15502525195", Dn = "15502522797", Ft = "15502524520",
             Lf = "15502522129", Rt = "15502523711", Up = "15502526102",
+        },
+        ["6"] = {
+            CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,
+            Bk = "15983968922", Dn = "15983966825", Ft = "15983965025",
+            Lf = "15983967420", Rt = "15983966246", Up = "15983964246",
+        },
+        ["7"] = {
+            CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,
+            Bk = "600830446", Dn = "600831635", Ft = "600832720",
+            Lf = "600826090", Rt = "600833862", Up = "600835177",
+        },
+        ["8"] = {
+            CelestialBodiesShown = true, MoonAngularSize = 11, StarCount = 1334, SunAngularSize = 21,
+            Bk = "150335574", Dn = "150335585", Ft = "150335628",
+            Lf = "150335620", Rt = "150335610", Up = "150335642",
         },
     }
 
@@ -4131,8 +4155,11 @@ runFunction(function()
         sky.SkyboxLf = "rbxassetid://" .. data.Lf
         sky.SkyboxRt = "rbxassetid://" .. data.Rt
         sky.SkyboxUp = "rbxassetid://" .. data.Up
-        sky.SkyboxOrientation = Vector3.new(0,0,0)
-        sky.StarCount = 3000
+        sky.SkyboxOrientation = Vector3.new(0, 0, 0)
+        sky.CelestialBodiesShown = data.CelestialBodiesShown
+        sky.MoonAngularSize = data.MoonAngularSize
+        sky.StarCount = data.StarCount
+        sky.SunAngularSize = data.SunAngularSize
         sky.MoonTextureId = "rbxasset://sky/moon.jpg"
         sky.SunTextureId = "rbxasset://sky/sun.jpg"
     end
@@ -4164,7 +4191,7 @@ runFunction(function()
     })
     choice = customSky:CreateDropdown({
         Name = "Небо",
-        List = {"1", "2", "3", "4"},
+        List = {"1", "2", "3", "4", "5", "6", "7", "8"},
         Default = "1",
         Function = function(v)
             choice.Value = tostring(v)
