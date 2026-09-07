@@ -369,26 +369,76 @@ runFunction(function()
 
     local function applyTheme(v)
         local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-        if not nl2 then return end
-        nl2.IconSettings = nl2.IconSettings or {}
-        -- Do not call the color-picker Set() methods here: some older executor
-        -- builds route that call through the legacy HSV path and can treat Color3
-        -- as a number. The renderer reads IconSettings directly every frame.
-        nl2.IconSettings.Mode = "Double"
-        if v == "Nursultan 1.16.5" then
-            nl2.IconSettings.Color1 = Color3.fromRGB(207, 156, 211)
-            nl2.IconSettings.Color2 = Color3.fromRGB(94, 74, 103)
-        else
-            nl2.IconSettings.Color1 = Color3.fromRGB(216, 148, 245)
-            nl2.IconSettings.Color2 = Color3.fromRGB(123, 131, 243)
+        local palette = GuiLibrary.GuiPallet
+        if not nl2 or not palette then return end
+
+        -- Presets are actions, not a persistent "theme selection". Clicking a
+        -- preset immediately writes the complete client palette and refreshes
+        -- already-created UI objects. A custom theme can therefore be replaced
+        -- instantly without changing any separate theme state.
+        local themes = {
+            ["Nursultan 1.21.11"] = {
+                Color1 = Color3.fromRGB(14, 14, 23),
+                Color2 = Color3.fromRGB(47, 48, 64),
+                Color3 = Color3.fromRGB(66, 68, 66),
+                Color4 = Color3.fromRGB(49, 51, 64),
+                Color5 = Color3.fromRGB(20, 20, 20),
+                Color6 = Color3.fromRGB(200, 200, 200),
+                ToggleColor = Color3.fromRGB(0, 0, 0),
+                ToggleColor2 = Color3.fromRGB(123, 131, 243),
+                TextColor = Color3.fromRGB(255, 255, 255),
+                PlaceholderColor = Color3.fromRGB(220, 220, 220),
+                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
+                InfoColor = Color3.fromRGB(180, 180, 180),
+                WarningColor = Color3.fromRGB(198, 205, 64),
+                ErrorColor = Color3.fromRGB(205, 64, 78),
+                Icon1 = Color3.fromRGB(216, 148, 245),
+                Icon2 = Color3.fromRGB(123, 131, 243),
+            },
+            ["Nursultan 1.16.5"] = {
+                Color1 = Color3.fromRGB(14, 14, 23),
+                Color2 = Color3.fromRGB(47, 48, 64),
+                Color3 = Color3.fromRGB(66, 68, 66),
+                Color4 = Color3.fromRGB(49, 51, 64),
+                Color5 = Color3.fromRGB(20, 20, 20),
+                Color6 = Color3.fromRGB(200, 200, 200),
+                ToggleColor = Color3.fromRGB(0, 0, 0),
+                ToggleColor2 = Color3.fromRGB(94, 74, 103),
+                TextColor = Color3.fromRGB(255, 255, 255),
+                PlaceholderColor = Color3.fromRGB(220, 220, 220),
+                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
+                InfoColor = Color3.fromRGB(180, 180, 180),
+                WarningColor = Color3.fromRGB(198, 205, 64),
+                ErrorColor = Color3.fromRGB(205, 64, 78),
+                Icon1 = Color3.fromRGB(207, 156, 211),
+                Icon2 = Color3.fromRGB(94, 74, 103),
+            },
+        }
+        local theme = themes[v]
+        if not theme then return end
+
+        for key, value in pairs(theme) do
+            if key ~= "Icon1" and key ~= "Icon2" then
+                GuiLibrary:setColor(key, value)
+            end
         end
+        palette.ThemeMode = "Preset"
+        GuiLibrary:updateObjects()
+
+        nl2.IconSettings = nl2.IconSettings or {}
+        nl2.IconSettings.Mode = "Double"
+        nl2.IconSettings.Color1 = theme.Icon1
+        nl2.IconSettings.Color2 = theme.Icon2
     end
 
-    iconFunction:CreateDropdown({
-        Name = "Готовые темы",
-        List = {"Nursultan 1.21.11", "Nursultan 1.16.5"},
-        Default = "Nursultan 1.21.11",
-        Function = applyTheme
+    -- Presets are buttons: pressing one applies the palette immediately.
+    iconFunction:CreateButton({
+        Name = "Nursultan 1.21.11",
+        Callback = function() applyTheme("Nursultan 1.21.11") end
+    })
+    iconFunction:CreateButton({
+        Name = "Nursultan 1.16.5",
+        Callback = function() applyTheme("Nursultan 1.16.5") end
     })
 
     -- The function itself starts with the default client theme.

@@ -4883,6 +4883,14 @@ function NeverLose:CreateWindow(Config)
 
         local function getIconGradientColor()
             local cfg = NeverLose.IconSettings or {}
+            local menuColor
+            if shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet then
+                menuColor = shared.Mana.GuiLibrary.GuiPallet.ToggleColor2
+            end
+            menuColor = menuColor or cfg.MenuIconColor
+            if menuColor then
+                return ColorSequence.new(menuColor)
+            end
             if cfg.Enabled == false then
                 return ColorSequence.new(Color3.fromRGB(255, 255, 255))
             elseif cfg.Mode == "Single" then
