@@ -80,3 +80,11 @@ Configs are **not** saved automatically. Use the Profiles tab:
 - Circle uses asset 107258187506657 as a 3D moving ring from feet to head and back, with Bloom glow and a tight particle trail.
 - Ромб variants: 1 default, 2 132493106112220, 3 108556924043797, 4 139726405706582.
 - Menu logo/watermark gradient was changed to smooth purple/white motion with a seamless wrap.
+
+## Fixes in v27
+- Watermark now has exactly two grey separators: icon | Release | UID.
+- Circle target ESP exposes only variants 1-3 and uses world-space diameter independent of character body size.
+- UI scale is stored in the Nightix window state and survives closing/reopening the menu; reset sets 1.00.
+- Theme refresh updates accent-colored controls already created in Settings and other sections.
+- AttackAura restores Humanoid.AutoRotate whenever there is no valid target and only disables it while actually aiming.
+- Nightix active-tab and watermark sweeps are one-way moving bands with an off-screen wrap, rather than ping-pong.
