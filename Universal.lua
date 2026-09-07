@@ -1482,7 +1482,9 @@ end)
 runFunction(function()
     local chinaHat = {Enabled = false}
     local color = {Value = Color3.fromRGB(255, 255, 255)}
+    local hatSize = {Value = 3}
     local chinaHatTrail
+    local chinaHatMesh
     chinaHat = Tabs.Render:CreateToggle({
         Name = "ChinaHat",
         HoverText = "Puts a china hat on your head.",
@@ -1494,17 +1496,17 @@ runFunction(function()
 						if chinaHatTrail == nil or chinaHatTrail.Parent == nil then
 							chinaHatTrail = Instance.new("Part")
 							chinaHatTrail.CFrame =  head.CFrame * CFrame.new(0, 1.1, 0)
-							chinaHatTrail.Size = Vector3.new(3, 0.7, 3)
+							chinaHatTrail.Size = Vector3.new(1, 0.7, 1)
 							chinaHatTrail.Name = "ChinaHat"
 							chinaHatTrail.Material = Enum.Material.Neon
 							chinaHatTrail.CanCollide = false
 							chinaHatTrail.Transparency = 0.3
                             chinaHatTrail.Color = color.Value
-							local chinaHatMesh = Instance.new("SpecialMesh")
+							chinaHatMesh = Instance.new("SpecialMesh")
 							chinaHatMesh.Parent = chinaHatTrail
 							chinaHatMesh.MeshType = "FileMesh"
 							chinaHatMesh.MeshId = "http://www.roblox.com/asset/?id=1778999"
-							chinaHatMesh.Scale = Vector3.new(3, 0.6, 3)
+							chinaHatMesh.Scale = Vector3.new(hatSize.Value, hatSize.Value * 0.2, hatSize.Value)
 							chinaHatTrail.Parent = workspace.Camera
 						end
 						chinaHatTrail.CFrame = head.CFrame * CFrame.new(0, 1.1, 0)
@@ -1533,6 +1535,20 @@ runFunction(function()
         Function = function(v)
             if chinaHatTrail then
                 chinaHatTrail.Color = v
+            end
+        end
+    })
+
+    hatSize = chinaHat:CreateSlider({
+        Name = "Размер",
+        Min = 1,
+        Max = 8,
+        Default = 3,
+        Round = 1,
+        Function = function(v)
+            hatSize.Value = v
+            if chinaHatMesh then
+                chinaHatMesh.Scale = Vector3.new(v, v * 0.2, v)
             end
         end
     })
@@ -1565,22 +1581,56 @@ end)
 -- Target ESP: synchronized strictly with AttackAura.
 runFunction(function()
     local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
-    local target; local billboard; local img; local circlePart; local circleDecal
+    local target; local billboard; local img; local circlePart; local circleGui; local circleImage
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
     local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
     local function clearDiamond() if billboard then billboard:Destroy(); billboard=nil; img=nil end end
-    local function clearCircle() if circlePart then circlePart:Destroy(); circlePart=nil; circleDecal=nil end end
+    local function clearCircle() if circlePart then circlePart:Destroy() end; circlePart=nil; circleGui=nil; circleImage=nil end
     local function ensureCircle()
         if circlePart and circlePart.Parent then return end
-        circlePart=Instance.new("Part"); circlePart.Name="NightixTargetESPCircle"; circlePart.Anchored=true; circlePart.CanCollide=false; circlePart.CanQuery=false; circlePart.CanTouch=false; circlePart.CastShadow=false; circlePart.Transparency=1; circlePart.Size=Vector3.new(.05,.05,.05); circlePart.Parent=workspace
-        local mesh=Instance.new("CylinderMesh"); mesh.Scale=Vector3.new(2,.035,2); mesh.Parent=circlePart
-        circleDecal=Instance.new("Decal"); circleDecal.Name="CircleTexture"; circleDecal.Face=Enum.NormalId.Top; circleDecal.Parent=circlePart
+        circlePart=Instance.new("Part")
+        circlePart.Name="NightixTargetESPCircle"
+        circlePart.Anchored=true
+        circlePart.CanCollide=false
+        circlePart.CanQuery=false
+        circlePart.CanTouch=false
+        circlePart.CastShadow=false
+        circlePart.Transparency=1
+        circlePart.Size=Vector3.new(1,0.05,1)
+        circlePart.Parent=workspace
+
+        circleGui=Instance.new("SurfaceGui")
+        circleGui.Name="CircleSurface"
+        circleGui.Face=Enum.NormalId.Top
+        circleGui.AlwaysOnTop=true
+        circleGui.LightInfluence=0
+        circleGui.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+        circleGui.PixelsPerStud=80
+        circleGui.Parent=circlePart
+
+        circleImage=Instance.new("ImageLabel")
+        circleImage.Name="CircleTexture"
+        circleImage.BackgroundTransparency=1
+        circleImage.Size=UDim2.fromScale(1,1)
+        circleImage.Position=UDim2.fromScale(0,0)
+        circleImage.ScaleType=Enum.ScaleType.Fit
+        circleImage.Parent=circleGui
     end
     local function updateCircle(t)
         if not target or not isAlive(target) or not target.Character then clearCircle(); return end
-        local cf,bs=target.Character:GetBoundingBox(); local bottom=cf.Position.Y-bs.Y*.5; local top=cf.Position.Y+bs.Y*.5; ensureCircle()
-        local phase=(t*math.max(.05,speed.Value/180))%2; local p=phase<=1 and phase or 2-phase; local e=p*p*(3-2*p)
-        circlePart.Position=Vector3.new(cf.Position.X,bottom+e*(top-bottom),cf.Position.Z); circleDecal.Texture="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"]); circleDecal.Transparency=math.clamp(alpha.Value,0,1); circleDecal.Color3=color.Value
+        local cf,bs=target.Character:GetBoundingBox()
+        local bottom=cf.Position.Y-bs.Y*.5
+        local top=cf.Position.Y+bs.Y*.5
+        ensureCircle()
+        local diameter=math.max(2.5, math.max(bs.X,bs.Z)*1.15)
+        local phase=(t*math.max(.05,speed.Value/180))%2
+        local p=phase<=1 and phase or 2-phase
+        local e=p*p*(3-2*p)
+        circlePart.Size=Vector3.new(diameter,0.05,diameter)
+        circlePart.Position=Vector3.new(cf.Position.X,bottom+e*(top-bottom),cf.Position.Z)
+        circleImage.Image="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"])
+        circleImage.ImageTransparency=math.clamp(alpha.Value,0,1)
+        circleImage.ImageColor3=color.Value
     end
     local function updateDiamond()
         if not target or not isAlive(target) then if billboard then billboard.Enabled=false end; return end
@@ -2090,6 +2140,7 @@ runFunction(function()
 
         local tag = Instance.new("ImageLabel")
         tag.Name = "TagTexture"
+        tag.LayoutOrder = 3
         tag.BackgroundTransparency = 1
         tag.Size = UDim2.fromOffset(52, 16)
         tag.Image = "rbxassetid://" .. playerTags[plr]
@@ -2099,11 +2150,12 @@ runFunction(function()
 
         local n = Instance.new("TextLabel")
         n.Name = "Nickname"
+        n.LayoutOrder = 2
         n.BackgroundTransparency = 1
         n.Size = UDim2.fromOffset(0, 20)
         n.AutomaticSize = Enum.AutomaticSize.X
         n.Font = guifont or Enum.Font.GothamMedium
-        n.TextSize = 10
+        n.TextSize = 12
         n.TextColor3 = Color3.fromRGB(255,255,255)
         n.TextStrokeTransparency = 1
         n.TextXAlignment = Enum.TextXAlignment.Left
@@ -2111,6 +2163,7 @@ runFunction(function()
 
         local hpIcon = Instance.new("ImageLabel")
         hpIcon.Name = "HealthIcon"
+        hpIcon.LayoutOrder = 0
         hpIcon.BackgroundTransparency = 1
         hpIcon.Size = UDim2.fromOffset(11,11)
         hpIcon.Image = "rbxassetid://99142118523333"
@@ -2120,11 +2173,12 @@ runFunction(function()
 
         local hp = Instance.new("TextLabel")
         hp.Name = "Health"
+        hp.LayoutOrder = 1
         hp.BackgroundTransparency = 1
         hp.Size = UDim2.fromOffset(0, 20)
         hp.AutomaticSize = Enum.AutomaticSize.X
         hp.Font = guifont or Enum.Font.GothamMedium
-        hp.TextSize = 10
+        hp.TextSize = 12
         hp.TextColor3 = Color3.fromRGB(255,255,255)
         hp.TextStrokeTransparency = 1
         hp.TextXAlignment = Enum.TextXAlignment.Left
@@ -2149,8 +2203,8 @@ runFunction(function()
         hp.Text = tostring(math.floor(h.Health))
         hp.Visible = showHP.Value
         icon.Visible = showHP.Value
-        g.Size = UDim2.fromOffset(185, showHP.Value and 31 or 24)
-        g.StudsOffset = Vector3.new(0, showHP.Value and 3.45 or 3.2, 0)
+        g.Size = UDim2.fromOffset(185, showHP.Value and 24 or 21)
+        g.StudsOffset = Vector3.new(0, showHP.Value and 3.15 or 3.0, 0)
     end
 
     local conns = {}
