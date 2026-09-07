@@ -599,7 +599,7 @@ runFunction(function()
                 local h = getHumanoid(LocalPlayer)
                 oldAutoRotate = h and h.AutoRotate or true
                 currentTarget = acquire()
-                if h then h.AutoRotate = oldAutoRotate end
+                if h and currentTarget then h.AutoRotate = false end
 
                 RunLoops:BindToRenderStep("AttackAuraAim", function(dt)
                     if not attackAura.Enabled then return end
@@ -607,14 +607,10 @@ runFunction(function()
                         currentTarget = acquire()
                     end
                     local h = getHumanoid(LocalPlayer)
-                    if not currentTarget or not valid(currentTarget) then
-                        currentTarget = acquire()
-                    end
-                    if currentTarget and valid(currentTarget) then
+                    if currentTarget then
                         if h then h.AutoRotate = false end
                         aim(currentTarget, dt, false)
                     elseif h then
-                        currentTarget = nil
                         h.AutoRotate = oldAutoRotate
                     end
                 end)
@@ -1595,7 +1591,7 @@ runFunction(function()
     -- Circle size is in world studs and is independent of the target's body size.
     local circleSize={Value=4.0}
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
-    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043" }
+    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
 
     local function clearDiamond()
         if billboard then pcall(function() billboard:Destroy() end) end
@@ -1615,7 +1611,6 @@ runFunction(function()
         surface.LightInfluence=0
         surface.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
         surface.PixelsPerStud=256
-        surface.ZOffset=1
         surface.CanvasSize=Vector2.new(512,512)
         surface.Parent=circlePart
 

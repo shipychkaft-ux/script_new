@@ -44,7 +44,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- guilibrary state
     -- Proxy Scale so Settings changes are retained by the real Nightix window.
     local scaleProxy = { Scale = 1 }
-    local persistentScale = 1
     guilibrary.UIScale = scaleProxy
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
@@ -925,7 +924,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     userInputService.MouseIconEnabled = true
                 end
             end)
-            local currentScale = persistentScale or 1
+            local currentScale = (window.__NightixScale or scaleProxy.Scale or 1)
             window.__NightixScale = currentScale
             scaleProxy.Scale = currentScale
             window:SetSize(UDim2.fromOffset(math.floor(640 * currentScale), math.floor(480 * currentScale)))
@@ -1002,12 +1001,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         Version = 2,
         Window = window,
         NeverLose = NeverLose,
-        GetScale = function() return persistentScale end,
-        SetScale = function(v)
-            persistentScale = tonumber(v) or 1
-            scaleProxy.Scale = persistentScale
-            window.__NightixScale = persistentScale
-        end,
     }
 
     return guilibrary

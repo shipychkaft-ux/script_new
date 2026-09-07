@@ -193,10 +193,6 @@ local defaultTheme = {
 }
 for k,v in pairs(defaultTheme) do GuiLibrary:setColor(k,v) end
 if GuiLibrary.GuiPallet then GuiLibrary.GuiPallet.ThemeMode = "Preset" end
-if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose then
-    GuiLibrary.NightixMenu.NeverLose.AccentColor = defaultTheme.ToggleColor2
-    if GuiLibrary.NightixMenu.NeverLose.RefreshNightixTheme then GuiLibrary.NightixMenu.NeverLose:RefreshNightixTheme() end
-end
 
 local Tabs = {
     Combat = GuiLibrary:CreateTab({
@@ -311,7 +307,6 @@ runFunction(function()
             local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
             if w then
                 w.__NightixScale = v
-                if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetScale then GuiLibrary.NightixMenu.SetScale(v) end
                 w:SetSize(UDim2.fromOffset(math.floor(640 * v), math.floor(480 * v)))
             end
         end,
@@ -326,8 +321,6 @@ runFunction(function()
             GuiLibrary.Scale = defaultScale
             local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
             if w then
-                w.__NightixScale = 1
-                if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetScale then GuiLibrary.NightixMenu.SetScale(1) end
                 w:SetSize(UDim2.fromOffset(640, 480))
             end
         end
