@@ -4859,7 +4859,7 @@ function NeverLose:CreateWindow(Config)
             image.Size = UDim2.new(0, 18, 0, 18)
             image.ZIndex = 9
             image.Image = iconAsset:match("^rbxassetid://") and iconAsset or ("rbxassetid://" .. iconAsset)
-            image.ImageColor3 = Color3.fromRGB(252, 252, 252)
+            image.ImageColor3 = Color3.fromRGB(255, 255, 255)
             image.ImageTransparency = 0.5
             TabIcon.Visible = false
             TabIconImage = image
@@ -4902,14 +4902,26 @@ function NeverLose:CreateWindow(Config)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
+        TabIconGradient.Rotation = 0
+        TabTextGradient.Rotation = 0
+        TabIconGradient.Enabled = true
+        TabTextGradient.Enabled = true
         setGradient(TabIconGradient, 0.15)
         setGradient(TabTextGradient, 0.15)
         task.spawn(function()
             while TabButton and TabButton.Parent do
                 local active = Window.Tabs[Window.CurrentTab] == Tab
+                -- Keep the GuiObjects neutral so UIGradient supplies the actual theme color.
+                TabIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+                TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                if TabIconImage then
+                    TabIconImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
+                end
                 setGradient(TabIconGradient, active and 0 or 0.15)
                 setGradient(TabTextGradient, active and 0 or 0.15)
-                -- Always travel in one direction: left. Never bounce back.
+                TabIconGradient.Enabled = true
+                TabTextGradient.Enabled = true
+                -- One-way movement only: the gradient continuously travels left.
                 local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
                 local offset = -((tick() * speed) % 1)
                 TabIconGradient.Offset = Vector2.new(offset, 0)
@@ -5015,8 +5027,7 @@ function NeverLose:CreateWindow(Config)
 				})
 				if TabIconImage then
 					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
-						ImageTransparency = 0,
-						ImageColor3 = Color3.fromRGB(255, 255, 255)
+						ImageTransparency = 0
 					})
 				end
                 setGradient(TabIconGradient, 0)
@@ -5037,8 +5048,7 @@ function NeverLose:CreateWindow(Config)
 				})
 				if TabIconImage then
 					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
-						ImageTransparency = 0.5,
-						ImageColor3 = Color3.fromRGB(252, 252, 252)
+						ImageTransparency = 0.5
 					})
 				end
                 setGradient(TabIconGradient, 0.15)
@@ -6172,7 +6182,7 @@ function NeverLose:CreateWindow(Config)
 			UID.AnchorPoint = Vector2.new(0, 0.5)
 			UID.Size = UDim2.fromOffset(1, 20)
 			UID.ZIndex = 17
-			UID.Font = Enum.Font.GothamBold
+			UID.Font = Enum.Font.GothamMedium
 			UID.Text = uidText ~= "" and (" | " .. uidText) or ""
 			UID.TextColor3 = Color3.fromRGB(255, 255, 255)
 			UID.TextSize = 15
@@ -6185,11 +6195,19 @@ function NeverLose:CreateWindow(Config)
 			UIDGradient.Parent = UID
 			local IconGradient = Instance.new("UIGradient")
 			IconGradient.Parent = Icon
+			Gradient.Rotation = 0
+			UIDGradient.Rotation = 0
+			IconGradient.Rotation = 0
+			Gradient.Enabled = true
+			UIDGradient.Enabled = true
+			IconGradient.Enabled = true
 			local function getWatermarkColors()
 				local cfg = NeverLose.IconSettings or {}
-				if cfg.Enabled == false or cfg.Mode == "Single" then
-					local c = cfg.Enabled == false and Color3.fromRGB(255,255,255) or (cfg.Color1 or Color3.fromRGB(255,255,255))
-					return ColorSequence.new(c)
+				if cfg.Enabled == false then
+					return ColorSequence.new(Color3.fromRGB(255,255,255))
+				end
+				if cfg.Mode == "Single" then
+					return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255))
 				end
 				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
 				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
@@ -6199,21 +6217,22 @@ function NeverLose:CreateWindow(Config)
 					ColorSequenceKeypoint.new(1,c1)
 				})
 			end
-			local function refreshGradient()
-				local colors = getWatermarkColors()
-				Gradient.Color = colors
-				UIDGradient.Color = colors
-				IconGradient.Color = colors
-			end
 			task.spawn(function()
 				while Frame and Frame.Parent do
-					refreshGradient()
+					local colors = getWatermarkColors()
+					Gradient.Color = colors
+					UIDGradient.Color = colors
+					IconGradient.Color = colors
+					-- Neutral base colors are required for UIGradient to tint the actual glyph/image.
+					Content.TextColor3 = Color3.fromRGB(255,255,255)
+					UID.TextColor3 = Color3.fromRGB(255,255,255)
+					Icon.ImageColor3 = Color3.fromRGB(255,255,255)
 					local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
 					local offset = -((tick() * speed) % 1)
 					Gradient.Offset = Vector2.new(offset, 0)
 					UIDGradient.Offset = Vector2.new(offset, 0)
 					IconGradient.Offset = Vector2.new(offset, 0)
-					task.wait()
+				task.wait()
 				end
 			end)
 

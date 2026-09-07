@@ -330,6 +330,10 @@ runFunction(function()
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
             if not nl2 then return end
             nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
+            if nl2.IconSettings.Mode == "Single" and not nl2.IconSettings.SingleInitialized then
+                nl2.IconSettings.Color1 = Color3.fromRGB(255, 255, 255)
+                nl2.IconSettings.SingleInitialized = true
+            end
             local double = nl2.IconSettings.Mode == "Double"
             if iconColor2 and iconColor2.Container then iconColor2.Container.Visible = double end
             if iconSpeed and iconSpeed.Container then iconSpeed.Container.Visible = double end
@@ -366,18 +370,18 @@ runFunction(function()
     local function applyTheme(v)
         local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
         if not nl2 then return end
+        nl2.IconSettings = nl2.IconSettings or {}
+        -- Do not call the color-picker Set() methods here: some older executor
+        -- builds route that call through the legacy HSV path and can treat Color3
+        -- as a number. The renderer reads IconSettings directly every frame.
+        nl2.IconSettings.Mode = "Double"
         if v == "Nursultan 1.16.5" then
-            nl2.IconSettings.Mode = "Double"
             nl2.IconSettings.Color1 = Color3.fromRGB(207, 156, 211)
             nl2.IconSettings.Color2 = Color3.fromRGB(94, 74, 103)
         else
-            nl2.IconSettings.Mode = "Double"
             nl2.IconSettings.Color1 = Color3.fromRGB(216, 148, 245)
             nl2.IconSettings.Color2 = Color3.fromRGB(123, 131, 243)
         end
-        iconMode:Select("Двойной")
-        iconColor1:Set(nl2.IconSettings.Color1, true)
-        iconColor2:Set(nl2.IconSettings.Color2, true)
     end
 
     iconFunction:CreateDropdown({

@@ -295,8 +295,15 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         function api:Set(hueValue, satValue, valValue, rainbow, load)
             -- The color picker can call the public API with either a Color3
             -- or HSV components.  Never pass a Color3 into HSVtoRGB.
-            if typeof(hueValue) == "Color3" then
-                local color = hueValue
+            local directColor
+            local okColor = pcall(function()
+                if type(hueValue) == "userdata" or typeof(hueValue) == "Color3" then
+                    directColor = hueValue
+                    directColor:ToHSV()
+                end
+            end)
+            if okColor and directColor then
+                local color = directColor
                 local h, s, v = color:ToHSV()
                 api.Value = color
                 api.RelativeTable = { h, s, v }
