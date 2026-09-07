@@ -448,6 +448,12 @@ runFunction(function()
         nl2.IconSettings.Color1 = theme.Icon1
         nl2.IconSettings.Color2 = theme.Icon2
         nl2.IconSettings.Speed = 0.65
+        -- Update the visible controls too; changing the preset must not leave
+        -- stale picker swatches from the previous theme.
+        pcall(function() iconColor1:SetValue(theme.Icon1) end)
+        pcall(function() iconColor2:SetValue(theme.Icon2) end)
+        pcall(function() iconSpeed:SetValue(0.65) end)
+        pcall(function() iconMode:Select("Двойной") end)
         if nl2.RefreshNightixTheme then
             nl2:RefreshNightixTheme()
         end

@@ -256,7 +256,6 @@ function NeverLose:RefreshNightixTheme()
         {Color3.fromRGB(41,45,49), p.Color3},
         {old.Color1, p.Color1}, {old.Color2, p.Color2}, {old.Color3, p.Color3},
         {old.Color4, p.Color4}, {old.Color5, p.Color5},
-        {old.ToggleColor2, p.ToggleColor2}, {old.ToggleColor, p.ToggleColor},
     }
     local textMap = {
         {Color3.fromRGB(223,223,223), p.TextColor},
@@ -271,9 +270,22 @@ function NeverLose:RefreshNightixTheme()
         if o:IsA("UIGradient") and o.Name=="NightixThemeGradient" then
             o.Color=ColorSequence.new(c1,c2)
         elseif o:IsA("Frame") then
-            for _,m in ipairs(frameMap) do
-                if m[1] and m[2] and sameColor(o.BackgroundColor3,m[1]) then
-                    o.BackgroundColor3=m[2]; break
+            -- Never recolor toggle controls by matching their old accent
+            -- color: that makes inactive functions light up when a theme is
+            -- switched. Their state attribute is the source of truth.
+            if o:GetAttribute("NightixToggleActive") ~= nil then
+                if o:GetAttribute("NightixToggleActive") then
+                    o.BackgroundColor3 = p.ToggleColor2 or o.BackgroundColor3
+                else
+                    o.BackgroundColor3 = p.Color3 or o.BackgroundColor3
+                end
+            elseif o:GetAttribute("NightixThemeRole") == "ToggleButton" then
+                o.BackgroundColor3 = p.Color3 or o.BackgroundColor3
+            else
+                for _,m in ipairs(frameMap) do
+                    if m[1] and m[2] and sameColor(o.BackgroundColor3,m[1]) then
+                        o.BackgroundColor3=m[2]; break
+                    end
                 end
             end
         elseif o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox") then
@@ -5086,7 +5098,10 @@ function NeverLose:CreateWindow(Config)
                 -- from turning the active tab into an unrelated green/black mix.
                 TabButtonGradient.Enabled = false
                 TabButtonGradient.Offset = Vector2.new(0, 0)
-                TabButton.BackgroundColor3 = active and guipallet.ToggleColor2 or guipallet.Color1
+                local palette = NeverLose.ThemePalette or {}
+                local activeColor = palette.ToggleColor2 or NeverLose.AccentColor or Color3.fromRGB(123, 131, 243)
+                local inactiveColor = palette.Color1 or NeverLose.MainColor or Color3.fromRGB(14, 14, 23)
+                TabButton.BackgroundColor3 = active and activeColor or inactiveColor
                 TabButton.BackgroundTransparency = active and 0.35 or 1
 
                 -- Seamless periodic color motion. No Offset wrap is used.
@@ -6395,29 +6410,40 @@ function NeverLose:CreateWindow(Config)
 			UID.TextTransparency = 0
 			UID.TextXAlignment = Enum.TextXAlignment.Left
 
-			local function getWatermarkColors()
+			local function getWatermarkColors(phase)
 				local cfg = NeverLose.IconSettings or {}
 				if cfg.Enabled == false then return ColorSequence.new(Color3.fromRGB(255,255,255)) end
 				if cfg.Mode == "Single" then return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255)) end
 				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
 				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
-				return ColorSequence.new({ColorSequenceKeypoint.new(0,c1),ColorSequenceKeypoint.new(0.5,c2),ColorSequenceKeypoint.new(1,c1)})
+				phase = phase or 0
+				local keys = {}
+				-- Periodic color field: phase 0 and 1 are identical, so there is
+				-- no visible reset/jump. The field itself moves left; no Offset
+				-- wrapping is used.
+				for i = 0, 12 do
+					local x = i / 12
+					local mix = (1 - math.cos((x + phase) * math.pi * 2)) * 0.5
+					keys[#keys + 1] = ColorSequenceKeypoint.new(x, c1:Lerp(c2, mix))
+				end
+				return ColorSequence.new(keys)
 			end
 
 			task.spawn(function()
 				while Frame and Frame.Parent do
 					local cfg = NeverLose.IconSettings or {}
-					local speed = math.max(0, cfg.Speed or 0.65)
-					local offset = ((os.clock() * speed) % 1)
-					local colors = getWatermarkColors()
+					local speed = math.max(0, tonumber(cfg.Speed) or 0.65)
+					local phase = (os.clock() * speed) % 1
+					local single = cfg.Mode == "Single"
+					local enabled = cfg.Enabled ~= false
+					local colors = getWatermarkColors(phase)
 					IconGradient.Color = colors
 					ReleaseGradient.Color = colors
-					IconGradient.Offset = Vector2.new(offset, 0)
-					ReleaseGradient.Offset = Vector2.new(offset, 0)
-					local single = cfg.Mode == "Single"
-					IconGradient.Enabled = cfg.Enabled ~= false and not single
-					ReleaseGradient.Enabled = cfg.Enabled ~= false and not single
-					if single and cfg.Enabled ~= false then
+					IconGradient.Enabled = enabled and not single
+					ReleaseGradient.Enabled = enabled and not single
+					IconGradient.Offset = Vector2.zero
+					ReleaseGradient.Offset = Vector2.zero
+					if single and enabled then
 						local c1 = cfg.Color1 or Color3.fromRGB(255,255,255)
 						Icon.ImageColor3 = c1
 						Content.TextColor3 = c1
@@ -6426,7 +6452,6 @@ function NeverLose:CreateWindow(Config)
 						Content.TextColor3 = Color3.fromRGB(255,255,255)
 					end
 					UID.TextColor3 = Color3.fromRGB(255,255,255)
-					-- Watermark animation does not need a full render-frame update.
 					task.wait(0.033)
 				end
 			end)

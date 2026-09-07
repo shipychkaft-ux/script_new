@@ -1595,8 +1595,11 @@ runFunction(function()
     local neckState = {motor = nil, c0 = nil, character = nil}
 
     local function restore()
-        if neckState.motor and neckState.motor.Parent and neckState.c0 then
-            pcall(function() neckState.motor.C0 = neckState.c0 end)
+        if neckState.motor and neckState.motor.Parent then
+            pcall(function()
+                if neckState.c0 then neckState.motor.C0 = neckState.c0 end
+                neckState.motor.Transform = CFrame.new()
+            end)
         end
         neckState.motor, neckState.c0, neckState.character = nil, nil, nil
     end
@@ -1626,6 +1629,7 @@ runFunction(function()
             restore()
             return
         end
+
         local character = LocalPlayer.Character
         local camera = workspace.CurrentCamera
         local neck = findNeck(character)
@@ -1633,6 +1637,7 @@ runFunction(function()
             restore()
             return
         end
+
         if neckState.motor ~= neck or neckState.character ~= character then
             restore()
             neckState.motor = neck
@@ -1640,44 +1645,61 @@ runFunction(function()
             neckState.character = character
         end
 
-        local look = camera.CFrame.LookVector
-        local pitch = math.asin(math.clamp(look.Y, -1, 1))
         local root = getHumanoidRootPart(LocalPlayer)
-        local yaw = 0
-        if root then
-            -- Calculate horizontal camera yaw relative to the body. Using world
-            -- yaw here made HeadRotate point left/right depending on where the
-            -- player was standing in the map instead of where they were looking.
-            local bodyLook = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
-            local cameraLook = Vector3.new(look.X, 0, look.Z)
-            if bodyLook.Magnitude > 0.001 and cameraLook.Magnitude > 0.001 then
-                bodyLook = bodyLook.Unit
-                cameraLook = cameraLook.Unit
-                yaw = math.atan2(bodyLook.X * cameraLook.Z - bodyLook.Z * cameraLook.X, bodyLook:Dot(cameraLook))
-            end
+        if not root then
+            return
         end
-        -- Keep the effect Minecraft-like: pitch is dominant, yaw is limited so
-        -- looking down-left/down-right visibly turns the head without twisting it.
-        yaw = math.clamp(yaw, -math.rad(75), math.rad(75))
-        pitch = math.clamp(pitch, -math.rad(75), math.rad(75))
-        local factor = math.clamp(strength.Value, 0, 1)
+
+        -- Work in the character's local space.  This is the important part:
+        -- the camera's world rotation must NOT be fed directly into the neck.
+        -- In third person, doing that makes the head twist/flip when the body
+        -- is facing a different direction.
+        -- Camera.CFrame.LookVector is the direction the player is looking.
+        -- Convert it to root-local space first, then derive only the two
+        -- natural head axes. Do not feed the camera CFrame directly into the
+        -- neck: that is what caused the 180-degree/backwards twist in third
+        -- person.
+        local localLook = root.CFrame:VectorToObjectSpace(camera.CFrame.LookVector)
+        local horizontal = Vector3.new(localLook.X, 0, localLook.Z)
+
+        -- R15/R6 Neck C0 uses the opposite pitch sign from the intuitive
+        -- camera pitch. A negative camera Y (looking down) therefore needs a
+        -- negative neck pitch after the C0 basis is taken into account.
+        local pitch = math.asin(math.clamp(localLook.Y, -1, 1))
+        local yaw = 0
+        if horizontal.Magnitude > 0.001 then
+            horizontal = horizontal.Unit
+            yaw = math.atan2(-horizontal.X, -horizontal.Z)
+        end
+
+        local factor = math.clamp(tonumber(strength.Value) or 1, 0, 1)
+
         if mode.Value == "Down" then
-            pitch = math.rad(60) * factor
+            pitch = math.rad(75)
             yaw = 0
         elseif mode.Value == "Down Left" then
-            pitch = math.rad(55) * factor
-            yaw = -math.rad(45) * factor
+            pitch = math.rad(60)
+            yaw = math.rad(45)
         elseif mode.Value == "Down Right" then
-            pitch = math.rad(55) * factor
-            yaw = math.rad(45) * factor
+            pitch = math.rad(60)
+            yaw = -math.rad(45)
         elseif mode.Value == "Up" then
-            pitch = -math.rad(45) * factor
+            pitch = -math.rad(45)
             yaw = 0
         else
-            pitch = -pitch * factor
-            yaw = yaw * factor
+            -- Camera mode: follow both camera pitch and yaw, but keep the
+            -- head inside natural human limits so it cannot fold backward.
+            pitch = math.clamp(pitch, -math.rad(75), math.rad(75))
+            yaw = math.clamp(yaw, -math.rad(75), math.rad(75))
         end
-        neck.C0 = neckState.c0 * CFrame.Angles(pitch, yaw, 0)
+
+        pitch = pitch * factor
+        yaw = yaw * factor
+
+        -- Transform is the per-frame joint offset; keeping C0 untouched is
+        -- important because Roblox animations can update C0/C1 internally.
+        -- It also makes disabling the feature a true zero-transform reset.
+        neck.Transform = CFrame.Angles(pitch, yaw, 0)
     end
 
     headRotate = Tabs.Render:CreateToggle({
