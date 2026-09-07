@@ -3569,7 +3569,8 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		BasedLabel.BorderSizePixel = 0
 		BasedLabel.Position = UDim2.new(0, 11, 0, 6)
-		BasedLabel.Size = UDim2.new(1, -35, 0, 15)
+		BasedLabel.Size = UDim2.new(1, -155, 0, 15)
+		BasedLabel.TextTruncate = Enum.TextTruncate.AtEnd
 		BasedLabel.ZIndex = LayerIndex + 9
 		BasedLabel.Font = Enum.Font.GothamMedium
 		BasedLabel.Text = Name
@@ -3616,7 +3617,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 				Size = UDim2.new(1, 0, 0, size.Y + 13);
 			})
 
-			BasedLabel.Size = UDim2.new(1, -35, 1, 0)
+			BasedLabel.Size = UDim2.new(1, -155, 1, 0)
 			BasedLabel.TextYAlignment = Enum.TextYAlignment.Top;
 		end);
 
@@ -4185,7 +4186,8 @@ function NeverLose:CreateWindow(Config)
 				TextTransparency = 0.350
 			})
 
-			Window.Shadow:Render(true);
+			-- Nightix window intentionally has no outer glow/shadow.
+			Window.Shadow:Render(false);
 		else
 
 			NeverLose.PlayAnimate(WindowFrame , SlowyTween , {
@@ -6240,6 +6242,24 @@ function NeverLose:CreateWindow(Config)
 		UICorner.CornerRadius = UDim.new(0, 12)
 		UICorner.Parent = Watermark
 
+		-- Watermark is independently draggable. The invisible handle sits above
+		-- the whole watermark so dragging any empty area moves the whole block.
+		local DragHandle = Instance.new("Frame")
+		DragHandle.Name = NeverLose.RandomString()
+		DragHandle.Parent = Watermark
+		DragHandle.BackgroundTransparency = 1
+		DragHandle.BorderSizePixel = 0
+		DragHandle.Position = UDim2.fromOffset(0, 0)
+		DragHandle.Size = UDim2.fromScale(1, 1)
+		DragHandle.ZIndex = 30
+		NeverLose.Drag(DragHandle, Watermark, 0)
+
+		-- Use the same glass/blur system as the main menu.
+		local WatermarkSignal = NeverLose:CreateSignal(true)
+		WatermarkSignal:SetValue(false)
+		NeverLose:CreateBlurModule(Watermark, WatermarkSignal)
+		Watermark_lb._BlurSignal = WatermarkSignal
+
 		UIListLayout.Parent = Watermark
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -6268,6 +6288,7 @@ function NeverLose:CreateWindow(Config)
 
 		function Watermark_lb:SetRender(value)
 			Watermark_lb.Status = value;
+			if Watermark_lb._BlurSignal then Watermark_lb._BlurSignal:SetValue(value == true) end
 			if value then
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0})
 				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
