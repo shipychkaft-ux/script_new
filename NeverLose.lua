@@ -6130,6 +6130,7 @@ function NeverLose:CreateWindow(Config)
 			Icon.Size = UDim2.fromOffset(22, 22)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
+			Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
 			Icon.ImageTransparency = 0
 			Icon.ScaleType = Enum.ScaleType.Fit
 
@@ -6171,30 +6172,38 @@ function NeverLose:CreateWindow(Config)
 			UID.AnchorPoint = Vector2.new(0, 0.5)
 			UID.Size = UDim2.fromOffset(1, 20)
 			UID.ZIndex = 17
-			UID.Font = Enum.Font.GothamMedium
+			UID.Font = Enum.Font.GothamBold
 			UID.Text = uidText ~= "" and (" | " .. uidText) or ""
-			UID.TextColor3 = Color3.fromRGB(145, 145, 152)
-			UID.TextSize = 12
+			UID.TextColor3 = Color3.fromRGB(255, 255, 255)
+			UID.TextSize = 15
 			UID.TextTransparency = 0
 			UID.TextXAlignment = Enum.TextXAlignment.Left
 
 			local Gradient = Instance.new("UIGradient")
 			Gradient.Parent = Content
-			local function refreshGradient()
+			local UIDGradient = Instance.new("UIGradient")
+			UIDGradient.Parent = UID
+			local IconGradient = Instance.new("UIGradient")
+			IconGradient.Parent = Icon
+			local function getWatermarkColors()
 				local cfg = NeverLose.IconSettings or {}
-				if cfg.Enabled == false then
-					Gradient.Color = ColorSequence.new(Color3.fromRGB(255,255,255))
-				elseif cfg.Mode == "Single" then
-					Gradient.Color = ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255))
-				else
-					local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
-					local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
-					Gradient.Color = ColorSequence.new({
-						ColorSequenceKeypoint.new(0,c1),
-						ColorSequenceKeypoint.new(0.5,c2),
-						ColorSequenceKeypoint.new(1,c1)
-					})
+				if cfg.Enabled == false or cfg.Mode == "Single" then
+					local c = cfg.Enabled == false and Color3.fromRGB(255,255,255) or (cfg.Color1 or Color3.fromRGB(255,255,255))
+					return ColorSequence.new(c)
 				end
+				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
+				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
+				return ColorSequence.new({
+					ColorSequenceKeypoint.new(0,c1),
+					ColorSequenceKeypoint.new(0.5,c2),
+					ColorSequenceKeypoint.new(1,c1)
+				})
+			end
+			local function refreshGradient()
+				local colors = getWatermarkColors()
+				Gradient.Color = colors
+				UIDGradient.Color = colors
+				IconGradient.Color = colors
 			end
 			task.spawn(function()
 				while Frame and Frame.Parent do
@@ -6202,6 +6211,8 @@ function NeverLose:CreateWindow(Config)
 					local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
 					local offset = -((tick() * speed) % 1)
 					Gradient.Offset = Vector2.new(offset, 0)
+					UIDGradient.Offset = Vector2.new(offset, 0)
+					IconGradient.Offset = Vector2.new(offset, 0)
 					task.wait()
 				end
 			end)

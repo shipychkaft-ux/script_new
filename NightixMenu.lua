@@ -293,9 +293,20 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         })
 
         function api:Set(hueValue, satValue, valValue, rainbow, load)
-            hueValue = hueValue or 0
-            satValue = satValue or 1
-            valValue = valValue or 1
+            -- The color picker can call the public API with either a Color3
+            -- or HSV components.  Never pass a Color3 into HSVtoRGB.
+            if typeof(hueValue) == "Color3" then
+                local color = hueValue
+                local h, s, v = color:ToHSV()
+                api.Value = color
+                api.RelativeTable = { h, s, v }
+                lib:SetValue(color)
+                if not load then callback(color) end
+                return
+            end
+            hueValue = tonumber(hueValue) or 0
+            satValue = tonumber(satValue) or 1
+            valValue = tonumber(valValue) or 1
             local color = guilibrary:HSVtoRGB(hueValue, satValue, valValue)
             api.Value = color
             api.RelativeTable = { hueValue, satValue, valValue }
