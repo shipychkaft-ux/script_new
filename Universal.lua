@@ -538,27 +538,23 @@ runFunction(function()
         local mr = getHumanoidRootPart(LocalPlayer)
         if not mr then return nil end
         local best, score = nil, math.huge
-        local mousePos = UserInputService:GetMouseLocation()
+        local rootLook = Vector3.new(mr.CFrame.LookVector.X, 0, mr.CFrame.LookVector.Z)
+        if rootLook.Magnitude > 0 then rootLook = rootLook.Unit end
 
         for _, plr in ipairs(Players:GetPlayers()) do
             if valid(plr) then
                 local a = part(plr)
                 if a then
-                    local d = (a.Position - mr.Position).Magnitude
-                    if d <= range.Value then
-                        local toTarget = (a.Position - Camera.CFrame.Position)
-                        local angle = 0
-                        if toTarget.Magnitude > 0.001 then
-                            angle = math.deg(math.acos(math.clamp(Camera.CFrame.LookVector:Dot(toTarget.Unit), -1, 1)))
-                        end
-                        if fov.Value >= 360 or angle <= (fov.Value * 0.5) then
-                            local sp, on = Camera:WorldToViewportPoint(a.Position)
-                            local screenScore = on and (Vector2.new(sp.X, sp.Y) - mousePos).Magnitude or 0
-                            local sc = angle * 10 + d * 0.15 + screenScore * 0.01
-                            if sc < score then
-                                best, score = plr, sc
-                            end
-                        end
+                    local delta = a.Position - mr.Position
+                    local d = delta.Magnitude
+                    local flat = Vector3.new(delta.X, 0, delta.Z)
+                    local angle = 180
+                    if flat.Magnitude > 0 and rootLook.Magnitude > 0 then
+                        angle = math.deg(math.acos(math.clamp(rootLook:Dot(flat.Unit), -1, 1)))
+                    end
+                    if d <= range.Value and (fov.Value >= 360 or angle <= fov.Value * 0.5) then
+                        local sc = angle + d * 0.15
+                        if sc < score then best, score = plr, sc end
                     end
                 end
             end
@@ -1587,9 +1583,8 @@ end)
 runFunction(function()
     local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
     local target; local billboard; local img
-    local circlePart; local circleSurface; local circleImage; local circleGlow
+    local circlePart; local circleSurfaceTop; local circleSurfaceBottom; local circleImageTop; local circleImageBottom
     local circleSize={Value=2.0}
-    local circleBloom
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
     local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
 
@@ -1599,14 +1594,34 @@ runFunction(function()
     end
 
     local function clearCircle()
-        if circleBloom then pcall(function() circleBloom:Destroy() end) end
         if circlePart then pcall(function() circlePart:Destroy() end) end
-        circleBloom=nil; circlePart=nil; circleSurface=nil; circleImage=nil; circleGlow=nil
+        circlePart=nil; circleSurfaceTop=nil; circleSurfaceBottom=nil; circleImageTop=nil; circleImageBottom=nil
+    end
+
+    local function createCircleSurface(face)
+        local surface=Instance.new("SurfaceGui")
+        surface.Name="CircleTexture3D_"..tostring(face)
+        surface.Face=face
+        surface.AlwaysOnTop=true
+        surface.LightInfluence=0
+        surface.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+        surface.PixelsPerStud=256
+        surface.CanvasSize=Vector2.new(512,512)
+        surface.Parent=circlePart
+
+        local image=Instance.new("ImageLabel")
+        image.Name="CircleTexture"
+        image.AnchorPoint=Vector2.new(.5,.5)
+        image.Position=UDim2.fromScale(.5,.5)
+        image.Size=UDim2.fromScale(1,1)
+        image.BackgroundTransparency=1
+        image.ScaleType=Enum.ScaleType.Fit
+        image.Parent=surface
+        return surface,image
     end
 
     local function ensureCircle()
         if circlePart and circlePart.Parent then return end
-
         circlePart=Instance.new("Part")
         circlePart.Name="NightixTargetESPCircle3D"
         circlePart.Anchored=true
@@ -1615,38 +1630,11 @@ runFunction(function()
         circlePart.CanQuery=false
         circlePart.CastShadow=false
         circlePart.Transparency=1
-        circlePart.Size=Vector3.new(4.4,0.04,4.4)
         circlePart.Material=Enum.Material.SmoothPlastic
         circlePart.Parent=workspace
-
-        circleSurface=Instance.new("SurfaceGui")
-        circleSurface.Name="CircleTexture3D"
-        circleSurface.Face=Enum.NormalId.Top
-        circleSurface.AlwaysOnTop=true
-        circleSurface.LightInfluence=0
-        circleSurface.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
-        circleSurface.PixelsPerStud=256
-        circleSurface.CanvasSize=Vector2.new(512,512)
-        circleSurface.Parent=circlePart
-
-        -- The glow is a post-process bloom on the bright 3D texture rather than
-        -- a second transparent copy of the circle.
-        circleImage=Instance.new("ImageLabel")
-        circleImage.Name="CircleTexture"
-        circleImage.AnchorPoint=Vector2.new(.5,.5)
-        circleImage.Position=UDim2.fromScale(.5,.5)
-        circleImage.Size=UDim2.fromScale(1,1)
-        circleImage.BackgroundTransparency=1
-        circleImage.ScaleType=Enum.ScaleType.Fit
-        circleImage.ImageTransparency=0
-        circleImage.Parent=circleSurface
-
-        circleBloom=Instance.new("BloomEffect")
-        circleBloom.Name="NightixTargetESPCircleGlow"
-        circleBloom.Intensity=0.42
-        circleBloom.Size=18
-        circleBloom.Threshold=0.72
-        circleBloom.Parent=game:GetService("Lighting")
+        -- Two-sided rendering: the same 3D texture is visible from above and below.
+        circleSurfaceTop,circleImageTop=createCircleSurface(Enum.NormalId.Top)
+        circleSurfaceBottom,circleImageBottom=createCircleSurface(Enum.NormalId.Bottom)
     end
 
     local function updateCircle(t)
@@ -1656,36 +1644,31 @@ runFunction(function()
         local root=c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso")
         local head=c:FindFirstChild("Head")
         if not root or not humanoid then clearCircle(); return end
-
         ensureCircle()
 
         local boxCF, boxSize=c:GetBoundingBox()
         local center=boxCF.Position
-        local topY=center.Y + boxSize.Y*0.5
-        local bottomY=center.Y - boxSize.Y*0.5
-        local headY=head and (head.Position.Y + head.Size.Y*0.5) or topY
+        local bottomY=center.Y-boxSize.Y*0.5
+        local headTop=head and (head.Position.Y+head.Size.Y*0.5) or (center.Y+boxSize.Y*0.5)
         local headRadius=head and math.max(head.Size.X,head.Size.Z)*0.62 or math.max(boxSize.X,boxSize.Z)*0.7
-        local diameter=math.max(1.6, headRadius*2) * math.max(0.5, circleSize.Value)
+        local diameter=math.max(2.0,headRadius*2*math.max(0.25,circleSize.Value))
 
-        -- One continuous ping-pong path: head -> feet -> head. It never snaps
-        -- at either endpoint, and its direction is naturally reversed at the ends.
-        local travel=math.max(0.05, topY-bottomY)
+        -- Smooth endless head -> feet -> head motion.
         local phase=(t*math.max(0,speed.Value)*0.003)%2
-        local progress=phase <= 1 and phase or 2-phase
-        local y=headY + (bottomY-headY)*progress
+        local progress=phase<=1 and phase or 2-phase
+        local y=headTop+(bottomY-headTop)*progress
 
         circlePart.Size=Vector3.new(diameter,0.04,diameter)
         circlePart.CFrame=CFrame.new(root.Position.X,y,root.Position.Z)
-        circleImage.Image="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"])
-        circleImage.ImageColor3=color.Value
-        circleImage.ImageTransparency=math.clamp(alpha.Value,0,1)
-        circleImage.Rotation=0
-
-        -- Keep the bloom attached to the same bright surface; no offset or
-        -- oversized fake ring is used for the glow.
-        if circleBloom then
-            circleBloom.Intensity=0.42 + (1-math.clamp(alpha.Value,0,1))*0.28
-            circleBloom.Size=18
+        local texture="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"])
+        local transparency=math.clamp(alpha.Value,0,1)
+        for _,image in ipairs({circleImageTop,circleImageBottom}) do
+            if image then
+                image.Image=texture
+                image.ImageColor3=color.Value
+                image.ImageTransparency=transparency
+                image.Rotation=0
+            end
         end
     end
 
@@ -1719,7 +1702,7 @@ runFunction(function()
     alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
     color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
     circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
-    circleSize=targetESP:CreateSlider({Name="Размер Circle",Min=0.5,Max=4,Default=2.0,Round=2,Function=function(v) circleSize.Value=v end})
+    circleSize=targetESP:CreateSlider({Name="Размер круга",Min=0.5,Max=4,Default=2,Round=2,Function=function(v) circleSize.Value=v end})
     vis(diamond,true); vis(size,true); vis(circleVariant,false); vis(circleSize,false)
 end)
 

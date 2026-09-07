@@ -204,45 +204,6 @@ NeverLose.IconSettings = {
 	Color2 = Color3.fromRGB(123, 131, 243),
 	Speed = 0.65,
 };
-NeverLose.ThemeObjects = {Tabs = {}, Sections = {}}
-function NeverLose:ApplyNightixTheme(palette)
-    if not palette then return end
-    for _, ref in ipairs(self.ThemeObjects.Tabs) do
-        if ref.Button and ref.Button.Parent then
-            local active = ref.Window and ref.Window.Tabs[ref.Window.CurrentTab] == ref.Tab
-            ref.Button.BackgroundColor3 = active and palette.ToggleColor2 or palette.Color2
-            ref.Button.BackgroundTransparency = active and 0.35 or 0.5
-        end
-        if ref.IconGradient then
-            local c1 = (self.IconSettings and self.IconSettings.Color1) or palette.ToggleColor2
-            local c2 = (self.IconSettings and self.IconSettings.Color2) or palette.ToggleColor2
-            ref.IconGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0,c1), ColorSequenceKeypoint.new(0.5,c2), ColorSequenceKeypoint.new(1,c1)
-            })
-        end
-        if ref.TextGradient then
-            local c1 = (self.IconSettings and self.IconSettings.Color1) or palette.ToggleColor2
-            local c2 = (self.IconSettings and self.IconSettings.Color2) or palette.ToggleColor2
-            ref.TextGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0,c1), ColorSequenceKeypoint.new(0.5,c2), ColorSequenceKeypoint.new(1,c1)
-            })
-        end
-        if ref.ButtonGradient then
-            local c1 = (self.IconSettings and self.IconSettings.Color1) or palette.ToggleColor2
-            local c2 = (self.IconSettings and self.IconSettings.Color2) or palette.ToggleColor2
-            ref.ButtonGradient.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0,c1), ColorSequenceKeypoint.new(0.5,c2), ColorSequenceKeypoint.new(1,c1)
-            })
-            ref.ButtonGradient.Transparency = NumberSequence.new(0.68)
-        end
-    end
-    for _, ref in ipairs(self.ThemeObjects.Sections) do
-        if ref.Handler and ref.Handler.Parent then ref.Handler.BackgroundColor3 = palette.Color2 end
-        if ref.Stroke and ref.Stroke.Parent then ref.Stroke.Color = palette.ToggleColor2 end
-        if ref.Label and ref.Label.Parent then ref.Label.TextColor3 = palette.ToggleColor2 end
-    end
-end
-
 NeverLose.ScreenGui = GlobalWindow;
 NeverLose.Flags = {};
 NeverLose.AccentColor = Color3.fromRGB(78, 127, 252);
@@ -4896,7 +4857,7 @@ function NeverLose:CreateWindow(Config)
             image.BackgroundTransparency = 1
             -- Utility asset icon: smaller and dimmer when inactive.
             image.Position = UDim2.new(0, 5, 0.5, 0)
-            image.Size = UDim2.new(0, 18, 0, 18)
+            image.Size = UDim2.new(0, 16, 0, 16)
             image.ZIndex = 9
             image.Image = iconAsset:match("^rbxassetid://") and iconAsset or ("rbxassetid://" .. iconAsset)
             image.ImageColor3 = Color3.fromRGB(255, 255, 255)
@@ -4921,21 +4882,31 @@ function NeverLose:CreateWindow(Config)
 		TabContentLabel.TextSize = 12.000
 		TabContentLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+        TabButtonGradient.Parent = TabButton
+        TabButtonGradient.Rotation = 0
+        TabButtonGradient.Enabled = false
+        TabButtonGradient.Transparency = NumberSequence.new(1)
+
+        local function getThemeAccentSequence()
+            local cfg = NeverLose.IconSettings or {}
+            local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
+            local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
+            return ColorSequence.new({
+                ColorSequenceKeypoint.new(0.00, c1),
+                ColorSequenceKeypoint.new(0.50, c2),
+                ColorSequenceKeypoint.new(1.00, c1)
+            })
+        end
+
         local function getIconGradientColor()
             local cfg = NeverLose.IconSettings or {}
-            local menuColor
-            if shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet then
-                menuColor = shared.Mana.GuiLibrary.GuiPallet.ToggleColor2
-            end
-            menuColor = menuColor or cfg.MenuIconColor
-            if menuColor then
-                return ColorSequence.new(menuColor)
-            end
             if cfg.Enabled == false then
                 return ColorSequence.new(Color3.fromRGB(255, 255, 255))
             elseif cfg.Mode == "Single" then
                 return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255, 255, 255))
             end
+            -- Seamless one-way gradient: both ends have the same color, so
+            -- wrapping from Offset=1 back to 0 has no visible jump.
             local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
             local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
             return ColorSequence.new({
@@ -4950,34 +4921,32 @@ function NeverLose:CreateWindow(Config)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
-        TabButtonGradient.Parent = TabButton
-        TabButtonGradient.Rotation = 0
         TabIconGradient.Rotation = 0
         TabTextGradient.Rotation = 0
         TabIconGradient.Enabled = true
         TabTextGradient.Enabled = true
         setGradient(TabIconGradient, 0.15)
         setGradient(TabTextGradient, 0.15)
-        setGradient(TabButtonGradient, 0.55)
-        table.insert(NeverLose.ThemeObjects.Tabs, {Window = Window, Tab = Tab, Button = TabButton, IconGradient = TabIconGradient, TextGradient = TabTextGradient, ButtonGradient = TabButtonGradient})
         task.spawn(function()
             while TabButton and TabButton.Parent do
                 local active = Window.Tabs[Window.CurrentTab] == Tab
-                -- Keep the GuiObjects neutral so UIGradient supplies the actual theme color.
                 TabIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
                 TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-                if TabIconImage then
-                    TabIconImage.ImageColor3 = Color3.fromRGB(255, 255, 255)
-                end
-                setGradient(TabIconGradient, active and 0 or 0.15)
-                setGradient(TabTextGradient, active and 0 or 0.15)
+                if TabIconImage then TabIconImage.ImageColor3 = Color3.fromRGB(255, 255, 255) end
+
+                setGradient(TabIconGradient, active and 0 or 0.28)
+                setGradient(TabTextGradient, active and 0 or 0.28)
                 TabIconGradient.Enabled = true
                 TabTextGradient.Enabled = true
-                -- One-way movement only: the gradient continuously travels left.
+
+                -- Active section button gets the theme accent and is animated.
+                TabButtonGradient.Color = getThemeAccentSequence()
+                TabButtonGradient.Enabled = active
+                TabButtonGradient.Transparency = NumberSequence.new(active and 0.35 or 1)
+
+                -- One-way, seamless movement. No ping-pong and no visible reset.
                 local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
-                local cycle = ((tick() * speed) % 2)
-                local phase = cycle <= 1 and cycle or (2 - cycle)
-                local offset = -phase * 0.5
+                local offset = -((os.clock() * speed) % 1)
                 TabIconGradient.Offset = Vector2.new(offset, 0)
                 TabTextGradient.Offset = Vector2.new(offset, 0)
                 TabButtonGradient.Offset = Vector2.new(offset, 0)
@@ -5073,7 +5042,8 @@ function NeverLose:CreateWindow(Config)
 
 			if value then
 				NeverLose.PlayAnimate(TabButton , SlowyTween , {
-					BackgroundTransparency = 0.500
+					BackgroundColor3 = Color3.fromRGB(41, 45, 49),
+					BackgroundTransparency = 0.35
 				})
 
 				NeverLose.PlayAnimate(TabIcon , SlowyTween , {
@@ -5138,7 +5108,7 @@ function NeverLose:CreateWindow(Config)
 		NeverLose:AddSignal(over.MouseEnter:Connect(LPH_NO_VIRTUALIZE(function()
 			if Window.Tabs[Window.CurrentTab] == Tab then
 				NeverLose.PlayAnimate(TabButton , SlowyTween , {
-					BackgroundTransparency = 0.500
+					BackgroundTransparency = 0.35
 				})
 			else
 				NeverLose.PlayAnimate(TabButton , SlowyTween , {
@@ -5238,7 +5208,6 @@ function NeverLose:CreateWindow(Config)
 			UIStroke.Transparency = 0.650
 			UIStroke.Color = Color3.fromRGB(45, 48, 58)
 			UIStroke.Parent = SectionHandler
-            table.insert(NeverLose.ThemeObjects.Sections, {Handler = SectionHandler, Stroke = UIStroke, Label = SectionLabel})
 
 			UICorner.CornerRadius = UDim.new(0, 10)
 			UICorner.Parent = SectionHandler
@@ -6114,6 +6083,20 @@ function NeverLose:CreateWindow(Config)
 		end;
 	end;
 
+	function Window:RefreshNightixTheme()
+		-- AddTab render loops read IconSettings every frame, so updating these
+		-- values is enough to refresh tabs/icons immediately.  Also refresh
+		-- already-created section labels without touching the function-window
+		-- background (which intentionally stays dark).
+		local cfg = NeverLose.IconSettings or {}
+		local text = (shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet and shared.Mana.GuiLibrary.GuiPallet.TextColor) or Color3.fromRGB(255,255,255)
+		for _, obj in ipairs(NeverLose.ScreenGui:GetDescendants()) do
+			if obj:IsA("TextLabel") and obj:GetAttribute("NightixSectionLabel") then
+				obj.TextColor3 = text
+			end
+		end
+	end
+
 	function Window:Watermark()
 		if NeverLose.__WatermarkCache then
 			return NeverLose.__WatermarkCache;
@@ -6180,14 +6163,16 @@ function NeverLose:CreateWindow(Config)
 			local InnerBlock = {};
 			local Frame = Instance.new("Frame")
 			local Icon = Instance.new("ImageLabel")
-			local Separator = Instance.new("TextLabel")
 			local Content = Instance.new("TextLabel")
+			local Separator = Instance.new("TextLabel")
 			local UID = Instance.new("TextLabel")
+			local IconGradient = Instance.new("UIGradient")
+			local ReleaseGradient = Instance.new("UIGradient")
 
 			Frame.Parent = Watermark
 			Frame.BackgroundTransparency = 1
 			Frame.BorderSizePixel = 0
-			Frame.Size = UDim2.new(0, 90, 0, 36)
+			Frame.Size = UDim2.fromOffset(100, 36)
 
 			Icon.Parent = Frame
 			Icon.BackgroundTransparency = 1
@@ -6199,18 +6184,8 @@ function NeverLose:CreateWindow(Config)
 			Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
 			Icon.ImageTransparency = 0
 			Icon.ScaleType = Enum.ScaleType.Fit
-
-			Separator.Parent = Frame
-			Separator.BackgroundTransparency = 1
-			Separator.Position = UDim2.new(0, 34, 0.5, 0)
-			Separator.AnchorPoint = Vector2.new(0, 0.5)
-			Separator.Size = UDim2.fromOffset(5, 22)
-			Separator.ZIndex = 17
-			Separator.Font = Enum.Font.GothamMedium
-			Separator.Text = "|"
-			Separator.TextColor3 = Color3.fromRGB(110, 110, 118)
-			Separator.TextSize = 14
-			Separator.TextTransparency = 0
+			IconGradient.Parent = Icon
+			IconGradient.Rotation = 0
 
 			local releaseText, uidText = tostring(Name or "Release"), ""
 			local split = releaseText:find("|", 1, true)
@@ -6221,9 +6196,9 @@ function NeverLose:CreateWindow(Config)
 
 			Content.Parent = Frame
 			Content.BackgroundTransparency = 1
-			Content.Position = UDim2.new(0, 45, 0.5, 0)
+			Content.Position = UDim2.new(0, 34, 0.5, 0)
 			Content.AnchorPoint = Vector2.new(0, 0.5)
-			Content.Size = UDim2.fromOffset(55, 20)
+			Content.Size = UDim2.fromOffset(1, 20)
 			Content.ZIndex = 17
 			Content.Font = Enum.Font.GothamBold
 			Content.Text = releaseText
@@ -6231,10 +6206,22 @@ function NeverLose:CreateWindow(Config)
 			Content.TextSize = 15
 			Content.TextTransparency = 0
 			Content.TextXAlignment = Enum.TextXAlignment.Left
+			ReleaseGradient.Parent = Content
+			ReleaseGradient.Rotation = 0
+
+			Separator.Parent = Frame
+			Separator.BackgroundTransparency = 1
+			Separator.AnchorPoint = Vector2.new(0, 0.5)
+			Separator.Size = UDim2.fromOffset(5, 20)
+			Separator.ZIndex = 17
+			Separator.Font = Enum.Font.GothamMedium
+			Separator.Text = "|"
+			Separator.TextColor3 = Color3.fromRGB(110, 110, 118)
+			Separator.TextSize = 14
+			Separator.TextTransparency = 0
 
 			UID.Parent = Frame
 			UID.BackgroundTransparency = 1
-			UID.Position = UDim2.new(0, 45, 0.5, 0)
 			UID.AnchorPoint = Vector2.new(0, 0.5)
 			UID.Size = UDim2.fromOffset(1, 20)
 			UID.ZIndex = 17
@@ -6245,49 +6232,37 @@ function NeverLose:CreateWindow(Config)
 			UID.TextTransparency = 0
 			UID.TextXAlignment = Enum.TextXAlignment.Left
 
-			local Gradient = Instance.new("UIGradient")
-			Gradient.Parent = Content
-			Gradient.Rotation = 0
-			Gradient.Enabled = true
 			local function getWatermarkColors()
 				local cfg = NeverLose.IconSettings or {}
-				if cfg.Enabled == false then
-					return ColorSequence.new(Color3.fromRGB(255,255,255))
-				end
-				if cfg.Mode == "Single" then
-					return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255))
-				end
+				if cfg.Enabled == false then return ColorSequence.new(Color3.fromRGB(255,255,255)) end
+				if cfg.Mode == "Single" then return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255)) end
 				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
 				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
-				return ColorSequence.new({
-					ColorSequenceKeypoint.new(0,c1),
-					ColorSequenceKeypoint.new(0.5,c2),
-					ColorSequenceKeypoint.new(1,c1)
-				})
-			end
-            local animationStart = tick()
-			local function sampleWatermarkColor(t)
-				local cfg = NeverLose.IconSettings or {}
-				if cfg.Enabled == false then return Color3.fromRGB(255,255,255) end
-				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
-				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
-				if cfg.Mode == "Single" then return c1 end
-				if t <= 0.5 then return c1:Lerp(c2, t * 2) end
-				return c2:Lerp(c1, (t - 0.5) * 2)
+				return ColorSequence.new({ColorSequenceKeypoint.new(0,c1),ColorSequenceKeypoint.new(0.5,c2),ColorSequenceKeypoint.new(1,c1)})
 			end
 
 			task.spawn(function()
 				while Frame and Frame.Parent do
+					local cfg = NeverLose.IconSettings or {}
+					local speed = math.max(0, cfg.Speed or 0.65)
+					local offset = -((os.clock() * speed) % 1)
 					local colors = getWatermarkColors()
-					Gradient.Color = colors
-					-- UID is intentionally pure white; only Release and the icon use the accent animation.
-					Content.TextColor3 = Color3.fromRGB(255,255,255)
+					IconGradient.Color = colors
+					ReleaseGradient.Color = colors
+					IconGradient.Offset = Vector2.new(offset, 0)
+					ReleaseGradient.Offset = Vector2.new(offset, 0)
+					local single = cfg.Mode == "Single"
+					IconGradient.Enabled = cfg.Enabled ~= false and not single
+					ReleaseGradient.Enabled = cfg.Enabled ~= false and not single
+					if single and cfg.Enabled ~= false then
+						local c1 = cfg.Color1 or Color3.fromRGB(255,255,255)
+						Icon.ImageColor3 = c1
+						Content.TextColor3 = c1
+					else
+						Icon.ImageColor3 = Color3.fromRGB(255,255,255)
+						Content.TextColor3 = Color3.fromRGB(255,255,255)
+					end
 					UID.TextColor3 = Color3.fromRGB(255,255,255)
-					local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
-                    local cycle = ((tick() - animationStart) * speed) % 2
-                    local phase = cycle <= 1 and cycle or (2 - cycle)
-                    Icon.ImageColor3 = sampleWatermarkColor(phase)
-                    Gradient.Offset = Vector2.new(-phase * 0.5, 0)
 					task.wait()
 				end
 			end)
@@ -6295,10 +6270,13 @@ function NeverLose:CreateWindow(Config)
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
 				local b = TextService:GetTextSize(UID.Text, UID.TextSize, UID.Font, Vector2.new(math.huge,math.huge))
-				Content.Size = UDim2.fromOffset(a.X + 2, 20)
-				UID.Position = UDim2.new(0, 45 + a.X + 3, 0.5, 0)
-				UID.Size = UDim2.fromOffset(b.X + 2, 20)
-				Frame.Size = UDim2.fromOffset(52 + a.X + b.X, 36)
+				local separatorX = 34 + a.X + 5
+				local uidX = separatorX + 5
+				Content.Size = UDim2.fromOffset(a.X + 1, 20)
+				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
+				UID.Position = UDim2.new(0, uidX, 0.5, 0)
+				UID.Size = UDim2.fromOffset(b.X + 1, 20)
+				Frame.Size = UDim2.fromOffset(uidX + b.X + 5, 36)
 			end
 			updateSize()
 
@@ -6326,7 +6304,6 @@ function NeverLose:CreateWindow(Config)
 			table.insert(Watermark_lb.Renders,InnerBlock.SetRender)
 			return InnerBlock;
 		end;
-
 		return Watermark_lb;
 	end;
 

@@ -601,68 +601,9 @@ function guilibrary:updateObjects()
     for i, v in pairs(guiObjects.TextColor) do
         v.TextColor3 = guipallet.TextColor
     end
-    for i, v in pairs(guiObjects.Font or {}) do
+    for i, v in pairs(guiObjects.Font) do
         v.Font = guipallet.Font
     end
-end
-
-function guilibrary:applyTheme(theme)
-    if type(theme) ~= "table" then return false end
-
-    -- Snapshot the palette before changing it so already-created GUI elements
-    -- can be remapped immediately instead of waiting for a rebuild.
-    local old = {}
-    for key, value in pairs(guipallet) do old[key] = value end
-
-    for key, value in pairs(theme) do
-        guipallet[key] = value
-    end
-
-    local colorMap = {
-        Color1 = {old.Color1, guipallet.Color1}, Color2 = {old.Color2, guipallet.Color2},
-        Color3 = {old.Color3, guipallet.Color3}, Color4 = {old.Color4, guipallet.Color4},
-        Color5 = {old.Color5, guipallet.Color5}, Color6 = {old.Color6, guipallet.Color6},
-        ToggleColor = {old.ToggleColor, guipallet.ToggleColor}, ToggleColor2 = {old.ToggleColor2, guipallet.ToggleColor2},
-        TextColor = {old.TextColor, guipallet.TextColor}, PlaceholderColor = {old.PlaceholderColor, guipallet.PlaceholderColor},
-        PlaceholderColor2 = {old.PlaceholderColor2, guipallet.PlaceholderColor2}, InfoColor = {old.InfoColor, guipallet.InfoColor},
-        WarningColor = {old.WarningColor, guipallet.WarningColor}, ErrorColor = {old.ErrorColor, guipallet.ErrorColor},
-    }
-
-    local function same(a, b)
-        return typeof(a) == "Color3" and typeof(b) == "Color3" and a == b
-    end
-
-    local function remap(root)
-        if not root then return end
-        for _, obj in ipairs(root:GetDescendants()) do
-            if obj:IsA("GuiObject") then
-                for _, pair in pairs(colorMap) do
-                    if same(obj.BackgroundColor3, pair[1]) then obj.BackgroundColor3 = pair[2] end
-                    if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                        if same(obj.TextColor3, pair[1]) then obj.TextColor3 = pair[2] end
-                    end
-                    if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                        if same(obj.ImageColor3, pair[1]) then obj.ImageColor3 = pair[2] end
-                    end
-                end
-                if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
-                    if obj.Font == old.Font then obj.Font = guipallet.Font end
-                end
-            elseif obj:IsA("UIStroke") then
-                for _, pair in pairs(colorMap) do
-                    if same(obj.Color, pair[1]) then obj.Color = pair[2] end
-                end
-            end
-        end
-    end
-
-    remap(ScreenGui)
-    if guilibrary.NightixMenu and guilibrary.NightixMenu.NeverLose and guilibrary.NightixMenu.NeverLose.ApplyNightixTheme then
-        pcall(function() guilibrary.NightixMenu.NeverLose:ApplyNightixTheme(guipallet) end)
-    end
-    self:sortObjects()
-    self:updateObjects()
-    return true
 end
 
 function guilibrary:setColor(colorName, color)
