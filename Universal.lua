@@ -512,6 +512,7 @@ runFunction(function()
     local cps = {Value = 8}
     local aimPart = {Value = "Голова"}
     local teamCheck = {Value = false}
+    local targetDead = {Value = false}
     local silentRotate = {Value = true}
     local fov = {Value = 360}
     local aimSpeed = {Value = 12}
@@ -519,12 +520,15 @@ runFunction(function()
     local oldAutoRotate = true
 
     local function valid(plr)
-        if not plr or plr == LocalPlayer or not isAlive(plr) or not isAlive() then return false end
+        if not plr or plr == LocalPlayer or not isAlive() then return false end
         if teamCheck.Value and plr.Team and LocalPlayer.Team and plr.Team == LocalPlayer.Team then return false end
         local r = getHumanoidRootPart(plr)
         local mr = getHumanoidRootPart(LocalPlayer)
         local h = getHumanoid(plr)
-        return r and mr and h and h.Health > 0 and (r.Position - mr.Position).Magnitude <= range.Value
+        if not r or not mr or not h then return false end
+        local hp = h.Health
+        if hp <= 0 and not (targetDead.Value and hp == 0) then return false end
+        return (r.Position - mr.Position).Magnitude <= range.Value
     end
 
     local function part(plr)
@@ -640,6 +644,7 @@ runFunction(function()
     aimSpeed = attackAura:CreateSlider({Name="Скорость наведения", Function=function(v) aimSpeed.Value=v end, Min=1, Max=30, Default=12, Round=0})
     aimPart = attackAura:CreateDropdown({Name="Часть наведения", Function=function(v) aimPart.Value=v end, List={"Голова","Тело"}, Default="Голова"})
     teamCheck = attackAura:CreateToggle({Name="Проверка команды", Default=false, Function=function(v) teamCheck.Value=v end})
+    targetDead = attackAura:CreateToggle({Name="Таргетить мертвых", HoverText="Позволяет AttackAura выбирать игроков с 0 HP.", Default=false, Function=function(v) targetDead.Value=v; if not v and currentTarget and not valid(currentTarget) then currentTarget=nil end end})
     silentRotate = attackAura:CreateToggle({Name="Без поворота камеры", Default=true, Function=function(v) silentRotate.Value=v end})
 
     shared.NightixAttackAuraTarget = function()
@@ -1577,6 +1582,127 @@ runFunction(function()
         DefaultValue = "",
         Function = function(v) end,
     })
+end)
+
+-- // Visuals: HeadRotate
+-- Minecraft-style head rotation: the neck follows the local camera direction
+-- while the body keeps its normal yaw. The original Motor6D transform is restored
+-- when disabled or when the character changes.
+runFunction(function()
+    local headRotate = {Enabled = false}
+    local mode = {Value = "Camera"}
+    local strength = {Value = 1}
+    local neckState = {motor = nil, c0 = nil, character = nil}
+
+    local function restore()
+        if neckState.motor and neckState.motor.Parent and neckState.c0 then
+            pcall(function() neckState.motor.C0 = neckState.c0 end)
+        end
+        neckState.motor, neckState.c0, neckState.character = nil, nil, nil
+    end
+
+    local function findNeck(character)
+        if not character then return nil end
+        local upper = character:FindFirstChild("UpperTorso")
+        local torso = character:FindFirstChild("Torso")
+        local head = character:FindFirstChild("Head")
+        if upper then
+            local n = upper:FindFirstChild("Neck")
+            if n and n:IsA("Motor6D") then return n end
+        end
+        if torso then
+            local n = torso:FindFirstChild("Neck")
+            if n and n:IsA("Motor6D") then return n end
+        end
+        if head then
+            local n = head:FindFirstChild("Neck")
+            if n and n:IsA("Motor6D") then return n end
+        end
+        return nil
+    end
+
+    local function update()
+        if not headRotate.Enabled then
+            restore()
+            return
+        end
+        local character = LocalPlayer.Character
+        local camera = workspace.CurrentCamera
+        local neck = findNeck(character)
+        if not character or not camera or not neck then
+            restore()
+            return
+        end
+        if neckState.motor ~= neck or neckState.character ~= character then
+            restore()
+            neckState.motor = neck
+            neckState.c0 = neck.C0
+            neckState.character = character
+        end
+
+        local look = camera.CFrame.LookVector
+        local pitch = math.asin(math.clamp(look.Y, -1, 1))
+        local root = getHumanoidRootPart(LocalPlayer)
+        local yaw = 0
+        if root then
+            -- Calculate horizontal camera yaw relative to the body. Using world
+            -- yaw here made HeadRotate point left/right depending on where the
+            -- player was standing in the map instead of where they were looking.
+            local bodyLook = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+            local cameraLook = Vector3.new(look.X, 0, look.Z)
+            if bodyLook.Magnitude > 0.001 and cameraLook.Magnitude > 0.001 then
+                bodyLook = bodyLook.Unit
+                cameraLook = cameraLook.Unit
+                yaw = math.atan2(bodyLook.X * cameraLook.Z - bodyLook.Z * cameraLook.X, bodyLook:Dot(cameraLook))
+            end
+        end
+        -- Keep the effect Minecraft-like: pitch is dominant, yaw is limited so
+        -- looking down-left/down-right visibly turns the head without twisting it.
+        yaw = math.clamp(yaw, -math.rad(75), math.rad(75))
+        pitch = math.clamp(pitch, -math.rad(75), math.rad(75))
+        local factor = math.clamp(strength.Value, 0, 1)
+        if mode.Value == "Down" then
+            pitch = math.rad(60) * factor
+            yaw = 0
+        elseif mode.Value == "Down Left" then
+            pitch = math.rad(55) * factor
+            yaw = -math.rad(45) * factor
+        elseif mode.Value == "Down Right" then
+            pitch = math.rad(55) * factor
+            yaw = math.rad(45) * factor
+        elseif mode.Value == "Up" then
+            pitch = -math.rad(45) * factor
+            yaw = 0
+        else
+            pitch = pitch * factor
+            yaw = yaw * factor
+        end
+        neck.C0 = neckState.c0 * CFrame.Angles(pitch, yaw, 0)
+    end
+
+    headRotate = Tabs.Render:CreateToggle({
+        Name = "HeadRotate",
+        HoverText = "Вращает голову вниз, вниз-влево, вниз-вправо или по направлению камеры.",
+        Callback = function(on)
+            headRotate.Enabled = on
+            if not on then restore() end
+        end
+    })
+    mode = headRotate:CreateDropdown({
+        Name = "Направление",
+        List = {"Camera", "Down", "Down Left", "Down Right", "Up"},
+        Default = "Camera",
+        Function = function(v) mode.Value = v end
+    })
+    strength = headRotate:CreateSlider({
+        Name = "Сила",
+        Min = 0, Max = 1, Default = 1, Round = 2,
+        Function = function(v) strength.Value = v end
+    })
+
+    RunLoops:BindToRenderStep("HeadRotate", function()
+        update()
+    end)
 end)
 
 -- Target ESP: synchronized strictly with AttackAura.

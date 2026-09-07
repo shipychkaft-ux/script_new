@@ -42,7 +42,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     })
 
     -- guilibrary state
-    guilibrary.UIScale = { Scale = 1 }
+    -- Preserve UI scale across Nightix menu rebuilds/restarts.
+    local savedNightixScale = tonumber(guilibrary.NightixScale or guilibrary.Scale or 1) or 1
+    guilibrary.NightixScale = savedNightixScale
+    guilibrary.UIScale = { Scale = savedNightixScale }
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
     local previousMouseBehavior
@@ -77,7 +80,22 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     end)
 
     -- menu scale, adjustable through UserSettings
-    local menuScale = NeverLose.Scales.Default
+    local function scaleSize(scale)
+        scale = tonumber(scale) or 1
+        return UDim2.fromOffset(math.floor(640 * scale), math.floor(480 * scale))
+    end
+    local menuScaleValue = savedNightixScale
+    local menuScale = scaleSize(menuScaleValue)
+
+    function guilibrary:SetNightixScale(scale)
+        menuScaleValue = clampValue(tonumber(scale) or 1, 0.5, 2)
+        guilibrary.NightixScale = menuScaleValue
+        guilibrary.UIScale.Scale = menuScaleValue
+        menuScale = scaleSize(menuScaleValue)
+        if window and window.SetSize then
+            window:SetSize(menuScale)
+        end
+    end
 
     -- ------------------------------------------------------------------
     -- helpers
@@ -922,6 +940,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     userInputService.MouseIconEnabled = true
                 end
             end)
+            menuScale = scaleSize(menuScaleValue)
             window:SetSize(menuScale)
         else
             for _, optionWindow in ipairs(optionWindows) do

@@ -289,23 +289,27 @@ runFunction(function()
     Tabs.Settings:CreateSlider({
         Name = "UI scale",
         Function = function(v)
-            GuiLibrary.UIScale.Scale = v
-            local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
-            if w then
-                w:SetSize(UDim2.fromOffset(math.floor(640 * v), math.floor(480 * v)))
+            GuiLibrary.Scale = v
+            GuiLibrary.NightixScale = v
+            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
+                GuiLibrary.NightixMenu:SetNightixScale(v)
+            elseif GuiLibrary.UIScale then
+                GuiLibrary.UIScale.Scale = v
             end
         end,
-        Min = 0.5, Max = 2, Default = 1, Round = 2
+        Min = 0.5, Max = 2, Default = tonumber(GuiLibrary.NightixScale or GuiLibrary.Scale or 1) or 1, Round = 2
     })
 
     Tabs.Settings:CreateButton({
         Name = "Сбросить UI scale",
         Function = function()
             local defaultScale = 1
-            GuiLibrary.UIScale.Scale = defaultScale
-            local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
-            if w then
-                w:SetSize(UDim2.fromOffset(640, 480))
+            GuiLibrary.Scale = defaultScale
+            GuiLibrary.NightixScale = defaultScale
+            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
+                GuiLibrary.NightixMenu:SetNightixScale(defaultScale)
+            elseif GuiLibrary.UIScale then
+                GuiLibrary.UIScale.Scale = defaultScale
             end
         end
     })
@@ -438,6 +442,8 @@ runFunction(function()
         GuiLibrary:updateObjects()
 
         nl2.IconSettings = nl2.IconSettings or {}
+        nl2._LastThemePalette = nl2.ThemePalette
+        nl2.ThemePalette = theme
         nl2.IconSettings.Mode = "Double"
         nl2.IconSettings.Color1 = theme.Icon1
         nl2.IconSettings.Color2 = theme.Icon2
