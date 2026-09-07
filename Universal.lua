@@ -646,189 +646,6 @@ runFunction(function()
     end
 end)
 
--- // Fling (adapted from the supplied KILASIK multi-target fling source)
-runFunction(function()
-    local fling = {Enabled = false}
-    local useAuraTarget = {Value = true}
-    local targetsList
-    local oldPosition
-    local oldDestroyHeight
-    local flingBusy = false
-
-    local function resolveTargets()
-        local result = {}
-        local seen = {}
-        if useAuraTarget.Value then
-            local aura = shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget()
-            if aura and aura ~= LocalPlayer and aura.Parent and isAlive(aura) then
-                result[#result + 1] = aura
-                seen[aura] = true
-            end
-        end
-        if targetsList then
-            for _, name in ipairs(targetsList.List) do
-                for _, plr in ipairs(Players:GetPlayers()) do
-                    if plr ~= LocalPlayer and plr.Name:lower() == tostring(name):lower() and not seen[plr] then
-                        result[#result + 1] = plr
-                        seen[plr] = true
-                        break
-                    end
-                end
-            end
-        end
-        return result
-    end
-
-    local function skidFling(targetPlayer)
-        if not targetPlayer or targetPlayer == LocalPlayer or not targetPlayer.Character then return end
-        local character = LocalPlayer.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        local rootPart = humanoid and humanoid.RootPart
-        local targetCharacter = targetPlayer.Character
-        local targetHumanoid = targetCharacter and targetCharacter:FindFirstChildOfClass("Humanoid")
-        local targetRoot = targetHumanoid and targetHumanoid.RootPart
-        local targetHead = targetCharacter and targetCharacter:FindFirstChild("Head")
-        if not character or not humanoid or not rootPart or not targetCharacter then return end
-        if targetHumanoid and targetHumanoid.Sit then return end
-
-        oldPosition = oldPosition or rootPart.CFrame
-        oldDestroyHeight = oldDestroyHeight or workspace.FallenPartsDestroyHeight
-
-        local oldSubject = Camera.CameraSubject
-        pcall(function()
-            Camera.CameraSubject = targetHead or targetRoot or targetHumanoid or humanoid
-        end)
-
-        local function flingPosition(basePart, offset, angle)
-            if not basePart or not basePart.Parent or not rootPart or not rootPart.Parent then return end
-            rootPart.CFrame = CFrame.new(basePart.Position) * offset * angle
-            rootPart.AssemblyLinearVelocity = Vector3.new(9e7, 9e8, 9e7)
-            rootPart.AssemblyAngularVelocity = Vector3.new(9e8, 9e8, 9e8)
-        end
-
-        local function spinTarget(basePart)
-            if not basePart then return end
-            local finish = tick() + 2
-            local angle = 0
-            while fling.Enabled and tick() < finish and rootPart and targetHumanoid and targetHumanoid.Health > 0 and basePart.Parent do
-                local velocity = basePart.AssemblyLinearVelocity
-                if velocity.Magnitude < 50 then
-                    angle = angle + 100
-                    flingPosition(basePart, CFrame.new(0,1.5,0) + targetHumanoid.MoveDirection * velocity.Magnitude / 1.25, CFrame.Angles(math.rad(angle),0,0))
-                    task.wait()
-                    flingPosition(basePart, CFrame.new(0,-1.5,0) + targetHumanoid.MoveDirection * velocity.Magnitude / 1.25, CFrame.Angles(math.rad(angle),0,0))
-                    task.wait()
-                else
-                    flingPosition(basePart, CFrame.new(0,1.5,targetHumanoid.WalkSpeed), CFrame.Angles(math.rad(90),0,0))
-                    task.wait()
-                    flingPosition(basePart, CFrame.new(0,-1.5,-targetHumanoid.WalkSpeed), CFrame.Angles(0,0,0))
-                    task.wait()
-                end
-            end
-        end
-
-        local bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(9e9,9e9,9e9)
-        bodyVelocity.Velocity = Vector3.zero
-        bodyVelocity.Parent = rootPart
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-
-        pcall(function() workspace.FallenPartsDestroyHeight = 0/0 end)
-        if targetRoot then
-            spinTarget(targetRoot)
-        elseif targetHead then
-            spinTarget(targetHead)
-        end
-
-        bodyVelocity:Destroy()
-        humanoid:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
-        pcall(function() Camera.CameraSubject = oldSubject or humanoid end)
-
-        if oldPosition and rootPart and rootPart.Parent then
-            local restoreUntil = tick() + 1.5
-            repeat
-                rootPart.CFrame = oldPosition * CFrame.new(0,0.5,0)
-                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                rootPart.AssemblyLinearVelocity = Vector3.zero
-                rootPart.AssemblyAngularVelocity = Vector3.zero
-                task.wait()
-            until not rootPart.Parent or (rootPart.Position - oldPosition.Position).Magnitude < 25 or tick() > restoreUntil
-        end
-    end
-
-    local function stopFling()
-        flingBusy = false
-        if oldDestroyHeight ~= nil then
-            pcall(function() workspace.FallenPartsDestroyHeight = oldDestroyHeight end)
-            oldDestroyHeight = nil
-        end
-        oldPosition = nil
-    end
-
-    fling = Tabs.Combat:CreateToggle({
-        Name = "Fling",
-        HoverText = "Отбрасывает выбранные цели физическим флингом.",
-        Callback = function(on)
-            if on then
-                if flingBusy then return end
-                flingBusy = true
-                task.spawn(function()
-                    while fling.Enabled do
-                        local targets = resolveTargets()
-                        if #targets == 0 then
-                            task.wait(0.25)
-                        else
-                            for _, targetPlayer in ipairs(targets) do
-                                if not fling.Enabled then break end
-                                skidFling(targetPlayer)
-                                task.wait(0.1)
-                            end
-                            task.wait(0.25)
-                        end
-                    end
-                    stopFling()
-                end)
-            else
-                stopFling()
-            end
-        end
-    })
-
-    useAuraTarget = fling:CreateToggle({
-        Name="Цель AttackAura",
-        Default=true,
-        Function=function(v) useAuraTarget.Value=v end
-    })
-
-    targetsList = fling:CreateTextList({
-        Name="Цели",
-        PlaceholderText="Ник игрока",
-        HideAdd=false,
-        Function=function() end
-    })
-
-    fling:CreateButton({
-        Name="Добавить всех игроков",
-        Icon="person",
-        Function=function()
-            if not targetsList then return end
-            for _, plr in ipairs(Players:GetPlayers()) do
-                if plr ~= LocalPlayer then
-                    targetsList:CreateListObject(plr.Name)
-                end
-            end
-        end
-    })
-
-    fling:CreateButton({
-        Name="Очистить цели",
-        Icon="trash-can",
-        Function=function()
-            if targetsList then targetsList:Clear() end
-        end
-    })
-end)
-
 -- // Movement tab
 runFunction(function()
     local autoWalk = {Enabled = false}
@@ -1762,95 +1579,66 @@ runFunction(function()
 end)
 
 -- Target ESP: synchronized strictly with AttackAura.
--- Circle uses the working projected-image approach from the backup.
 runFunction(function()
-    local targetESP={Enabled=false}
-    local mode={Value="Ромб"}
-    local diamond={Value="1"}
-    local size={Value=150}
-    local speed={Value=180}
-    local alpha={Value=0.2}
-    local color={Value=Color3.fromRGB(123,131,243)}
-    local circleVariant={Value="1"}
-    local target
-    local billboard, img
-    local circleGui, circleImage
+    local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
+    local target; local billboard; local img; local circlePart; local circleGui; local circleImage
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
     local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
-
-    local function destroy(obj) if obj then pcall(function() obj:Destroy() end) end end
-    local function clearDiamond() destroy(billboard); billboard=nil; img=nil end
-    local function clearCircle() destroy(circleGui); circleGui=nil; circleImage=nil end
-
-    local function makeProjectedCircle()
-        if circleGui and circleGui.Parent and circleImage then return end
-        circleGui=Instance.new("ScreenGui")
+    local function clearDiamond() if billboard then billboard:Destroy(); billboard=nil; img=nil end end
+    local function clearCircle()
+        if circleGui then pcall(function() circleGui:Destroy() end) end
+        circleGui=nil; circleImage=nil
+        circlePart=nil
+    end
+    local function ensureCircle()
+        if circleGui and circleGui.Parent then return end
+        circleGui=Instance.new("BillboardGui")
         circleGui.Name="NightixTargetESPCircle"
-        circleGui.IgnoreGuiInset=true
-        circleGui.ResetOnSpawn=false
-        circleGui.ZIndexBehavior=Enum.ZIndexBehavior.Global
+        circleGui.AlwaysOnTop=true
+        circleGui.LightInfluence=0
+        circleGui.MaxDistance=1000
+        circleGui.Size=UDim2.fromOffset(150,150)
+        circleGui.StudsOffset=Vector3.new(0,0,0)
         circleGui.Parent=CoreGui
+
         circleImage=Instance.new("ImageLabel")
         circleImage.Name="CircleTexture"
-        circleImage.AnchorPoint=Vector2.new(0.5,0.5)
+        circleImage.AnchorPoint=Vector2.new(.5,.5)
+        circleImage.Position=UDim2.fromScale(.5,.5)
+        circleImage.Size=UDim2.fromScale(1,1)
         circleImage.BackgroundTransparency=1
-        circleImage.BorderSizePixel=0
         circleImage.ScaleType=Enum.ScaleType.Fit
         circleImage.Parent=circleGui
     end
-
     local function updateCircle(t)
         if not target or not isAlive(target) or not target.Character then clearCircle(); return end
-        local character=target.Character
-        local anchor=character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")
+        local c=target.Character
+        local anchor=c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso")
         if not anchor then clearCircle(); return end
-        makeProjectedCircle()
-        local position,onScreen=Camera:WorldToViewportPoint(anchor.Position)
-        if not onScreen or position.Z <= 0 then circleImage.Visible=false; return end
-        local _,bounds=character:GetBoundingBox()
-        local diameter=math.clamp(math.floor(110 + math.max(bounds.X,bounds.Z)*25),110,240)
-        circleImage.Visible=true
-        circleImage.Size=UDim2.fromOffset(diameter,diameter)
-        circleImage.Position=UDim2.fromOffset(position.X,position.Y)
-        circleImage.Image="rbxassetid://"..(circleTextures[tostring(circleVariant.Value)] or circleTextures["1"])
+        ensureCircle()
+        circleGui.Adornee=anchor
+        local _,bs=c:GetBoundingBox()
+        local worldSize=math.max(bs.X,bs.Z)
+        local pixelSize=math.clamp(math.floor(110 + worldSize*25), 110, 210)
+        circleGui.Size=UDim2.fromOffset(pixelSize,pixelSize)
+        circleGui.StudsOffset=Vector3.new(0,-math.max(.25,bs.Y*.45),0)
+        circleImage.Image="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"])
         circleImage.ImageTransparency=math.clamp(alpha.Value,0,1)
         circleImage.ImageColor3=color.Value
         circleImage.Rotation=(t*speed.Value)%360
     end
-
     local function updateDiamond()
-        if not target or not isAlive(target) or not target.Character then if billboard then billboard.Enabled=false end; return end
-        local c=target.Character
-        local anchor=c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso") or getHumanoidRootPart(target)
-        if not anchor then if billboard then billboard.Enabled=false end; return end
+        if not target or not isAlive(target) then if billboard then billboard.Enabled=false end; return end
+        local c=target.Character; local anchor=c and (c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso") or getHumanoidRootPart(target)); if not anchor then if billboard then billboard.Enabled=false end; return end
         if not billboard then
-            billboard=Instance.new("BillboardGui")
-            billboard.Name="NightixTargetESP"; billboard.AlwaysOnTop=true; billboard.LightInfluence=0
-            billboard.Size=UDim2.fromOffset(size.Value,size.Value); billboard.StudsOffset=Vector3.new(0,0,0)
-            billboard.MaxDistance=1000; billboard.ResetOnSpawn=false; billboard.Parent=CoreGui
-            img=Instance.new("ImageLabel"); img.Name="TargetDiamond"; img.AnchorPoint=Vector2.new(.5,.5)
-            img.Position=UDim2.fromScale(.5,.5); img.Size=UDim2.fromScale(1,1); img.BackgroundTransparency=1
-            img.ScaleType=Enum.ScaleType.Fit; img.Parent=billboard
+            billboard=Instance.new("BillboardGui"); billboard.Name="NightixTargetESP"; billboard.AlwaysOnTop=true; billboard.LightInfluence=0; billboard.Size=UDim2.fromOffset(size.Value,size.Value); billboard.StudsOffset=Vector3.new(0,0,0); billboard.MaxDistance=1000; billboard.ResetOnSpawn=false; billboard.Parent=CoreGui
+            img=Instance.new("ImageLabel"); img.Name="TargetDiamond"; img.AnchorPoint=Vector2.new(.5,.5); img.Position=UDim2.fromScale(.5,.5); img.Size=UDim2.fromScale(1,1); img.BackgroundTransparency=1; img.ScaleType=Enum.ScaleType.Fit; img.Parent=billboard
         end
-        billboard.Adornee=anchor; billboard.Enabled=true; billboard.Size=UDim2.fromOffset(size.Value,size.Value)
-        img.Image="rbxassetid://"..(diamonds[tostring(diamond.Value)] or diamonds["1"])
-        img.ImageColor3=color.Value; img.ImageTransparency=math.clamp(alpha.Value,0,1)
-        img.Rotation=(tick()*speed.Value)%360
+        billboard.Adornee=anchor; billboard.Enabled=true; billboard.Size=UDim2.fromOffset(size.Value,size.Value); img.Image="rbxassetid://"..(diamonds[diamond.Value] or diamonds["1"]); img.ImageColor3=color.Value; img.ImageTransparency=math.clamp(alpha.Value,0,1); img.Rotation=(tick()*speed.Value)%360
     end
-
     local function findAuraTarget() local t=shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget(); return (t and isAlive(t)) and t or nil end
     local function vis(x,v) if x and x.Container then x.Container.Visible=v end end
-
-    targetESP=Tabs.Render:CreateToggle({Name="Target ESP",HoverText="Показывает ESP только на текущей цели AttackAura.",Callback=function(on)
-        if on then
-            RunLoops:BindToRenderStep("TargetESP",function()
-                target=findAuraTarget()
-                if mode.Value=="Circle" then clearDiamond(); updateCircle(tick()) else clearCircle(); updateDiamond() end
-            end)
-        else
-            RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); target=nil
-        end
-    end})
+    targetESP=Tabs.Render:CreateToggle({Name="Target ESP",HoverText="Показывает ESP только на текущей цели AttackAura.",Callback=function(on) if on then RunLoops:BindToRenderStep("TargetESP",function() target=findAuraTarget(); if mode.Value=="Circle" then clearDiamond(); updateCircle(tick()) else clearCircle(); updateDiamond() end end) else RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); target=nil end end})
     mode=targetESP:CreateDropdown({Name="Режим",List={"Ромб","Circle"},Default="Ромб",Function=function(v) mode.Value=v; vis(diamond,v=="Ромб"); vis(size,v=="Ромб"); vis(circleVariant,v=="Circle") end})
     diamond=targetESP:CreateDropdown({Name="Ромб",List={"1","2","3","4"},Default="1",Function=function(v) diamond.Value=v end})
     size=targetESP:CreateSlider({Name="Размер ромба",Min=60,Max=300,Default=150,Round=0,Function=function(v) size.Value=v end})

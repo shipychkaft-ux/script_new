@@ -4921,27 +4921,11 @@ function NeverLose:CreateWindow(Config)
                 setGradient(TabTextGradient, active and 0 or 0.15)
                 TabIconGradient.Enabled = true
                 TabTextGradient.Enabled = true
-                -- Continuous one-way motion. Do not modulo the offset: wrapping the
-                -- value was the visible "reset" at the end of every cycle.
-                local cfg = NeverLose.IconSettings or {}
-                local speed = math.max(0, cfg.Speed or 0.28)
-                local now = tick()
-                local offset = -(now * speed)
+                -- One-way movement only: the gradient continuously travels left.
+                local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
+                local offset = -((tick() * speed) % 1)
                 TabIconGradient.Offset = Vector2.new(offset, 0)
                 TabTextGradient.Offset = Vector2.new(offset, 0)
-                -- ImageLabel icons are also forced through the same theme. Some
-                -- Roblox image assets do not render a UIGradient reliably, so
-                -- additionally drive ImageColor3 with a smooth, seamless sample.
-                if TabIconImage then
-                    if cfg.Enabled == false or cfg.Mode == "Single" then
-                        TabIconImage.ImageColor3 = cfg.Color1 or Color3.fromRGB(255,255,255)
-                    else
-                        local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
-                        local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
-                        local phase = (math.sin(now * speed * math.pi * 2) + 1) * 0.5
-                        TabIconImage.ImageColor3 = c1:Lerp(c2, phase)
-                    end
-                end
                 task.wait()
             end
         end)
@@ -6198,8 +6182,8 @@ function NeverLose:CreateWindow(Config)
 			UID.AnchorPoint = Vector2.new(0, 0.5)
 			UID.Size = UDim2.fromOffset(1, 20)
 			UID.ZIndex = 17
-			UID.Font = Enum.Font.GothamMedium
-			UID.Text = uidText
+			UID.Font = Enum.Font.GothamBold
+			UID.Text = uidText ~= "" and (" | " .. uidText) or ""
 			UID.TextColor3 = Color3.fromRGB(255, 255, 255)
 			UID.TextSize = 15
 			UID.TextTransparency = 0
@@ -6207,12 +6191,8 @@ function NeverLose:CreateWindow(Config)
 
 			local Gradient = Instance.new("UIGradient")
 			Gradient.Parent = Content
-			local IconGradient = Instance.new("UIGradient")
-			IconGradient.Parent = Icon
 			Gradient.Rotation = 0
-			IconGradient.Rotation = 0
 			Gradient.Enabled = true
-			IconGradient.Enabled = true
 			local function getWatermarkColors()
 				local cfg = NeverLose.IconSettings or {}
 				if cfg.Enabled == false then
@@ -6229,21 +6209,30 @@ function NeverLose:CreateWindow(Config)
 					ColorSequenceKeypoint.new(1,c1)
 				})
 			end
+			local function sampleWatermarkColor(t)
+				local cfg = NeverLose.IconSettings or {}
+				if cfg.Enabled == false then return Color3.fromRGB(255,255,255) end
+				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
+				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
+				if cfg.Mode == "Single" then return c1 end
+				if t <= 0.5 then return c1:Lerp(c2, t * 2) end
+				return c2:Lerp(c1, (t - 0.5) * 2)
+			end
+
 			task.spawn(function()
 				while Frame and Frame.Parent do
 					local colors = getWatermarkColors()
 					Gradient.Color = colors
-					IconGradient.Color = colors
-					-- Neutral base colors are required for UIGradient to tint the actual glyph/image.
+					-- UID is intentionally pure white; only Release and the icon use the accent animation.
 					Content.TextColor3 = Color3.fromRGB(255,255,255)
-					-- UID label and value are intentionally pure white; only Release is themed.
 					UID.TextColor3 = Color3.fromRGB(255,255,255)
-					Icon.ImageColor3 = Color3.fromRGB(255,255,255)
 					local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
-					local offset = -(tick() * speed)
+					local phase = (tick() * speed) % 1
+					local iconPhase = (phase + 0.5) % 1
+					Icon.ImageColor3 = sampleWatermarkColor(iconPhase)
+					local offset = -phase
 					Gradient.Offset = Vector2.new(offset, 0)
-					IconGradient.Offset = Vector2.new(offset, 0)
-				task.wait()
+					task.wait()
 				end
 			end)
 
