@@ -3481,7 +3481,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		BasedLabel.BorderSizePixel = 0
 		BasedLabel.Position = UDim2.new(0, 11, 0, 6)
-		BasedLabel.Size = UDim2.new(0,1, 0, 15)
+		BasedLabel.Size = UDim2.new(1, -35, 0, 15)
 		BasedLabel.ZIndex = LayerIndex + 9
 		BasedLabel.Font = Enum.Font.GothamMedium
 		BasedLabel.Text = Name
@@ -3648,7 +3648,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedLabel.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		BasedLabel.BorderSizePixel = 0
 		BasedLabel.Position = UDim2.new(0, 35, 0, 6)
-		BasedLabel.Size = UDim2.new(0,1, 0, 15)
+		BasedLabel.Size = UDim2.new(1, -35, 0, 15)
 		BasedLabel.ZIndex = LayerIndex + 9
 		BasedLabel.Font = Enum.Font.GothamMedium
 		BasedLabel.Text = Config.Name;
@@ -4252,16 +4252,18 @@ function NeverLose:CreateWindow(Config)
 	local NightixGradient = Instance.new("UIGradient")
     NightixGradient.Rotation = 0
     NightixGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(216, 148, 245)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(123, 131, 243))
+        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(216, 148, 245)),
+        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(123, 131, 243)),
+        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(216, 148, 245))
     })
     NightixGradient.Parent = LogoImage
     task.spawn(function()
         while LogoImage and LogoImage.Parent do
-            local t = (tick() * 0.18) % 2
-            local offset = t <= 1 and t or 2 - t
-            NightixGradient.Offset = Vector2.new(offset - 0.5, 0)
-            task.wait()
+            -- One-way movement to the left, with matching colors at both ends
+            -- so the wrap is invisible.
+            local offset = ((tick() * 0.18) % 1)
+            NightixGradient.Offset = Vector2.new(offset, 0)
+            task.wait(0.033)
         end
     end)
 
@@ -4860,7 +4862,7 @@ function NeverLose:CreateWindow(Config)
             image.Size = UDim2.new(0, 16, 0, 16)
             image.ZIndex = 9
             image.Image = iconAsset:match("^rbxassetid://") and iconAsset or ("rbxassetid://" .. iconAsset)
-            image.ImageColor3 = Color3.fromRGB(255, 255, 255)
+            image.ImageColor3 = Color3.fromRGB(252, 252, 252)
             image.ImageTransparency = 0.5
             TabIcon.Visible = false
             TabIconImage = image
@@ -4891,10 +4893,10 @@ function NeverLose:CreateWindow(Config)
             local cfg = NeverLose.IconSettings or {}
             local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
             local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
+            -- Nursultan accent: exact two-color direction 216,148,245 -> 123,131,243.
             return ColorSequence.new({
                 ColorSequenceKeypoint.new(0.00, c1),
-                ColorSequenceKeypoint.new(0.50, c2),
-                ColorSequenceKeypoint.new(1.00, c1)
+                ColorSequenceKeypoint.new(1.00, c2)
             })
         end
 
@@ -4905,8 +4907,9 @@ function NeverLose:CreateWindow(Config)
             elseif cfg.Mode == "Single" then
                 return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255, 255, 255))
             end
-            -- Seamless one-way gradient: both ends have the same color, so
-            -- wrapping from Offset=1 back to 0 has no visible jump.
+            -- Keep the requested Nursultan colors. The duplicated end color is
+            -- only used for the seamless wrap; the visible sweep remains
+            -- 216,148,245 -> 123,131,243.
             local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
             local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
             return ColorSequence.new({
@@ -4918,6 +4921,15 @@ function NeverLose:CreateWindow(Config)
         local function setGradient(gradient, alpha)
             gradient.Color = getIconGradientColor()
             gradient.Transparency = NumberSequence.new(alpha or 0)
+        end
+
+        local function setInactiveGradient(gradient, alpha)
+            -- Restore the muted inactive-section colors used by the stable UI.
+            gradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0.00, Color3.fromRGB(155, 108, 176)),
+                ColorSequenceKeypoint.new(1.00, Color3.fromRGB(87, 92, 170))
+            })
+            gradient.Transparency = NumberSequence.new(alpha or 0.15)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
@@ -4934,8 +4946,13 @@ function NeverLose:CreateWindow(Config)
                 TabContentLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
                 if TabIconImage then TabIconImage.ImageColor3 = Color3.fromRGB(255, 255, 255) end
 
-                setGradient(TabIconGradient, active and 0 or 0.28)
-                setGradient(TabTextGradient, active and 0 or 0.28)
+                if active then
+                    setGradient(TabIconGradient, 0)
+                    setGradient(TabTextGradient, 0)
+                else
+                    setInactiveGradient(TabIconGradient, 0.15)
+                    setInactiveGradient(TabTextGradient, 0.15)
+                end
                 TabIconGradient.Enabled = true
                 TabTextGradient.Enabled = true
 
@@ -4946,11 +4963,13 @@ function NeverLose:CreateWindow(Config)
 
                 -- One-way, seamless movement. No ping-pong and no visible reset.
                 local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
-                local offset = -((os.clock() * speed) % 1)
+                local offset = ((os.clock() * speed) % 1)
                 TabIconGradient.Offset = Vector2.new(offset, 0)
                 TabTextGradient.Offset = Vector2.new(offset, 0)
                 TabButtonGradient.Offset = Vector2.new(offset, 0)
-                task.wait()
+                -- Do not update every gradient every render frame. 30 FPS is
+                -- visually smooth here and avoids a large per-tab CPU cost.
+                task.wait(0.033)
             end
         end)
 		local TabFrame = Instance.new("Frame")
@@ -6245,7 +6264,7 @@ function NeverLose:CreateWindow(Config)
 				while Frame and Frame.Parent do
 					local cfg = NeverLose.IconSettings or {}
 					local speed = math.max(0, cfg.Speed or 0.65)
-					local offset = -((os.clock() * speed) % 1)
+					local offset = ((os.clock() * speed) % 1)
 					local colors = getWatermarkColors()
 					IconGradient.Color = colors
 					ReleaseGradient.Color = colors
@@ -6263,7 +6282,8 @@ function NeverLose:CreateWindow(Config)
 						Content.TextColor3 = Color3.fromRGB(255,255,255)
 					end
 					UID.TextColor3 = Color3.fromRGB(255,255,255)
-					task.wait()
+					-- Watermark animation does not need a full render-frame update.
+					task.wait(0.033)
 				end
 			end)
 
