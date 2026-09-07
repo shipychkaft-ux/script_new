@@ -1248,6 +1248,10 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 		Signal = NeverLose:CreateSignal(false),
 	};
 
+	-- All option windows share one last position. Opening another
+	-- function therefore reuses the position of the previously moved window.
+	NeverLose._LastOptionWindowPosition = NeverLose._LastOptionWindowPosition or nil
+
 	local OptionHandler = Instance.new("Frame")
 	local UICorner = Instance.new("UICorner")
 	local UIListLayout = Instance.new("UIListLayout")
@@ -1315,6 +1319,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	DragHandle.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			Dragging=true; ManualPosition=true; DragStart=input.Position; StartPosition=OptionHandler.Position
+			NeverLose._LastOptionWindowPosition = StartPosition
 		end
 	end)
 	DragHandle.InputEnded:Connect(function(input)
@@ -1323,7 +1328,9 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UserInputService.InputChanged:Connect(function(input)
 		if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local delta=input.Position-DragStart
-			OptionHandler.Position=UDim2.fromOffset(StartPosition.X.Offset+delta.X,StartPosition.Y.Offset+delta.Y)
+			local newPosition = UDim2.fromOffset(StartPosition.X.Offset+delta.X,StartPosition.Y.Offset+delta.Y)
+			OptionHandler.Position = newPosition
+			NeverLose._LastOptionWindowPosition = newPosition
 		end
 	end)
 	local SetPosition = LPH_NO_VIRTUALIZE(function()
@@ -1334,7 +1341,11 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 		end;
 
 		if ManualPosition then return end
-		OptionHandler.Position = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65);
+		if NeverLose._LastOptionWindowPosition then
+			OptionHandler.Position = NeverLose._LastOptionWindowPosition
+		else
+			OptionHandler.Position = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65);
+		end
 	end);
 
 	Window.SetRender = LPH_NO_VIRTUALIZE(function(value)
@@ -4997,7 +5008,7 @@ function NeverLose:CreateWindow(Config)
 				if TabIconImage then
 					NeverLose.PlayAnimate(TabIconImage, SlowyTween, {
 						ImageTransparency = 0,
-						ImageColor3 = NeverLose.AccentColor
+						ImageColor3 = Color3.fromRGB(255, 255, 255)
 					})
 				end
                 setActiveGradient(TabIconGradient, 0)
