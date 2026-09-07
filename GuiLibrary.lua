@@ -752,11 +752,6 @@ function guilibrary:makeColorDarker(color)
 end
 
 function guilibrary:HSVtoRGB(h, s, v)
-    -- Some option/theme callbacks can pass a Color3 directly.
-    -- Never perform arithmetic on a Color3; return it unchanged.
-    if typeof(h) == "Color3" then
-        return h
-    end
     local r, g, b
     local i = math.floor(h * 6)
     local f = h * 6 - i

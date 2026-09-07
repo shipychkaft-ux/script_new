@@ -259,142 +259,188 @@ Tabs.TextList = textList.tab
 
 -- // Settings tab
 runFunction(function()
+    local mode = {Value = "Built-in"}
     local volume = {Value = 1}
 
-    Tabs.Settings:CreateDivider("UI")
+    local divider = Tabs.Settings:CreateDivider("UI")
 
-    Tabs.Settings:CreateToggle({
+    local notifications = Tabs.Settings:CreateToggle({
         Name = "Notifications",
-        Default = true,
         Callback = function(v)
             GuiLibrary.Notifications = v
+            if mode.Container1 then mode.Container1.Visible = v end
         end
     })
 
+    mode = Tabs.Settings:CreateDropdown({
+        Name = "Mode",
+        List = {"Built-in", "Roblox' core"},
+        Default = "Built-in",
+        Callback = function(v)
+            GuiLibrary.NotificationsMode = v
+        end
+    })
+    mode.Container1.Visible = false
+
     local sounds = Tabs.Settings:CreateToggle({
         Name = "Sounds",
-        Default = true,
-        Callback = function(v)
-            GuiLibrary.Sounds = v
-            if volume.MainObject then volume.MainObject.Visible = v end
+        Callback = function(callback)
+            GuiLibrary.Sounds = callback
+            if volume.MainObject then
+                volume.MainObject.Visible = callback
+            end
         end
     })
 
     volume = Tabs.Settings:CreateSlider({
         Name = "Volume",
-        Function = function(v) GuiLibrary.SoundVolume = v end,
-        Min = 0, Max = 1, Default = 1, Round = 2
+        Function = function(v)
+            GuiLibrary.SoundVolume = v
+        end,
+        Min = 0,
+        Max = 1,
+        Default = 1,
+        Round = 2
     })
 
-    Tabs.Settings:CreateSlider({
+    local uiscale = Tabs.Settings:CreateSlider({
         Name = "UI scale",
         Function = function(v)
             GuiLibrary.UIScale.Scale = v
-            local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
-            if w then
-                w:SetSize(UDim2.fromOffset(math.floor(640 * v), math.floor(480 * v)))
-            end
         end,
-        Min = 0.5, Max = 2, Default = 1, Round = 2
+        Min = 0.5,
+        Max = 2,
+        Default = 1,
+        Round = 2
     })
 
-    -- Icon is a real function. All appearance controls live inside its option window.
-    local iconFunction = Tabs.Settings:CreateToggle({
-        Name = "Icon",
+    local uicornersradius = Tabs.Settings:CreateSlider({
+        Name = "Corners radius",
+        Function = function(v)
+            GuiLibrary.uiCornersRadius = v
+            GuiLibrary:updateUICorners(v)
+        end,
+        Min = 0,
+        Max = 10,
+        Default = 4,
+        Round = 0
+    })
+end)
+
+--[[ soon
+runFunction(function()
+    local textListEnabled = {Value = false}
+    local divider = Tabs.Settings:CreateSecondDivider("Text List")
+    textListEnabled = Tabs.Settings:CreateToggle({
+        Name = "Text List",
+        Callback = function(callback)
+            Tabs.TextList:Toggle(callback, callback)
+        end
+    })
+end)
+]]
+
+runFunction(function()
+    local divider = Tabs.Settings:CreateDivider("Slider")
+
+    local sliderdrightclick = Tabs.Settings:CreateToggle({
+        Name = "RMB to edit",
+        Callback = function(callback)
+            GuiLibrary.SliderRightClick = callback
+        end
+    })
+
+    local slidercanoverride = Tabs.Settings:CreateToggle({
+        Name = "Value override",
+        Callback = function(callback)
+            GuiLibrary.SliderCanOverride = callback
+        end
+    })
+end)
+
+runFunction(function()
+    local divider = Tabs.Settings:CreateDivider("Hover text")
+
+    local hovertextenabled = Tabs.Settings:CreateToggle({
+        Name = "Hover text",
         Default = true,
         Callback = function(v)
-            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl then
-                nl.IconSettings = nl.IconSettings or {}
-                nl.IconSettings.Enabled = v
+            GuiLibrary.hoverText.Enabled = v
+        end
+    })
+
+    local hovertextposition = Tabs.Settings:CreateDropdown({
+        Name = "Pos.",
+        List = {"Above mouse", "Below mouse"},
+        Default = "Above mouse",
+        Callback = function(v)
+            GuiLibrary.hoverText.Position = v
+        end
+    })
+end)
+
+runFunction(function()
+    local divider = Tabs.Settings:CreateDivider("Other")
+
+    local sorttabs = Tabs.Settings:CreateButton({
+        Name = "Sort tabs",
+        Callback = function()
+            local xoffset = 40
+            local yoffset = 40
+            local rowWidth = 7
+            local totalyoffset = 247
+            local tabs = {}
+            for _, v in pairs(GuiLibrary.ObjectsToSave.Tabs) do
+                if v.Type == "Tab" or v.Type == "OptionTab" then
+                    table.insert(tabs, v)
+                end
+            end
+            table.sort(tabs, function(a, b) return a.API.Order < b.API.Order end)
+            for index, tabTable in ipairs(tabs) do
+                local container = tabTable.API.Container
+                local row = math.floor((index - 1) / rowWidth)
+                local col = (index - 1) % rowWidth
+                container.Position = UDim2.new(0, xoffset + (col * totalyoffset), 0, yoffset + (row * 50))
             end
         end
     })
-
-    local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-    if nl then
-        nl.IconSettings = nl.IconSettings or {}
-        nl.IconSettings.Enabled = true
-        nl.IconSettings.Mode = nl.IconSettings.Mode or "Double"
-        nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(216, 148, 245)
-        nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(123, 131, 243)
-        nl.IconSettings.Speed = nl.IconSettings.Speed or 0.28
-    end
-
-    local iconColor2, iconSpeed
-    local iconMode = iconFunction:CreateDropdown({
-        Name = "Режим",
-        List = {"Одиночный", "Двойной"},
-        Default = "Двойной",
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if not nl2 then return end
-            nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
-            if nl2.IconSettings.Mode == "Single" and not nl2.IconSettings.SingleInitialized then
-                nl2.IconSettings.Color1 = Color3.fromRGB(255, 255, 255)
-                nl2.IconSettings.SingleInitialized = true
+    
+    --[[
+    local unpinall = Tabs.Settings:CreateButton({
+        Name = "Pin/Un pin all tabs",
+        Callback = function()
+            for i, v in next, GuiLibrary.ObjectsThatCanBeSaved do
+                if v.Type == "Tab" then
+                    v.Table:Pin(false)
+                end
             end
-            local double = nl2.IconSettings.Mode == "Double"
-            if iconColor2 and iconColor2.Container then iconColor2.Container.Visible = double end
-            if iconSpeed and iconSpeed.Container then iconSpeed.Container.Visible = double end
+        end
+    })
+    ]]
+
+    local uninject = Tabs.Settings:CreateButton({
+        Name = "Uninject",
+        Callback = function()
+            Mana = nil
+            GuiLibrary:Destruct()
         end
     })
 
-    local iconColor1 = iconFunction:CreateColorSlider({
-        Name = "Первый цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Color1 = v end
+    local reinject = Tabs.Settings:CreateButton({
+        Name = "Reinject",
+        Callback = function()
+            Mana = nil
+            GuiLibrary:Destruct()
+            Functions:RunFile("MainScript.lua")
         end
     })
 
-    iconColor2 = iconFunction:CreateColorSlider({
-        Name = "Второй цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Color2 = v end
+    local copydiscordinvite = Tabs.Settings:CreateButton({
+        Name = "Copy Discord invite",
+        Callback = function()
+            toclipboard("https://discord.gg/gPkD8BdbMA")
         end
     })
-
-    iconSpeed = iconFunction:CreateSlider({
-        Name = "Скорость переливания",
-        Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.28, Round = 2,
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Speed = v end
-        end
-    })
-
-    local function applyTheme(v)
-        local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-        if not nl2 then return end
-        nl2.IconSettings = nl2.IconSettings or {}
-        -- Do not call the color-picker Set() methods here: some older executor
-        -- builds route that call through the legacy HSV path and can treat Color3
-        -- as a number. The renderer reads IconSettings directly every frame.
-        nl2.IconSettings.Mode = "Double"
-        if v == "Nursultan 1.16.5" then
-            nl2.IconSettings.Color1 = Color3.fromRGB(207, 156, 211)
-            nl2.IconSettings.Color2 = Color3.fromRGB(94, 74, 103)
-        else
-            nl2.IconSettings.Color1 = Color3.fromRGB(216, 148, 245)
-            nl2.IconSettings.Color2 = Color3.fromRGB(123, 131, 243)
-        end
-    end
-
-    iconFunction:CreateDropdown({
-        Name = "Готовые темы",
-        List = {"Nursultan 1.21.11", "Nursultan 1.16.5"},
-        Default = "Nursultan 1.21.11",
-        Function = applyTheme
-    })
-
-    -- The function itself starts with the default client theme.
-    iconMode:Select("Двойной")
-    if iconColor2.Container then iconColor2.Container.Visible = true end
-    if iconSpeed.Container then iconSpeed.Container.Visible = true end
 end)
 
 -- Profiles tab
