@@ -298,6 +298,17 @@ runFunction(function()
         Min = 0.5, Max = 2, Default = 1, Round = 2
     })
 
+    Tabs.Settings:CreateButton({
+        Name = "Сбросить GUI scale",
+        Function = function()
+            local v = 1
+            GuiLibrary.UIScale.Scale = v
+            GuiLibrary.Scale = v
+            local w = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.Window
+            if w then w:SetSize(UDim2.fromOffset(640, 480)) end
+        end
+    })
+
     -- Icon is a real function. All appearance controls live inside its option window.
     local iconFunction = Tabs.Settings:CreateToggle({
         Name = "Icon",
@@ -318,7 +329,7 @@ runFunction(function()
         nl.IconSettings.Mode = nl.IconSettings.Mode or "Double"
         nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(216, 148, 245)
         nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(123, 131, 243)
-        nl.IconSettings.Speed = nl.IconSettings.Speed or 0.28
+        nl.IconSettings.Speed = 0.65
     end
 
     local iconColor2, iconSpeed
@@ -360,7 +371,7 @@ runFunction(function()
 
     iconSpeed = iconFunction:CreateSlider({
         Name = "Скорость переливания",
-        Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.28, Round = 2,
+        Min = 0.05, Max = 1.5, Default = 0.65, Round = 2,
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
             if nl2 then nl2.IconSettings.Speed = v end
@@ -417,18 +428,19 @@ runFunction(function()
         local theme = themes[v]
         if not theme then return end
 
-        for key, value in pairs(theme) do
-            if key ~= "Icon1" and key ~= "Icon2" then
-                GuiLibrary:setColor(key, value)
-            end
-        end
-        palette.ThemeMode = "Preset"
-        GuiLibrary:updateObjects()
-
         nl2.IconSettings = nl2.IconSettings or {}
+        nl2.IconSettings.Enabled = true
         nl2.IconSettings.Mode = "Double"
         nl2.IconSettings.Color1 = theme.Icon1
         nl2.IconSettings.Color2 = theme.Icon2
+        nl2.IconSettings.Speed = 0.65
+        palette.ThemeMode = "Preset"
+
+        local themePalette = {}
+        for key, value in pairs(theme) do
+            if key ~= "Icon1" and key ~= "Icon2" then themePalette[key] = value end
+        end
+        pcall(function() GuiLibrary:applyTheme(themePalette) end)
     end
 
     -- Presets are buttons: pressing one applies the palette immediately.

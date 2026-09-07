@@ -544,12 +544,17 @@ runFunction(function()
             if valid(plr) then
                 local a = part(plr)
                 if a then
-                    local sp, on = Camera:WorldToViewportPoint(a.Position)
                     local d = (a.Position - mr.Position).Magnitude
-                    if on and d <= range.Value then
-                        local sd = (Vector2.new(sp.X, sp.Y) - mousePos).Magnitude
-                        if sd <= fov.Value then
-                            local sc = sd + d * 0.15
+                    if d <= range.Value then
+                        local toTarget = (a.Position - Camera.CFrame.Position)
+                        local angle = 0
+                        if toTarget.Magnitude > 0.001 then
+                            angle = math.deg(math.acos(math.clamp(Camera.CFrame.LookVector:Dot(toTarget.Unit), -1, 1)))
+                        end
+                        if fov.Value >= 360 or angle <= (fov.Value * 0.5) then
+                            local sp, on = Camera:WorldToViewportPoint(a.Position)
+                            local screenScore = on and (Vector2.new(sp.X, sp.Y) - mousePos).Magnitude or 0
+                            local sc = angle * 10 + d * 0.15 + screenScore * 0.01
                             if sc < score then
                                 best, score = plr, sc
                             end
@@ -1583,6 +1588,7 @@ runFunction(function()
     local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
     local target; local billboard; local img
     local circlePart; local circleSurface; local circleImage; local circleGlow
+    local circleSize={Value=2.0}
     local circleBloom
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
     local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
@@ -1609,7 +1615,7 @@ runFunction(function()
         circlePart.CanQuery=false
         circlePart.CastShadow=false
         circlePart.Transparency=1
-        circlePart.Size=Vector3.new(2.2,0.04,2.2)
+        circlePart.Size=Vector3.new(4.4,0.04,4.4)
         circlePart.Material=Enum.Material.SmoothPlastic
         circlePart.Parent=workspace
 
@@ -1637,7 +1643,7 @@ runFunction(function()
 
         circleBloom=Instance.new("BloomEffect")
         circleBloom.Name="NightixTargetESPCircleGlow"
-        circleBloom.Intensity=0.32
+        circleBloom.Intensity=0.42
         circleBloom.Size=18
         circleBloom.Threshold=0.72
         circleBloom.Parent=game:GetService("Lighting")
@@ -1659,7 +1665,7 @@ runFunction(function()
         local bottomY=center.Y - boxSize.Y*0.5
         local headY=head and (head.Position.Y + head.Size.Y*0.5) or topY
         local headRadius=head and math.max(head.Size.X,head.Size.Z)*0.62 or math.max(boxSize.X,boxSize.Z)*0.7
-        local diameter=math.max(1.6, headRadius*2)
+        local diameter=math.max(1.6, headRadius*2) * math.max(0.5, circleSize.Value)
 
         -- One continuous ping-pong path: head -> feet -> head. It never snaps
         -- at either endpoint, and its direction is naturally reversed at the ends.
@@ -1678,7 +1684,7 @@ runFunction(function()
         -- Keep the bloom attached to the same bright surface; no offset or
         -- oversized fake ring is used for the glow.
         if circleBloom then
-            circleBloom.Intensity=0.32 + (1-math.clamp(alpha.Value,0,1))*0.28
+            circleBloom.Intensity=0.42 + (1-math.clamp(alpha.Value,0,1))*0.28
             circleBloom.Size=18
         end
     end
@@ -1706,14 +1712,15 @@ runFunction(function()
             RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); target=nil
         end
     end})
-    mode=targetESP:CreateDropdown({Name="Режим",List={"Ромб","Circle"},Default="Ромб",Function=function(v) mode.Value=v; vis(diamond,v=="Ромб"); vis(size,v=="Ромб"); vis(circleVariant,v=="Circle") end})
+    mode=targetESP:CreateDropdown({Name="Режим",List={"Ромб","Circle"},Default="Ромб",Function=function(v) mode.Value=v; vis(diamond,v=="Ромб"); vis(size,v=="Ромб"); vis(circleVariant,v=="Circle"); vis(circleSize,v=="Circle") end})
     diamond=targetESP:CreateDropdown({Name="Ромб",List={"1","2","3","4"},Default="1",Function=function(v) diamond.Value=v end})
     size=targetESP:CreateSlider({Name="Размер ромба",Min=60,Max=300,Default=150,Round=0,Function=function(v) size.Value=v end})
     speed=targetESP:CreateSlider({Name="Скорость",Min=0,Max=720,Default=180,Round=0,Function=function(v) speed.Value=v end})
     alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
     color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
     circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
-    vis(diamond,true); vis(size,true); vis(circleVariant,false)
+    circleSize=targetESP:CreateSlider({Name="Размер Circle",Min=0.5,Max=4,Default=2.0,Round=2,Function=function(v) circleSize.Value=v end})
+    vis(diamond,true); vis(size,true); vis(circleVariant,false); vis(circleSize,false)
 end)
 
 runFunction(function()

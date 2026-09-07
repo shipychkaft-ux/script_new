@@ -202,8 +202,47 @@ NeverLose.IconSettings = {
 	Mode = "Double",
 	Color1 = Color3.fromRGB(216, 148, 245),
 	Color2 = Color3.fromRGB(123, 131, 243),
-	Speed = 0.28,
+	Speed = 0.65,
 };
+NeverLose.ThemeObjects = {Tabs = {}, Sections = {}}
+function NeverLose:ApplyNightixTheme(palette)
+    if not palette then return end
+    for _, ref in ipairs(self.ThemeObjects.Tabs) do
+        if ref.Button and ref.Button.Parent then
+            local active = ref.Window and ref.Window.Tabs[ref.Window.CurrentTab] == ref.Tab
+            ref.Button.BackgroundColor3 = active and palette.ToggleColor2 or palette.Color2
+            ref.Button.BackgroundTransparency = active and 0.35 or 0.5
+        end
+        if ref.IconGradient then
+            local c1 = (self.IconSettings and self.IconSettings.Color1) or palette.ToggleColor2
+            local c2 = (self.IconSettings and self.IconSettings.Color2) or palette.ToggleColor2
+            ref.IconGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,c1), ColorSequenceKeypoint.new(0.5,c2), ColorSequenceKeypoint.new(1,c1)
+            })
+        end
+        if ref.TextGradient then
+            local c1 = (self.IconSettings and self.IconSettings.Color1) or palette.ToggleColor2
+            local c2 = (self.IconSettings and self.IconSettings.Color2) or palette.ToggleColor2
+            ref.TextGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,c1), ColorSequenceKeypoint.new(0.5,c2), ColorSequenceKeypoint.new(1,c1)
+            })
+        end
+        if ref.ButtonGradient then
+            local c1 = (self.IconSettings and self.IconSettings.Color1) or palette.ToggleColor2
+            local c2 = (self.IconSettings and self.IconSettings.Color2) or palette.ToggleColor2
+            ref.ButtonGradient.Color = ColorSequence.new({
+                ColorSequenceKeypoint.new(0,c1), ColorSequenceKeypoint.new(0.5,c2), ColorSequenceKeypoint.new(1,c1)
+            })
+            ref.ButtonGradient.Transparency = NumberSequence.new(0.68)
+        end
+    end
+    for _, ref in ipairs(self.ThemeObjects.Sections) do
+        if ref.Handler and ref.Handler.Parent then ref.Handler.BackgroundColor3 = palette.Color2 end
+        if ref.Stroke and ref.Stroke.Parent then ref.Stroke.Color = palette.ToggleColor2 end
+        if ref.Label and ref.Label.Parent then ref.Label.TextColor3 = palette.ToggleColor2 end
+    end
+end
+
 NeverLose.ScreenGui = GlobalWindow;
 NeverLose.Flags = {};
 NeverLose.AccentColor = Color3.fromRGB(78, 127, 252);
@@ -4816,6 +4855,7 @@ function NeverLose:CreateWindow(Config)
 		local TabContentLabel = Instance.new("TextLabel")
         local TabIconGradient = Instance.new("UIGradient")
         local TabTextGradient = Instance.new("UIGradient")
+        local TabButtonGradient = Instance.new("UIGradient")
 
 		Tab.Idx = TabButton;
 
@@ -4910,12 +4950,16 @@ function NeverLose:CreateWindow(Config)
         end
         TabIconGradient.Parent = TabIconImage or TabIcon
         TabTextGradient.Parent = TabContentLabel
+        TabButtonGradient.Parent = TabButton
+        TabButtonGradient.Rotation = 0
         TabIconGradient.Rotation = 0
         TabTextGradient.Rotation = 0
         TabIconGradient.Enabled = true
         TabTextGradient.Enabled = true
         setGradient(TabIconGradient, 0.15)
         setGradient(TabTextGradient, 0.15)
+        setGradient(TabButtonGradient, 0.55)
+        table.insert(NeverLose.ThemeObjects.Tabs, {Window = Window, Tab = Tab, Button = TabButton, IconGradient = TabIconGradient, TextGradient = TabTextGradient, ButtonGradient = TabButtonGradient})
         task.spawn(function()
             while TabButton and TabButton.Parent do
                 local active = Window.Tabs[Window.CurrentTab] == Tab
@@ -4930,10 +4974,13 @@ function NeverLose:CreateWindow(Config)
                 TabIconGradient.Enabled = true
                 TabTextGradient.Enabled = true
                 -- One-way movement only: the gradient continuously travels left.
-                local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
-                local offset = -((tick() * speed) % 1)
+                local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
+                local cycle = ((tick() * speed) % 2)
+                local phase = cycle <= 1 and cycle or (2 - cycle)
+                local offset = -phase * 0.5
                 TabIconGradient.Offset = Vector2.new(offset, 0)
                 TabTextGradient.Offset = Vector2.new(offset, 0)
+                TabButtonGradient.Offset = Vector2.new(offset, 0)
                 task.wait()
             end
         end)
@@ -5191,6 +5238,7 @@ function NeverLose:CreateWindow(Config)
 			UIStroke.Transparency = 0.650
 			UIStroke.Color = Color3.fromRGB(45, 48, 58)
 			UIStroke.Parent = SectionHandler
+            table.insert(NeverLose.ThemeObjects.Sections, {Handler = SectionHandler, Stroke = UIStroke, Label = SectionLabel})
 
 			UICorner.CornerRadius = UDim.new(0, 10)
 			UICorner.Parent = SectionHandler
@@ -6191,7 +6239,7 @@ function NeverLose:CreateWindow(Config)
 			UID.Size = UDim2.fromOffset(1, 20)
 			UID.ZIndex = 17
 			UID.Font = Enum.Font.GothamBold
-			UID.Text = uidText ~= "" and (" | " .. uidText) or ""
+			UID.Text = uidText
 			UID.TextColor3 = Color3.fromRGB(255, 255, 255)
 			UID.TextSize = 15
 			UID.TextTransparency = 0
@@ -6217,6 +6265,7 @@ function NeverLose:CreateWindow(Config)
 					ColorSequenceKeypoint.new(1,c1)
 				})
 			end
+            local animationStart = tick()
 			local function sampleWatermarkColor(t)
 				local cfg = NeverLose.IconSettings or {}
 				if cfg.Enabled == false then return Color3.fromRGB(255,255,255) end
@@ -6234,12 +6283,11 @@ function NeverLose:CreateWindow(Config)
 					-- UID is intentionally pure white; only Release and the icon use the accent animation.
 					Content.TextColor3 = Color3.fromRGB(255,255,255)
 					UID.TextColor3 = Color3.fromRGB(255,255,255)
-					local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.28)
-					local phase = (tick() * speed) % 1
-					local iconPhase = (phase + 0.5) % 1
-					Icon.ImageColor3 = sampleWatermarkColor(iconPhase)
-					local offset = -phase
-					Gradient.Offset = Vector2.new(offset, 0)
+					local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
+                    local cycle = ((tick() - animationStart) * speed) % 2
+                    local phase = cycle <= 1 and cycle or (2 - cycle)
+                    Icon.ImageColor3 = sampleWatermarkColor(phase)
+                    Gradient.Offset = Vector2.new(-phase * 0.5, 0)
 					task.wait()
 				end
 			end)
