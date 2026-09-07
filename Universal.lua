@@ -4137,7 +4137,7 @@ runFunction(function()
         ["7"] = {
             CelestialBodiesShown = false, MoonAngularSize = 11, StarCount = 3000, SunAngularSize = 21,
             Bk = "600830446", Dn = "600831635", Ft = "600832720",
-            Lf = "600826090", Rt = "600833862", Up = "600835177",
+            Lf = "600886090", Rt = "600833862", Up = "600835177",
         },
         ["8"] = {
             CelestialBodiesShown = true, MoonAngularSize = 11, StarCount = 1334, SunAngularSize = 21,
@@ -4149,12 +4149,15 @@ runFunction(function()
     local function apply()
         if not sky then return end
         local data = skies[choice.Value] or skies["1"]
-        sky.SkyboxBk = "rbxassetid://" .. data.Bk
-        sky.SkyboxDn = "rbxassetid://" .. data.Dn
-        sky.SkyboxFt = "rbxassetid://" .. data.Ft
-        sky.SkyboxLf = "rbxassetid://" .. data.Lf
-        sky.SkyboxRt = "rbxassetid://" .. data.Rt
-        sky.SkyboxUp = "rbxassetid://" .. data.Up
+        local function skyAsset(id)
+            return "http://www.roblox.com/asset/?id=" .. tostring(id)
+        end
+        sky.SkyboxBk = skyAsset(data.Bk)
+        sky.SkyboxDn = skyAsset(data.Dn)
+        sky.SkyboxFt = skyAsset(data.Ft)
+        sky.SkyboxLf = skyAsset(data.Lf)
+        sky.SkyboxRt = skyAsset(data.Rt)
+        sky.SkyboxUp = skyAsset(data.Up)
         sky.SkyboxOrientation = Vector3.new(0, 0, 0)
         sky.CelestialBodiesShown = data.CelestialBodiesShown
         sky.MoonAngularSize = data.MoonAngularSize

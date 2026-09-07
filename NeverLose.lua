@@ -1881,8 +1881,8 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		ToggleLib.SetUI = LPH_NO_VIRTUALIZE(function(value)
 			if value then
 				Toggle.BackgroundTransparency = 0
-				Toggle.BackgroundColor3 = Color3.fromRGB(10, 13, 21)
 				ToggleGradient.Enabled = true
+                ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
 
 				NeverLose.PlayAnimate(Circle,SlowyTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -2094,7 +2094,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		SlideMoving.Name = NeverLose.RandomString();
 		SlideMoving.Parent = SlideFrame
-		SlideMoving.BackgroundColor3 = NeverLose.AccentColor
+		SlideMoving.BackgroundColor3 = (NeverLose.IconSettings and NeverLose.IconSettings.Color1) or NeverLose.AccentColor
 		SlideMoving.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		SlideMoving.BorderSizePixel = 0
 		SlideMoving.Size = UDim2.new(SliderLib.GetSize(), 0, 1, 0)
@@ -6268,10 +6268,12 @@ function NeverLose:CreateWindow(Config)
 		function Watermark_lb:AddBlock(IconStr , Name)
 			local InnerBlock = {};
 			local Frame = Instance.new("Frame")
+			local LeadingSeparator = Instance.new("TextLabel")
 			local Icon = Instance.new("ImageLabel")
 			local Content = Instance.new("TextLabel")
 			local Separator = Instance.new("TextLabel")
 			local Separator2 = Instance.new("TextLabel")
+			local TrailingSeparator = Instance.new("TextLabel")
 			local UID = Instance.new("TextLabel")
 			local IconGradient = Instance.new("UIGradient")
 			local ReleaseGradient = Instance.new("UIGradient")
@@ -6281,9 +6283,20 @@ function NeverLose:CreateWindow(Config)
 			Frame.BorderSizePixel = 0
 			Frame.Size = UDim2.fromOffset(100, 36)
 
+			LeadingSeparator.Parent = Frame
+			LeadingSeparator.BackgroundTransparency = 1
+			LeadingSeparator.AnchorPoint = Vector2.new(0, 0.5)
+			LeadingSeparator.Position = UDim2.new(0, 0, 0.5, 0)
+			LeadingSeparator.Size = UDim2.fromOffset(5, 20)
+			LeadingSeparator.ZIndex = 17
+			LeadingSeparator.Font = Enum.Font.GothamMedium
+			LeadingSeparator.Text = "|"
+			LeadingSeparator.TextColor3 = Color3.fromRGB(110, 110, 118)
+			LeadingSeparator.TextSize = 14
+
 			Icon.Parent = Frame
 			Icon.BackgroundTransparency = 1
-			Icon.Position = UDim2.new(0, 7, 0.5, 0)
+			Icon.Position = UDim2.new(0, 10, 0.5, 0)
 			Icon.AnchorPoint = Vector2.new(0, 0.5)
 			Icon.Size = UDim2.fromOffset(22, 22)
 			Icon.ZIndex = 17
@@ -6337,6 +6350,18 @@ function NeverLose:CreateWindow(Config)
 			Separator2.TextColor3 = Color3.fromRGB(110, 110, 118)
 			Separator2.TextSize = 14
 			Separator2.TextTransparency = 0
+
+			-- The final "|" is the right edge of the watermark, not a field separator.
+			TrailingSeparator.Parent = Frame
+			TrailingSeparator.BackgroundTransparency = 1
+			TrailingSeparator.AnchorPoint = Vector2.new(0, 0.5)
+			TrailingSeparator.Size = UDim2.fromOffset(5, 20)
+			TrailingSeparator.ZIndex = 17
+			TrailingSeparator.Font = Enum.Font.GothamMedium
+			TrailingSeparator.Text = "|"
+			TrailingSeparator.TextColor3 = Color3.fromRGB(110, 110, 118)
+			TrailingSeparator.TextSize = 14
+			TrailingSeparator.TextTransparency = 0
 
 			UID.Parent = Frame
 			UID.BackgroundTransparency = 1
@@ -6399,17 +6424,19 @@ function NeverLose:CreateWindow(Config)
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
 				local b = TextService:GetTextSize(UID.Text, UID.TextSize, UID.Font, Vector2.new(math.huge,math.huge))
-				local separatorX = 28
+				local separatorX = 34
 				local contentX = separatorX + 6
 				local separator2X = contentX + a.X + 5
 				local uidX = separator2X + 7
+				local trailingSeparatorX = uidX + b.X + 4
 				Content.Position = UDim2.new(0, contentX, 0.5, 0)
 				Content.Size = UDim2.fromOffset(a.X + 1, 20)
 				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
 				Separator2.Position = UDim2.new(0, separator2X, 0.5, 0)
 				UID.Position = UDim2.new(0, uidX, 0.5, 0)
 				UID.Size = UDim2.fromOffset(b.X + 1, 20)
-				Frame.Size = UDim2.fromOffset(uidX + b.X + 5, 36)
+				TrailingSeparator.Position = UDim2.new(0, trailingSeparatorX, 0.5, 0)
+				Frame.Size = UDim2.fromOffset(trailingSeparatorX + 5, 36)
 			end
 			updateSize()
 
@@ -6422,11 +6449,13 @@ function NeverLose:CreateWindow(Config)
 			end
 			InnerBlock.SetRender = function(value)
 				local alpha = (value and InnerBlock.Visible) and 0 or 1
+				NeverLose.PlayAnimate(LeadingSeparator,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(Content,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(UID,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(Icon,SlowyTween,{ImageTransparency = alpha})
 				NeverLose.PlayAnimate(Separator,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(Separator2,SlowyTween,{TextTransparency = alpha})
+				NeverLose.PlayAnimate(TrailingSeparator,SlowyTween,{TextTransparency = alpha})
 			end
 			function InnerBlock:SetText(t)
 				Content.Text = tostring(t or "")
