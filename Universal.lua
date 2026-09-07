@@ -1674,7 +1674,7 @@ runFunction(function()
             pitch = -math.rad(45) * factor
             yaw = 0
         else
-            pitch = pitch * factor
+            pitch = -pitch * factor
             yaw = yaw * factor
         end
         neck.C0 = neckState.c0 * CFrame.Angles(pitch, yaw, 0)

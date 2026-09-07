@@ -584,7 +584,11 @@ function guilibrary:updateObjects()
         v.BackgroundColor3 = guipallet.Color2
     end
     for i, v in pairs(guiObjects.Color3) do
-        v.BackgroundColor3 = guipallet.Color3
+        if v:GetAttribute("NightixToggleActive") then
+            v.BackgroundColor3 = guipallet.ToggleColor2
+        else
+            v.BackgroundColor3 = guipallet.Color3
+        end
     end
     for i, v in pairs(guiObjects.Color4) do
         v.BackgroundColor3 = guipallet.Color4
@@ -2483,8 +2487,11 @@ function OptionFunctions:CreateToggle(argstable)
     ToggleButton.ZIndex = 2
     ToggleButton.Text = ""
     ToggleButton.AutoButtonColor = false
+    ToggleButton:SetAttribute("NightixThemeRole", "ToggleButton")
+    table.insert(guiObjects.Color3, ToggleButton)
 
     ActiveFrame.Name = "ActiveFrame"
+    ActiveFrame:SetAttribute("NightixToggleActive", value == true)
     ActiveFrame.Parent = Label
     ActiveFrame.BackgroundColor3 = guipallet.Color3
     ActiveFrame.BorderSizePixel = 0
@@ -2505,7 +2512,8 @@ function OptionFunctions:CreateToggle(argstable)
         spawn(function()
             callback(bool)
         end)
-        ActiveFrame.BackgroundColor3 = (bool and ((guipallet.ThemeMode == "Default" and tab:FindFirstChild("tabName").TextColor3) or guipallet.ToggleColor2)) or guipallet.Color3
+        ActiveFrame:SetAttribute("NightixToggleActive", bool == true)
+        ActiveFrame.BackgroundColor3 = bool and guipallet.ToggleColor2 or guipallet.Color3
     end
 
     function toggleapi:ReToggle()
@@ -2517,7 +2525,8 @@ function OptionFunctions:CreateToggle(argstable)
         toggleapi.Enabled = true
         toggleapi.Value = true
         callback(true)
-        ActiveFrame.BackgroundColor3 = ((guipallet.ThemeMode == "Default" and tab:FindFirstChild("tabName").TextColor3) or guipallet.ToggleColor2)
+        ActiveFrame:SetAttribute("NightixToggleActive", true)
+        ActiveFrame.BackgroundColor3 = guipallet.ToggleColor2
     end
 
     toggleapi:Toggle(value)

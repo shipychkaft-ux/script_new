@@ -4361,16 +4361,16 @@ function NeverLose:CreateWindow(Config)
             else
                 LogoImage.ImageColor3 = Color3.fromRGB(255,255,255)
                 NightixGradient.Enabled = true
-                NightixGradient.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0, c1),
-                    ColorSequenceKeypoint.new(0.5, c2),
-                    ColorSequenceKeypoint.new(1, c1)
-                })
                 local speed = math.max(0, tonumber(cfg.Speed) or 0.65)
-                -- Negative offset = movement to the left; repeated end colors
-                -- make the wrap visually continuous instead of jumping.
-                local offset = -((os.clock() * speed) % 1)
-                NightixGradient.Offset = Vector2.new(offset, 0)
+                local phase = (os.clock() * speed) % 1
+                local keys = {}
+                for i = 0, 8 do
+                    local x = i / 8
+                    local mix = (1 - math.cos((x + phase) * math.pi * 2)) * 0.5
+                    keys[#keys + 1] = ColorSequenceKeypoint.new(x, c1:Lerp(c2, mix))
+                end
+                NightixGradient.Color = ColorSequence.new(keys)
+                NightixGradient.Offset = Vector2.new(0, 0)
             end
             task.wait(0.033)
         end
@@ -5009,26 +5009,30 @@ function NeverLose:CreateWindow(Config)
             })
         end
 
-        local function getIconGradientColor()
+        local function getIconGradientColor(phase)
             local cfg = NeverLose.IconSettings or {}
             if cfg.Enabled == false then
                 return ColorSequence.new(Color3.fromRGB(255, 255, 255))
             elseif cfg.Mode == "Single" then
                 return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255, 255, 255))
             end
-            -- Keep the requested Nursultan colors. The duplicated end color is
-            -- only used for the seamless wrap; the visible sweep remains
-            -- 216,148,245 -> 123,131,243.
             local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
             local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
-            return ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00, c1),
-                ColorSequenceKeypoint.new(0.50, c2),
-                ColorSequenceKeypoint.new(1.00, c1)
-            })
+            phase = phase or 0
+            local keys = {}
+            -- A periodic cosine wave moves the two theme colors from right to
+            -- left without ever jumping back to the first frame. At phase 0
+            -- and 1 the exact same ColorSequence is produced, so the cycle is
+            -- mathematically seamless.
+            for i = 0, 8 do
+                local x = i / 8
+                local mix = (1 - math.cos((x + phase) * math.pi * 2)) * 0.5
+                keys[#keys + 1] = ColorSequenceKeypoint.new(x, c1:Lerp(c2, mix))
+            end
+            return ColorSequence.new(keys)
         end
-        local function setGradient(gradient, alpha)
-            gradient.Color = getIconGradientColor()
+        local function setGradient(gradient, alpha, phase)
+            gradient.Color = getIconGradientColor(phase)
             gradient.Transparency = NumberSequence.new(alpha or 0)
         end
 
@@ -5077,22 +5081,21 @@ function NeverLose:CreateWindow(Config)
                     if TabIconImage then TabIconImage.ImageColor3 = muted end
                 end
 
-                -- Active section button gets the theme accent and is animated.
-                TabButtonGradient.Color = getThemeAccentSequence()
-                TabButtonGradient.Enabled = active and cfg.Enabled ~= false and cfg.Mode ~= "Single"
-                TabButtonGradient.Transparency = NumberSequence.new(active and 0.35 or 1)
+                -- Active section uses the actual GUI theme accent, never the
+                -- icon's two custom colors. This keeps yellow/blue icon colors
+                -- from turning the active tab into an unrelated green/black mix.
+                TabButtonGradient.Enabled = false
+                TabButtonGradient.Offset = Vector2.new(0, 0)
+                TabButton.BackgroundColor3 = active and guipallet.ToggleColor2 or guipallet.Color1
+                TabButton.BackgroundTransparency = active and 0.35 or 1
 
-                -- One-way, seamless movement. No ping-pong and no visible reset.
+                -- Seamless periodic color motion. No Offset wrap is used.
                 local speed = math.max(0, (NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)
-                local offset = -((os.clock() * speed) % 1)
+                local phase = (os.clock() * speed) % 1
                 if active and cfg.Enabled ~= false and cfg.Mode ~= "Single" then
-                    TabIconGradient.Offset = Vector2.new(offset, 0)
-                    TabTextGradient.Offset = Vector2.new(offset, 0)
-                    TabButtonGradient.Offset = Vector2.new(offset, 0)
-                else
-                    TabIconGradient.Offset = Vector2.new(0,0)
-                    TabTextGradient.Offset = Vector2.new(0,0)
-                    TabButtonGradient.Offset = Vector2.new(0,0)
+                    local colors = getIconGradientColor(phase)
+                    TabIconGradient.Color = colors
+                    TabTextGradient.Color = colors
                 end
                 -- Do not update every gradient every render frame. 30 FPS is
                 -- visually smooth here and avoids a large per-tab CPU cost.
@@ -6431,9 +6434,11 @@ function NeverLose:CreateWindow(Config)
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
 				local b = TextService:GetTextSize(UID.Text, UID.TextSize, UID.Font, Vector2.new(math.huge,math.huge))
-				local separatorX = 34 + a.X + 5
-				local separator2X = separatorX + 5
-				local uidX = separator2X + 5
+				local separatorX = 30
+				local contentX = separatorX + 7
+				local separator2X = contentX + a.X + 5
+				local uidX = separator2X + 7
+				Content.Position = UDim2.new(0, contentX, 0.5, 0)
 				Content.Size = UDim2.fromOffset(a.X + 1, 20)
 				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
 				Separator2.Position = UDim2.new(0, separator2X, 0.5, 0)
