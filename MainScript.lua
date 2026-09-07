@@ -407,71 +407,67 @@ runFunction(function()
         local palette = GuiLibrary.GuiPallet
         if not nl2 or not palette then return end
 
+        -- Presets are actions, not a persistent "theme selection". Clicking a
+        -- preset immediately writes the complete client palette and refreshes
+        -- already-created UI objects. A custom theme can therefore be replaced
+        -- instantly without changing any separate theme state.
         local themes = {
             ["Nursultan 1.21.11"] = {
-                Color1=Color3.fromRGB(14,14,23), Color2=Color3.fromRGB(47,48,64),
-                Color3=Color3.fromRGB(66,68,66), Color4=Color3.fromRGB(49,51,64),
-                Color5=Color3.fromRGB(20,20,20), Color6=Color3.fromRGB(200,200,200),
-                ToggleColor=Color3.fromRGB(0,0,0), ToggleColor2=Color3.fromRGB(123,131,243),
-                TextColor=Color3.fromRGB(255,255,255), PlaceholderColor=Color3.fromRGB(220,220,220),
-                PlaceholderColor2=Color3.fromRGB(200,200,200), InfoColor=Color3.fromRGB(180,180,180),
-                WarningColor=Color3.fromRGB(198,205,64), ErrorColor=Color3.fromRGB(205,64,78),
-                Icon1=Color3.fromRGB(216,148,245), Icon2=Color3.fromRGB(123,131,243)
+                Color1 = Color3.fromRGB(14, 14, 23),
+                Color2 = Color3.fromRGB(47, 48, 64),
+                Color3 = Color3.fromRGB(66, 68, 66),
+                Color4 = Color3.fromRGB(49, 51, 64),
+                Color5 = Color3.fromRGB(20, 20, 20),
+                Color6 = Color3.fromRGB(200, 200, 200),
+                ToggleColor = Color3.fromRGB(0, 0, 0),
+                ToggleColor2 = Color3.fromRGB(123, 131, 243),
+                TextColor = Color3.fromRGB(255, 255, 255),
+                PlaceholderColor = Color3.fromRGB(220, 220, 220),
+                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
+                InfoColor = Color3.fromRGB(180, 180, 180),
+                WarningColor = Color3.fromRGB(198, 205, 64),
+                ErrorColor = Color3.fromRGB(205, 64, 78),
+                Icon1 = Color3.fromRGB(216, 148, 245),
+                Icon2 = Color3.fromRGB(123, 131, 243),
             },
             ["Nursultan 1.16.5"] = {
-                Color1=Color3.fromRGB(14,14,23), Color2=Color3.fromRGB(47,48,64),
-                Color3=Color3.fromRGB(66,68,66), Color4=Color3.fromRGB(49,51,64),
-                Color5=Color3.fromRGB(20,20,20), Color6=Color3.fromRGB(200,200,200),
-                ToggleColor=Color3.fromRGB(0,0,0), ToggleColor2=Color3.fromRGB(94,74,103),
-                TextColor=Color3.fromRGB(255,255,255), PlaceholderColor=Color3.fromRGB(220,220,220),
-                PlaceholderColor2=Color3.fromRGB(200,200,200), InfoColor=Color3.fromRGB(180,180,180),
-                WarningColor=Color3.fromRGB(198,205,64), ErrorColor=Color3.fromRGB(205,64,78),
-                Icon1=Color3.fromRGB(207,156,211), Icon2=Color3.fromRGB(94,74,103)
-            }
+                Color1 = Color3.fromRGB(14, 14, 23),
+                Color2 = Color3.fromRGB(47, 48, 64),
+                Color3 = Color3.fromRGB(66, 68, 66),
+                Color4 = Color3.fromRGB(49, 51, 64),
+                Color5 = Color3.fromRGB(20, 20, 20),
+                Color6 = Color3.fromRGB(200, 200, 200),
+                ToggleColor = Color3.fromRGB(0, 0, 0),
+                ToggleColor2 = Color3.fromRGB(94, 74, 103),
+                TextColor = Color3.fromRGB(255, 255, 255),
+                PlaceholderColor = Color3.fromRGB(220, 220, 220),
+                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
+                InfoColor = Color3.fromRGB(180, 180, 180),
+                WarningColor = Color3.fromRGB(198, 205, 64),
+                ErrorColor = Color3.fromRGB(205, 64, 78),
+                Icon1 = Color3.fromRGB(207, 156, 211),
+                Icon2 = Color3.fromRGB(94, 74, 103),
+            },
         }
-        local theme=themes[v]
+        local theme = themes[v]
         if not theme then return end
 
-        -- Recolor the Mana/Nightix controls before changing the palette.  The old
-        -- implementation changed the palette first, so existing controls no longer
-        -- matched the source colors and half of Settings stayed on the old palette.
-        local old={}
-        for _,key in ipairs({"Color1","Color2","Color3","Color4","Color5","Color6","ToggleColor","ToggleColor2","TextColor","PlaceholderColor","PlaceholderColor2","InfoColor","WarningColor","ErrorColor"}) do
-            old[key]=palette[key]
-        end
-        local function same(a,b) return typeof(a)=="Color3" and typeof(b)=="Color3" and a==b end
-        local roots={GuiLibrary.ScreenGui, nl2.ScreenGui}
-        local seen={}
-        for _,root in ipairs(roots) do
-            if root and not seen[root] then
-                seen[root]=true
-                for _,obj in ipairs(root:GetDescendants()) do
-                    if obj:IsA("Frame") or obj:IsA("ScrollingFrame") or obj:IsA("TextButton") or obj:IsA("ImageButton") then
-                        for key,newColor in pairs(theme) do
-                            if old[key] and same(obj.BackgroundColor3, old[key]) then obj.BackgroundColor3=newColor end
-                        end
-                    elseif obj:IsA("TextLabel") or obj:IsA("TextBox") or obj:IsA("TextButton") then
-                        if same(obj.TextColor3, old.TextColor) then obj.TextColor3=theme.TextColor end
-                    end
-                end
+        for key, value in pairs(theme) do
+            if key ~= "Icon1" and key ~= "Icon2" then
+                GuiLibrary:setColor(key, value)
             end
         end
-        for key,value in pairs(theme) do
-            if key~="Icon1" and key~="Icon2" then GuiLibrary:setColor(key,value) end
-        end
-        palette.ThemeMode="Preset"
-        GuiLibrary:sortObjects()
+        palette.ThemeMode = "Preset"
         GuiLibrary:updateObjects()
 
-        nl2.IconSettings=nl2.IconSettings or {}
-        nl2.IconSettings.Enabled=true
-        nl2.IconSettings.Mode="Double"
-        nl2.IconSettings.Color1=theme.Icon1
-        nl2.IconSettings.Color2=theme.Icon2
-        nl2.IconSettings.Speed=0.65
-        nl2.AccentColor=theme.ToggleColor2
-        if nl2.RefreshNightixTheme then nl2:RefreshNightixTheme() end
-        if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.RefreshTheme then GuiLibrary.NightixMenu.RefreshTheme() end
+        nl2.IconSettings = nl2.IconSettings or {}
+        nl2.IconSettings.Mode = "Double"
+        nl2.IconSettings.Color1 = theme.Icon1
+        nl2.IconSettings.Color2 = theme.Icon2
+        nl2.IconSettings.Speed = 0.65
+        if nl2.RefreshNightixTheme then
+            nl2:RefreshNightixTheme()
+        end
     end
 
     -- Presets are buttons: pressing one applies the palette immediately.
@@ -620,14 +616,6 @@ LocalPlayer.OnTeleport:Connect(function(State)
 end)
 
 repeat task.wait() until GuiLibrary.CanLoadConfig -- game-specific modules are loaded before marking the client ready
--- Final theme pass after ALL tabs/settings have been created.
-pcall(function()
-    GuiLibrary:sortObjects()
-    GuiLibrary:updateObjects()
-    if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose and GuiLibrary.NightixMenu.NeverLose.RefreshNightixTheme then
-        GuiLibrary.NightixMenu.NeverLose:RefreshNightixTheme()
-    end
-end)
 GuiLibrary.Loaded = true
 Mana.Loaded = true
 -- Configs are loaded manually from Profiles. There is no automatic config load/save.

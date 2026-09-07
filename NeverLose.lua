@@ -4909,8 +4909,7 @@ function NeverLose:CreateWindow(Config)
             -- left-to-right; its transparent edges make the wrap invisible.
             return ColorSequence.new({
                 ColorSequenceKeypoint.new(0.00, c1),
-                ColorSequenceKeypoint.new(0.50, c2),
-                ColorSequenceKeypoint.new(1.00, c1)
+                ColorSequenceKeypoint.new(1.00, c2)
             })
         end
         local function setGradient(gradient, alpha)
@@ -4935,39 +4934,25 @@ function NeverLose:CreateWindow(Config)
                 setGradient(TabIconGradient, 0)
                 setGradient(TabTextGradient, 0)
                 local cfg = NeverLose.IconSettings or {}
-                local palette = shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet
-                local themeAccent = (palette and palette.ToggleColor2) or NeverLose.AccentColor or Color3.fromRGB(123,131,243)
-                local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
-                local c2 = cfg.Color2 or themeAccent
-                if TabIconImage then TabIconImage.ImageColor3 = Color3.fromRGB(255,255,255) end
-                TabIcon.TextColor3 = themeAccent
-                TabContentLabel.TextColor3 = themeAccent
-                TabIcon.TextTransparency = active and 0 or 0.25
-                TabContentLabel.TextTransparency = active and 0 or 0.25
-                if TabIconImage then TabIconImage.ImageTransparency = active and 0 or 0.25 end
-                TabIconGradient.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0.00, c1),
-                    ColorSequenceKeypoint.new(0.50, c2),
-                    ColorSequenceKeypoint.new(1.00, c1)
+                local baseColor = (cfg.Color1 or Color3.fromRGB(216,148,245))
+                if TabIconImage then TabIconImage.ImageColor3 = baseColor end
+                TabIcon.TextColor3 = baseColor
+                TabContentLabel.TextColor3 = baseColor
+                TabIconGradient.Enabled = active and cfg.Enabled ~= false and cfg.Mode ~= "Single"
+                TabTextGradient.Enabled = active and cfg.Enabled ~= false and cfg.Mode ~= "Single"
+                local band = NumberSequence.new({
+                    NumberSequenceKeypoint.new(0, 1),
+                    NumberSequenceKeypoint.new(0.45, 0),
+                    NumberSequenceKeypoint.new(0.55, 0),
+                    NumberSequenceKeypoint.new(1, 1)
                 })
-                TabTextGradient.Color = TabIconGradient.Color
-                TabIconGradient.Enabled = active and cfg.Enabled ~= false
-                TabTextGradient.Enabled = active and cfg.Enabled ~= false
-                TabIconGradient.Transparency = NumberSequence.new(0)
-                TabTextGradient.Transparency = NumberSequence.new(0)
+                TabIconGradient.Transparency = band
+                TabTextGradient.Transparency = band
 
                 -- Only the active section is bright/animated. The button background
                 -- itself stays dark; the old version incorrectly brightened the window.
                 TabButtonGradient:SetAttribute("NightixAccent", true)
-                local paletteNow = shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet
-                local accentNow = (paletteNow and paletteNow.ToggleColor2) or NeverLose.AccentColor or Color3.fromRGB(123,131,243)
-                local cfgNow = NeverLose.IconSettings or {}
-                local c1Now = cfgNow.Color1 or Color3.fromRGB(216,148,245)
-                TabButtonGradient.Color = ColorSequence.new({
-                    ColorSequenceKeypoint.new(0,c1Now),
-                    ColorSequenceKeypoint.new(0.5,accentNow),
-                    ColorSequenceKeypoint.new(1,c1Now)
-                })
+                TabButtonGradient.Color = getThemeAccentSequence()
                 TabButtonGradient.Enabled = active
                 TabButtonGradient.Transparency = active and NumberSequence.new({
                     NumberSequenceKeypoint.new(0, 1),
@@ -6119,54 +6104,47 @@ function NeverLose:CreateWindow(Config)
 
 	function Window:RefreshNightixTheme()
 		local palette = shared.Mana and shared.Mana.GuiLibrary and shared.Mana.GuiLibrary.GuiPallet or {}
-		local accent = palette.ToggleColor2 or Color3.fromRGB(123,131,243)
+		NeverLose.AccentColor = palette.ToggleColor2 or Color3.fromRGB(123,131,243)
+		local accent = NeverLose.AccentColor
 		local text = palette.TextColor or Color3.fromRGB(255,255,255)
 		local bg1 = palette.Color1 or Color3.fromRGB(14,14,23)
 		local bg2 = palette.Color2 or Color3.fromRGB(47,48,64)
-		local bg3 = palette.Color3 or Color3.fromRGB(66,68,66)
 		local stroke = palette.Color4 or Color3.fromRGB(49,51,64)
-		NeverLose.AccentColor = accent
-
-		-- Fixed colors used by the NeverLose shell/options.  These were the reason
-		-- preset themes could leave a mixture of old dark/light controls behind.
-		local fixed = {
-			[Color3.fromRGB(41,45,49)] = bg1,
-			[Color3.fromRGB(45,48,58)] = stroke,
-			[Color3.fromRGB(26,28,36)] = bg2,
-			[Color3.fromRGB(30,29,36)] = bg2,
-			[Color3.fromRGB(20,22,27)] = bg1,
-			[Color3.fromRGB(8,8,13)] = bg1,
-			[Color3.fromRGB(14,14,23)] = bg1,
-			[Color3.fromRGB(47,48,64)] = bg2,
-			[Color3.fromRGB(49,51,64)] = stroke,
-			[Color3.fromRGB(66,68,66)] = bg3,
-			[Color3.fromRGB(52,235,58)] = accent,
-			[Color3.fromRGB(123,131,243)] = accent,
-		}
-		local function mapped(c)
-			for old,newColor in pairs(fixed) do
-				if c==old then return newColor end
-			end
-			return nil
-		end
+		local oldAccent = Color3.fromRGB(123,131,243)
+		local oldGreen = Color3.fromRGB(52,235,58)
+		local oldSection = Color3.fromRGB(20,22,27)
+		local oldControl = Color3.fromRGB(26,28,36)
+		local oldSlider = Color3.fromRGB(30,29,36)
+		local oldTab = Color3.fromRGB(41,45,49)
+		local oldStroke = Color3.fromRGB(45,48,58)
 		for _, obj in ipairs(NeverLose.ScreenGui:GetDescendants()) do
-			if obj:IsA('Frame') or obj:IsA('ScrollingFrame') or obj:IsA('TextButton') or obj:IsA('ImageButton') then
-				local mappedColor=mapped(obj.BackgroundColor3)
-				if mappedColor then obj.BackgroundColor3=mappedColor end
-			elseif obj:IsA('TextLabel') or obj:IsA('TextBox') then
-				if obj:GetAttribute('NightixSectionLabel') then
-					obj.TextColor3=accent
-				elseif obj.TextColor3==Color3.fromRGB(52,235,58) or obj.TextColor3==Color3.fromRGB(123,131,243) then
-					obj.TextColor3=accent
+			if obj:GetAttribute('NightixAccent') then
+				if obj:IsA('GuiObject') then
+					if obj:IsA('TextLabel') or obj:IsA('TextButton') or obj:IsA('TextBox') then obj.TextColor3 = accent
+					elseif obj:IsA('Frame') then obj.BackgroundColor3 = accent end
 				end
+			elseif obj:IsA('TextLabel') or obj:IsA('TextButton') or obj:IsA('TextBox') then
+				if obj.TextColor3 == Color3.fromRGB(223,223,223) or obj.TextColor3 == oldAccent or obj.TextColor3 == oldGreen then obj.TextColor3 = text end
+			elseif obj:IsA('Frame') or obj:IsA('ScrollingFrame') then
+				local c = obj.BackgroundColor3
+				if c == oldSection then obj.BackgroundColor3 = bg1
+				elseif c == oldControl or c == oldSlider then obj.BackgroundColor3 = bg2
+				elseif c == oldTab then obj.BackgroundColor3 = Color3.fromRGB(41,45,49)
+				elseif c == oldAccent or c == oldGreen then obj.BackgroundColor3 = accent end
+			elseif obj:IsA('UIStroke') then
+				if obj.Color == oldStroke then obj.Color = stroke end
 			end
-			if obj:IsA('UIStroke') and obj.Color==Color3.fromRGB(45,48,58) then obj.Color=stroke end
-			if obj:GetAttribute('NightixAccent') and obj:IsA('GuiObject') then
-				if obj:IsA('TextLabel') or obj:IsA('TextButton') or obj:IsA('TextBox') then obj.TextColor3=accent else obj.BackgroundColor3=accent end
+			if obj:GetAttribute('NightixSectionLabel') and obj:IsA('TextLabel') then
+				obj.TextColor3 = accent
 			end
+		end
+		-- Existing controls created before a preset was clicked need their live accent
+		-- values refreshed as well.
+		for _, obj in ipairs(NeverLose.ScreenGui:GetDescendants()) do
+			if obj:IsA('Frame') and (obj.BackgroundColor3 == oldAccent or obj.BackgroundColor3 == oldGreen) then obj.BackgroundColor3 = accent end
 		end
 		if NeverLose.__WatermarkCache and NeverLose.__WatermarkCache.Renders then
-			for _,render in ipairs(NeverLose.__WatermarkCache.Renders) do pcall(render,true) end
+			for _, render in ipairs(NeverLose.__WatermarkCache.Renders) do pcall(render, true) end
 		end
 	end
 
@@ -6268,7 +6246,7 @@ function NeverLose:CreateWindow(Config)
 			IconSeparator.Size = UDim2.fromOffset(5, 20)
 			IconSeparator.ZIndex = 17
 			IconSeparator.Font = Enum.Font.GothamMedium
-			IconSeparator.Text = " | "
+			IconSeparator.Text = "|"
 			IconSeparator.TextColor3 = Color3.fromRGB(110,110,118)
 			IconSeparator.TextSize = 14
 			IconSeparator.TextTransparency = 0
@@ -6301,7 +6279,7 @@ function NeverLose:CreateWindow(Config)
 			Separator.Size = UDim2.fromOffset(5, 20)
 			Separator.ZIndex = 17
 			Separator.Font = Enum.Font.GothamMedium
-			Separator.Text = " | "
+			Separator.Text = "|"
 			Separator.TextColor3 = Color3.fromRGB(110, 110, 118)
 			Separator.TextSize = 14
 			Separator.TextTransparency = 0
@@ -6335,10 +6313,11 @@ function NeverLose:CreateWindow(Config)
 					local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
 					local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
 					local single = cfg.Mode == "Single"
-					IconGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,c1),ColorSequenceKeypoint.new(0.5,c2),ColorSequenceKeypoint.new(1,c1)})
+					IconGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0,c1),ColorSequenceKeypoint.new(1,c2)})
 					ReleaseGradient.Color = IconGradient.Color
-					IconGradient.Transparency = NumberSequence.new(0)
-					ReleaseGradient.Transparency = NumberSequence.new(0)
+					local band = NumberSequence.new({NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.45,0),NumberSequenceKeypoint.new(0.55,0),NumberSequenceKeypoint.new(1,1)})
+					IconGradient.Transparency = band
+					ReleaseGradient.Transparency = band
 					IconGradient.Offset = Vector2.new(offset, 0)
 					ReleaseGradient.Offset = Vector2.new(offset, 0)
 					IconGradient.Enabled = cfg.Enabled ~= false and not single
@@ -6358,21 +6337,13 @@ function NeverLose:CreateWindow(Config)
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
 				local b = TextService:GetTextSize(UID.Text, UID.TextSize, UID.Font, Vector2.new(math.huge,math.huge))
-				local sep1 = TextService:GetTextSize(IconSeparator.Text, IconSeparator.TextSize, IconSeparator.Font, Vector2.new(math.huge,math.huge))
-				local sep2 = TextService:GetTextSize(Separator.Text, Separator.TextSize, Separator.Font, Vector2.new(math.huge,math.huge))
-				local iconX = 7
-				local sep1X = iconX + 22
-				local releaseX = sep1X + sep1.X - 1
-				local sep2X = releaseX + a.X + 1
-				local uidX = sep2X + sep2.X - 1
-				Icon.Position = UDim2.new(0, iconX, 0.5, 0)
-				IconSeparator.Position = UDim2.new(0, sep1X, 0.5, 0)
-				Content.Position = UDim2.new(0, releaseX, 0.5, 0)
-				Separator.Position = UDim2.new(0, sep2X, 0.5, 0)
-				UID.Position = UDim2.new(0, uidX, 0.5, 0)
+				local separatorX = 34 + a.X + 5
+				local uidX = separatorX + 5
 				Content.Size = UDim2.fromOffset(a.X + 1, 20)
+				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
+				UID.Position = UDim2.new(0, uidX, 0.5, 0)
 				UID.Size = UDim2.fromOffset(b.X + 1, 20)
-				Frame.Size = UDim2.fromOffset(uidX + b.X + 7, 36)
+				Frame.Size = UDim2.fromOffset(uidX + b.X + 5, 36)
 			end
 			updateSize()
 

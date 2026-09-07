@@ -513,7 +513,6 @@ runFunction(function()
     local aimPart = {Value = "Голова"}
     local teamCheck = {Value = false}
     local silentRotate = {Value = true}
-    local targetDead = {Value = false}
     local fov = {Value = 360}
     local aimSpeed = {Value = 12}
     local currentTarget = nil
@@ -525,7 +524,7 @@ runFunction(function()
         local r = getHumanoidRootPart(plr)
         local mr = getHumanoidRootPart(LocalPlayer)
         local h = getHumanoid(plr)
-        return r and mr and h and (h.Health > 0 or (targetDead.Value and h.Health <= 0)) and (r.Position - mr.Position).Magnitude <= range.Value
+        return r and mr and h and h.Health > 0 and (r.Position - mr.Position).Magnitude <= range.Value
     end
 
     local function part(plr)
@@ -649,7 +648,6 @@ runFunction(function()
     aimSpeed = attackAura:CreateSlider({Name="Скорость наведения", Function=function(v) aimSpeed.Value=v end, Min=1, Max=30, Default=12, Round=0})
     aimPart = attackAura:CreateDropdown({Name="Часть наведения", Function=function(v) aimPart.Value=v end, List={"Голова","Тело"}, Default="Голова"})
     teamCheck = attackAura:CreateToggle({Name="Проверка команды", Default=false, Function=function(v) teamCheck.Value=v end})
-    targetDead = attackAura:CreateToggle({Name="Таргетить мертвых", Default=false, Function=function(v) targetDead.Value=v end})
     silentRotate = attackAura:CreateToggle({Name="Без поворота камеры", Default=true, Function=function(v) silentRotate.Value=v end})
 
     shared.NightixAttackAuraTarget = function()
@@ -674,75 +672,6 @@ runFunction(function()
                 RunLoops:UnbindFromRenderStep("AutoWalk")
             end
         end
-    })
-end)
-
-runFunction(function()
-    local headRotate = {Enabled = false}
-    local direction = {Value = "Вниз"}
-    local amount = {Value = 35}
-    local neck
-    local baseTransform = CFrame.new()
-
-    local directions = {
-        ["Вверх"] = {-1, 0}, ["Вниз"] = {1, 0},
-        ["Влево"] = {0, -1}, ["Вправо"] = {0, 1},
-        ["Вверх влево"] = {-1, -1}, ["Вверх вправо"] = {-1, 1},
-        ["Вниз влево"] = {1, -1}, ["Вниз вправо"] = {1, 1},
-        ["Центр"] = {0, 0}
-    }
-
-    local function findNeck()
-        local c = LocalPlayer.Character
-        if not c then return nil end
-        local torso = c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso")
-        if not torso then return nil end
-        return torso:FindFirstChild("Neck") or c:FindFirstChild("Neck", true)
-    end
-
-    local function reset()
-        if neck then
-            pcall(function() neck.Transform = baseTransform end)
-        end
-    end
-
-    headRotate = Tabs.Movement:CreateToggle({
-        Name = "HeadRotate",
-        HoverText = "Поворачивает голову вниз, вверх, влево, вправо и по диагонали.",
-        Callback = function(on)
-            if on then
-                neck = findNeck()
-                if neck then baseTransform = neck.Transform end
-                RunLoops:BindToRenderStep("HeadRotate", function()
-                    if not headRotate.Enabled then return end
-                    local n = findNeck()
-                    if n then
-                        neck = n
-                        local d = directions[direction.Value] or directions["Вниз"]
-                        local pitch = math.rad(amount.Value * d[1])
-                        local yaw = math.rad(amount.Value * d[2])
-                        n.Transform = CFrame.Angles(pitch, yaw, 0)
-                    end
-                end)
-            else
-                RunLoops:UnbindFromRenderStep("HeadRotate")
-                reset()
-                neck = nil
-                baseTransform = CFrame.new()
-            end
-        end
-    })
-
-    direction = headRotate:CreateDropdown({
-        Name = "Направление",
-        List = {"Вниз","Вверх","Влево","Вправо","Вниз влево","Вниз вправо","Вверх влево","Вверх вправо","Центр"},
-        Default = "Вниз",
-        Function = function(v) direction.Value = v end
-    })
-    amount = headRotate:CreateSlider({
-        Name = "Угол",
-        Min = 5, Max = 80, Default = 35, Round = 0,
-        Function = function(v) amount.Value = v end
     })
 end)
 
