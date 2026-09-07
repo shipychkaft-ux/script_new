@@ -1327,6 +1327,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	OptionHandler.Position = UDim2.new(255,255,255,255)
 	OptionHandler.Size = UDim2.new(0, 220, 0, 75)
 	OptionHandler.ZIndex = Zindex + 9
+	OptionHandler:SetAttribute("NightixOptionWindow", true)
 
 	UICorner.CornerRadius = UDim.new(0, 10)
 	UICorner.Parent = OptionHandler
@@ -1339,11 +1340,37 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UIStroke.Color = Color3.fromRGB(45, 48, 58)
 	UIStroke.Parent = OptionHandler
 
-	NeverLose:AddSignal(UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
-		NeverLose.PlayAnimate(OptionHandler , SlowyTween , {
-			Size = UDim2.new(0, 220, 0, UIListLayout.AbsoluteContentSize.Y - 1)
+	local function ReflowOptionWindow()
+		local wantedWidth = 220
+		for _, row in ipairs(OptionHandler:GetChildren()) do
+			if row:IsA("Frame") and row:GetAttribute("NightixOptionRow") then
+				local label = row:FindFirstChild("NightixOptionLabel")
+				local controls = row:FindFirstChild("NightixOptionControls")
+				if label and controls then
+					local textSize = TextService:GetTextSize(tostring(label.Text or ""), label.TextSize, label.Font, Vector2.new(math.huge, math.huge))
+					local controlsWidth = 0
+					local count = 0
+					for _, child in ipairs(controls:GetChildren()) do
+						if child:IsA("GuiObject") and child.Visible then
+							controlsWidth += child.AbsoluteSize.X
+							count += 1
+						end
+					end
+					if count > 1 then controlsWidth += (count - 1) * 5 end
+					wantedWidth = math.max(wantedWidth, math.ceil(textSize.X + controlsWidth + 42))
+					label.Size = UDim2.fromOffset(math.ceil(textSize.X + 2), 15)
+				end
+			end
+		end
+		NeverLose.PlayAnimate(OptionHandler, SlowyTween, {
+			Size = UDim2.new(0, wantedWidth, 0, UIListLayout.AbsoluteContentSize.Y - 1)
 		})
+	end
+
+	NeverLose:AddSignal(UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
+		ReflowOptionWindow()
 	end)));
+	OptionHandler.ReflowNightix = ReflowOptionWindow
 
 	NeverLose:AddSignal(OptionHandler:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
 		if OptionHandler.BackgroundTransparency > 0.9 then
@@ -3559,6 +3586,9 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedFrame.BorderSizePixel = 0
 		BasedFrame.Size = UDim2.new(1, 0, 0, 30)
 		BasedFrame.ZIndex = LayerIndex + 8
+		if Frame:GetAttribute("NightixOptionWindow") then
+			BasedFrame:SetAttribute("NightixOptionRow", true)
+		end
 
 		NeverLose:AddQuery(BasedFrame , Name);
 
@@ -3578,6 +3608,10 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedLabel.TextSize = 13.000
 		BasedLabel.TextTransparency = 0.35
 		BasedLabel.TextXAlignment = Enum.TextXAlignment.Left
+		if Frame:GetAttribute("NightixOptionWindow") then
+			BasedLabel.Name = "NightixOptionLabel"
+			BasedLabel.TextTruncate = Enum.TextTruncate.None
+		end
 
 		LineFrame.Name = NeverLose.RandomString();
 		LineFrame.Parent = BasedFrame
@@ -3600,6 +3634,9 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedHandler.Position = UDim2.new(1, -11, 0, 2)
 		BasedHandler.Size = UDim2.new(1, -20, 0, 25)
 		BasedHandler.ZIndex = LayerIndex + 12
+		if Frame:GetAttribute("NightixOptionWindow") then
+			BasedHandler.Name = "NightixOptionControls"
+		end
 
 		UIListLayout.Parent = BasedHandler
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -3617,8 +3654,14 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 				Size = UDim2.new(1, 0, 0, size.Y + 13);
 			})
 
-			BasedLabel.Size = UDim2.new(1, -155, 1, 0)
-			BasedLabel.TextYAlignment = Enum.TextYAlignment.Top;
+			if Frame:GetAttribute("NightixOptionWindow") then
+				BasedLabel.Size = UDim2.fromOffset(math.ceil(size.X + 2), 15)
+				BasedLabel.TextYAlignment = Enum.TextYAlignment.Center
+				if Frame.ReflowNightix then task.defer(Frame.ReflowNightix) end
+			else
+				BasedLabel.Size = UDim2.new(1, -155, 1, 0)
+				BasedLabel.TextYAlignment = Enum.TextYAlignment.Top;
+			end
 		end);
 
 		if Warp then
@@ -3626,6 +3669,9 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		end;
 
 		local handle = NeverLose:RegisiterHandler(BasedHandler , Signel);
+		if Frame:GetAttribute("NightixOptionWindow") and Frame.ReflowNightix then
+			task.defer(Frame.ReflowNightix)
+		end
 
 		handle.Root = BasedFrame;
 
@@ -6229,13 +6275,13 @@ function NeverLose:CreateWindow(Config)
 
 		Watermark.Name = NeverLose.RandomString();
 		Watermark.Parent = NeverLose.ScreenGui
-		Watermark.AnchorPoint = Vector2.new(1, 0)
+		Watermark.AnchorPoint = Vector2.new(0, 0)
 		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
 		Watermark.BackgroundTransparency = 0
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
-		Watermark.Position = UDim2.new(1, -10, 0, 10)
+		Watermark.Position = UDim2.new(0, 10, 0, 10)
 		Watermark.Size = UDim2.new(0, 120, 0, 36)
 		Watermark.ZIndex = 16
 
