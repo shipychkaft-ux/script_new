@@ -164,7 +164,25 @@ local RunService: RunService = cloneref(game:GetService('RunService'));
 local Players: Players = cloneref(game:GetService('Players'));
 local HttpService: HttpService = cloneref(game:GetService('HttpService'));
 local LocalPlayer: Player = Players.LocalPlayer;
-local CoreGui: PlayerGui = (gethui and gethui()) or (get_hidden_gui and get_hidden_gui()) or cloneref(game:FindFirstChild('CoreGui')) or cloneref(LocalPlayer.PlayerGui);
+local RealCoreGui = cloneref(game:GetService('CoreGui'));
+local function getSafeGuiParent()
+	local candidates = {}
+	if gethui then
+		local ok, candidate = pcall(gethui)
+		if ok then table.insert(candidates, candidate) end
+	end
+	if get_hidden_gui then
+		local ok, candidate = pcall(get_hidden_gui)
+		if ok then table.insert(candidates, candidate) end
+	end
+	for _, candidate in ipairs(candidates) do
+		if typeof(candidate) == 'Instance' and (candidate:IsA('PlayerGui') or candidate.ClassName == 'CoreGui') then
+			return candidate
+		end
+	end
+	return RealCoreGui or cloneref(LocalPlayer.PlayerGui)
+end
+local CoreGui: PlayerGui = getSafeGuiParent();
 local Mouse: Mouse = LocalPlayer:GetMouse();
 local CurrentCamera: Camera = cloneref(workspace.CurrentCamera);
 local ProtectGui = protect_gui or protectgui or (syn and syn.protect_gui) or function(s) return s; end;
@@ -186,6 +204,11 @@ GlobalWindow.Name = NeverLose.RandomString();
 GlobalWindow.IgnoreGuiInset = true;
 GlobalWindow.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 GlobalWindow.ResetOnSpawn = false;
+-- Never parent our ScreenGui to executor-created Frames such as CoreGui.UI.
+-- Roblox's internal Locales/CoreGui scripts expect their own UI hierarchy to remain untouched.
+if typeof(CoreGui) ~= 'Instance' or not (CoreGui:IsA('CoreGui') or CoreGui:IsA('PlayerGui')) then
+	CoreGui = RealCoreGui or cloneref(LocalPlayer.PlayerGui)
+end
 GlobalWindow.Parent = CoreGui;
 
 NeverLose.Scales = {
