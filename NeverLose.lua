@@ -4540,7 +4540,7 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.Size = UDim2.new(0, 200, 0, 15)
 	WindowContent.ZIndex = 7
 	WindowContent.Font = Enum.Font.GothamBold
-	WindowContent.Text = "Nightix v.1.0.3"
+	WindowContent.Text = "Nightix v.1.0.5"
 	WindowContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowContent.TextSize = 9.000
 	WindowContent.TextTransparency = 0.650

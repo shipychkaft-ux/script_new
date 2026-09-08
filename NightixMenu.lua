@@ -159,6 +159,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local label = container:AddLabel(name)
         if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
 
+        local api
         local lib = label:AddSlider({
             Default = def,
             Min = min,
@@ -166,10 +167,15 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Rounding = round,
             Type = argstable.Type or "",
             Size = 100,
-            Callback = callback,
+            Callback = function(v)
+                if api then
+                    api.Value = v
+                end
+                callback(v)
+            end,
         })
 
-        local api = {
+        api = {
             Name = name,
             Value = def,
             Min = min,
@@ -308,7 +314,14 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         local lib = label:AddColorPicker({
             Default = def,
-            Callback = callback,
+            Callback = function(v)
+                api.Value = v
+                if typeof(v) == "Color3" then
+                    local h, ss, vv = v:ToHSV()
+                    api.RelativeTable = {h, ss, vv}
+                end
+                callback(v)
+            end,
         })
 
         function api:Set(hueValue, satValue, valValue, rainbow, load)
