@@ -1340,6 +1340,8 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UIStroke.Color = Color3.fromRGB(45, 48, 58)
 	UIStroke.Parent = OptionHandler
 
+	local NightixOptionReflowHandlers = setmetatable({}, {__mode = "k"})
+
 	local function ReflowOptionWindow()
 		local wantedWidth = 220
 		for _, row in ipairs(OptionHandler:GetChildren()) do
@@ -1370,7 +1372,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	NeverLose:AddSignal(UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
 		ReflowOptionWindow()
 	end)));
-	OptionHandler.ReflowNightix = ReflowOptionWindow
+	NightixOptionReflowHandlers[OptionHandler] = ReflowOptionWindow
 
 	NeverLose:AddSignal(OptionHandler:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
 		if OptionHandler.BackgroundTransparency > 0.9 then
@@ -3640,7 +3642,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 
 		UIListLayout.Parent = BasedHandler
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
-		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 		UIListLayout.Padding = UDim.new(0, 5)
@@ -3657,7 +3659,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 			if Frame:GetAttribute("NightixOptionWindow") then
 				BasedLabel.Size = UDim2.fromOffset(math.ceil(size.X + 2), 15)
 				BasedLabel.TextYAlignment = Enum.TextYAlignment.Center
-				if Frame.ReflowNightix then task.defer(Frame.ReflowNightix) end
+				if NightixOptionReflowHandlers[Frame] then task.defer(NightixOptionReflowHandlers[Frame]) end
 			else
 				BasedLabel.Size = UDim2.new(1, -155, 1, 0)
 				BasedLabel.TextYAlignment = Enum.TextYAlignment.Top;
@@ -3669,8 +3671,8 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		end;
 
 		local handle = NeverLose:RegisiterHandler(BasedHandler , Signel);
-		if Frame:GetAttribute("NightixOptionWindow") and Frame.ReflowNightix then
-			task.defer(Frame.ReflowNightix)
+		if Frame:GetAttribute("NightixOptionWindow") and NightixOptionReflowHandlers[Frame] then
+			task.defer(NightixOptionReflowHandlers[Frame])
 		end
 
 		handle.Root = BasedFrame;
