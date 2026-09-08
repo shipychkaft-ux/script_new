@@ -1327,6 +1327,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	OptionHandler.Position = UDim2.new(255,255,255,255)
 	OptionHandler.Size = UDim2.new(0, 220, 0, 75)
 	OptionHandler.ZIndex = Zindex + 9
+	OptionHandler:SetAttribute("NightixOptionWindow", true)
 
 	UICorner.CornerRadius = UDim.new(0, 10)
 	UICorner.Parent = OptionHandler
@@ -1339,11 +1340,31 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UIStroke.Color = Color3.fromRGB(45, 48, 58)
 	UIStroke.Parent = OptionHandler
 
-	NeverLose:AddSignal(UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
-		NeverLose.PlayAnimate(OptionHandler , SlowyTween , {
-			Size = UDim2.new(0, 220, 0, UIListLayout.AbsoluteContentSize.Y - 1)
+	local UpdateOptionWindowSize = LPH_NO_VIRTUALIZE(function()
+		local wantedWidth = 220
+		for _, row in ipairs(OptionHandler:GetChildren()) do
+			if row:GetAttribute("NightixOptionRow") then
+				local label = row:FindFirstChild("NightixOptionLabel")
+				local handler = row:FindFirstChild("NightixOptionHandler")
+				if label and handler then
+					local textSize = TextService:GetTextSize(tostring(label.Text), label.TextSize, label.Font, Vector2.new(math.huge, math.huge))
+					local controlsWidth = math.max(0, handler:FindFirstChildOfClass("UIListLayout") and handler:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.X or 0)
+					local required = textSize.X + controlsWidth + 42
+					if required > wantedWidth then wantedWidth = required end
+					-- Keep the controls on the right while giving the label all remaining room.
+					handler.Size = UDim2.fromOffset(math.max(controlsWidth, 1), 25)
+					label.Size = UDim2.new(1, -(math.max(controlsWidth, 1) + 25), 0, 15)
+				end
+			end
+		end
+		local height = math.max(74, UIListLayout.AbsoluteContentSize.Y - 1)
+		NeverLose.PlayAnimate(OptionHandler, SlowyTween, {
+			Size = UDim2.fromOffset(math.ceil(wantedWidth), math.ceil(height))
 		})
-	end)));
+	end)
+
+	Window.UpdateSize = UpdateOptionWindowSize
+	NeverLose:AddSignal(UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(UpdateOptionWindowSize))
 
 	NeverLose:AddSignal(OptionHandler:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
 		if OptionHandler.BackgroundTransparency > 0.9 then
@@ -3577,6 +3598,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedLabel.TextSize = 13.000
 		BasedLabel.TextTransparency = 0.35
 		BasedLabel.TextXAlignment = Enum.TextXAlignment.Left
+		BasedLabel:SetAttribute("NightixOptionLabel", true)
 
 		LineFrame.Name = NeverLose.RandomString();
 		LineFrame.Parent = BasedFrame
@@ -3599,6 +3621,9 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		BasedHandler.Position = UDim2.new(1, -11, 0, 2)
 		BasedHandler.Size = UDim2.new(1, -20, 0, 25)
 		BasedHandler.ZIndex = LayerIndex + 12
+		BasedFrame:SetAttribute("NightixOptionRow", true)
+		BasedLabel.Name = "NightixOptionLabel"
+		BasedHandler.Name = "NightixOptionHandler"
 
 		UIListLayout.Parent = BasedHandler
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -3627,6 +3652,21 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		local handle = NeverLose:RegisiterHandler(BasedHandler , Signel);
 
 		handle.Root = BasedFrame;
+		local handlerLayout = BasedHandler:FindFirstChildOfClass("UIListLayout")
+		if handlerLayout then
+			NeverLose:AddSignal(handlerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+				local parentOption = BasedFrame.Parent
+				if parentOption and parentOption:GetAttribute("NightixOptionWindow") and parentOption.UpdateSize then
+					parentOption.UpdateSize()
+				end
+			end))
+		end
+		task.defer(function()
+			local parentOption = BasedFrame.Parent
+			if parentOption and parentOption:GetAttribute("NightixOptionWindow") and parentOption.UpdateSize then
+				parentOption.UpdateSize()
+			end
+		end)
 
 		handle.SetRender = LPH_NO_VIRTUALIZE(function(value)
 			if value then
@@ -3685,6 +3725,10 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 			local oldtxt = BasedLabel.Text;
 
 			BasedLabel.Text = t;
+			local parentOption = BasedFrame.Parent
+			if parentOption and parentOption:GetAttribute("NightixOptionWindow") and parentOption.UpdateSize then
+				parentOption.UpdateSize()
+			end
 
 			if Warp and oldtxt ~= t then
 				UpdateWarp();
@@ -4185,7 +4229,6 @@ function NeverLose:CreateWindow(Config)
 				TextTransparency = 0.350
 			})
 
-			Window.Shadow:Render(true);
 		else
 
 			NeverLose.PlayAnimate(WindowFrame , SlowyTween , {
@@ -4273,12 +4316,10 @@ function NeverLose:CreateWindow(Config)
 				TextTransparency = 1
 			})
 
-			Window.Shadow:Render(false);
 		end;
 	end);
 
-	Window.Shadow = NeverLose:CreateShadow(WindowFrame);
-	Window.Shadow:Render(false);
+	Window.Shadow = { Render = function() end };
 
 	task.delay(0.25,function()
 		WindowFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -6224,6 +6265,7 @@ function NeverLose:CreateWindow(Config)
 		local Watermark = Instance.new("Frame")
 		local UICorner = Instance.new("UICorner")
 		local UIListLayout = Instance.new("UIListLayout")
+		local WatermarkSignal = NeverLose:CreateSignal(false)
 
 		Watermark.Name = NeverLose.RandomString();
 		Watermark.Parent = NeverLose.ScreenGui
@@ -6246,6 +6288,38 @@ function NeverLose:CreateWindow(Config)
 		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
+		-- Draggable watermark. Position is kept in viewport offsets.
+		local draggingWatermark, dragStart, watermarkStart
+		Watermark.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				draggingWatermark = true
+				dragStart = input.Position
+				Watermark.AnchorPoint = Vector2.new(0, 0)
+				watermarkStart = UDim2.fromOffset(Watermark.AbsolutePosition.X, Watermark.AbsolutePosition.Y)
+				Watermark.Position = watermarkStart
+			end
+		end)
+		Watermark.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				draggingWatermark = false
+			end
+		end)
+		NeverLose:AddSignal(UserInputService.InputChanged:Connect(function(input)
+			if not draggingWatermark then return end
+			if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then return end
+			local delta = input.Position - dragStart
+			local viewport = CurrentCamera.ViewportSize
+			local x = watermarkStart.X.Offset + delta.X
+			local y = watermarkStart.Y.Offset + delta.Y
+			local w = Watermark.AbsoluteSize.X
+			local h = Watermark.AbsoluteSize.Y
+			x = math.clamp(x, 0, math.max(0, viewport.X - w))
+			y = math.clamp(y, 0, math.max(0, viewport.Y - h))
+			Watermark.AnchorPoint = Vector2.new(0, 0)
+			Watermark.Position = UDim2.fromOffset(x, y)
+		end))
+
+
 		Watermark:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
 			if Watermark.BackgroundTransparency > 0.9 then
 				Watermark.Visible = false;
@@ -6264,10 +6338,15 @@ function NeverLose:CreateWindow(Config)
 
 		NeverLose.__WatermarkCache = Watermark_lb;
 		Watermark_lb.Renders = {};
-		Watermark_lb.Status = true;
+		Watermark_lb.Status = false;
+		WatermarkSignal:SetValue(false)
+		if NeverLose.EnabledBlur then
+			NeverLose:CreateBlurModule(Watermark, WatermarkSignal)
+		end
 
 		function Watermark_lb:SetRender(value)
 			Watermark_lb.Status = value;
+			WatermarkSignal:SetValue(value)
 			if value then
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0})
 				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;

@@ -31,6 +31,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
     -- watermark
     local Watermark = window:Watermark()
+    shared.NightixWatermark = Watermark
     Watermark:AddBlock("rbxassetid://106084104602244", "Release | UID: " .. tostring(localPlayer.UserId))
 
     -- load notification
@@ -549,6 +550,20 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local optionWindow = label:AddOption(1) -- gear: module options
         table.insert(optionWindows, optionWindow)
 
+        local function reapplyModuleOptions()
+            for _, optionData in next, ToggleTable.Options do
+                local api = optionData.API
+                if not api then continue end
+                if optionData.Type == "TextList" then
+                    for _, item in ipairs(api.List or {}) do
+                        if api.Callback then pcall(function() api.Callback(item) end) end
+                    end
+                elseif api.Callback and api.Value ~= nil then
+                    pcall(function() api.Callback(api.Value) end)
+                end
+            end
+        end
+
         function ToggleTable:SetEnabled(Bool, Silent)
             Bool = Bool == true
             if ToggleTable.Enabled == Bool then return false end
@@ -561,6 +576,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             -- module callback even when UI feedback is suppressed.
             if ToggleTable.Callback then
                 ToggleTable.Callback(Bool)
+            end
+            if Bool then
+                reapplyModuleOptions()
             end
 
             if not Silent then
@@ -576,8 +594,11 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             ToggleTable.Enabled = target
             ToggleTable.Value = target
             toggleLib:SetValue(target)
-            if not Silent and ToggleTable.Callback then
+            if ToggleTable.Callback then
                 ToggleTable.Callback(target)
+            end
+            if target then
+                reapplyModuleOptions()
             end
             guilibrary:playsound(target and toggleOnSound or toggleOffSound, 0.8)
             if not Silent then
@@ -735,35 +756,91 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             local manager = {}
             local selected = nil
             local rows = {}
+            local renameBox
 
             local title = section:AddLabel(tostring(argstable.Name or "Configs"))
-            title:ToolTip("Click a config to load it. Select it, then use Remove or the pencil to manage it.")
+            title:ToolTip("Click a config to select it. Use Rename or Remove for the selected config.")
 
             local nameInput = title:AddTextInput({
                 Default = "",
-                Placeholder = "Config name / new name",
+                Placeholder = "Config name",
                 Numeric = false,
-                Size = 140,
+                Size = 120,
                 Callback = function() end,
             })
 
+            local function notify(text)
+                local notification = NeverLose:CreateNotification()
+                notification.new({Title = "Confings", Content = tostring(text), Duration = 2.5})
+            end
+
             local function clearRows()
                 for _, row in ipairs(rows) do
-                    if row.Root then
-                        for i = #NeverLose.NameRegisitry, 1, -1 do
-                            if NeverLose.NameRegisitry[i].Root == row.Root then
-                                table.remove(NeverLose.NameRegisitry, i)
-                            end
-                        end
-                        row.Root:Destroy()
+                    if row.root then
+                        pcall(function() row.glow:Render(false) end)
+                        row.root:Destroy()
                     end
                 end
                 table.clear(rows)
             end
 
-            local function notify(text)
-                local notification = NeverLose:CreateNotification()
-                notification.new({Title = "Confings", Content = tostring(text), Duration = 2.5})
+            local function selectRow(row)
+                selected = row.name
+                guilibrary.CurrentConfig = row.name
+                for _, item in ipairs(rows) do
+                    local active = item == row
+                    if item.stroke then
+                        item.stroke.Color = Color3.fromRGB(255,255,255)
+                        item.stroke.Thickness = active and 2 or 1
+                        item.stroke.Transparency = active and 0 or 0.7
+                    end
+                    if item.glow then item.glow:Render(active) end
+                    if item.label then
+                        item.label.Text = (active and "●  " or "○  ") .. item.name
+                    end
+                end
+            end
+
+            local function createRenameBox(row)
+                if renameBox then renameBox:Destroy(); renameBox = nil end
+                local box = Instance.new("TextBox")
+                renameBox = box
+                box.Name = NeverLose.RandomString()
+                box.Parent = row.root
+                box.BackgroundColor3 = Color3.fromRGB(18,20,26)
+                box.BackgroundTransparency = 0.05
+                box.BorderSizePixel = 0
+                box.Position = UDim2.fromOffset(8, 3)
+                box.Size = UDim2.new(1, -16, 0, 24)
+                box.ZIndex = 220
+                box.ClearTextOnFocus = false
+                box.Font = Enum.Font.GothamMedium
+                box.TextSize = 12
+                box.TextColor3 = Color3.fromRGB(255,255,255)
+                box.TextXAlignment = Enum.TextXAlignment.Left
+                box.Text = row.name
+                box:CaptureFocus()
+                box.FocusLost:Connect(function(enterPressed)
+                    if renameBox ~= box then return end
+                    renameBox = nil
+                    if enterPressed then
+                        local newName = tostring(box.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+                        if newName ~= "" then
+                            local oldName = row.name
+                            local ok, err = guilibrary:RenameConfig(oldName, newName)
+                            if ok then
+                                selected = newName
+                                guilibrary.CurrentConfig = newName
+                                box:Destroy()
+                                manager:Refresh()
+                                notify("Renamed to " .. newName)
+                                return
+                            end
+                            notify("Rename failed: " .. tostring(err))
+                        end
+                    end
+                    box:Destroy()
+                end)
             end
 
             function manager:Refresh()
@@ -771,20 +848,28 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 local configs = guilibrary:ListConfigs()
                 for _, configName in ipairs(configs) do
                     local row = section:AddLabel(configName)
-                    row:SetText((selected == configName and "● " or "○ ") .. configName)
-                    table.insert(rows, row)
-                    NeverLose:CreateInput(row.Root, function()
+                    local root = row.Root
+                    local stroke = Instance.new("UIStroke")
+                    stroke.Color = Color3.fromRGB(255,255,255)
+                    stroke.Thickness = 1
+                    stroke.Transparency = 0.7
+                    stroke.Parent = root
+                    local glow = NeverLose:CreateShadow(root, true, 0.75)
+                    local entry = {name=configName, root=root, label=nil, stroke=stroke, glow=glow}
+                    -- AddLabel does not expose its internal TextLabel, so use the first TextLabel child.
+                    entry.label = root:FindFirstChildOfClass("TextLabel")
+                    table.insert(rows, entry)
+                    NeverLose:CreateInput(root, function()
                         local ok, err = guilibrary:LoadConfig(configName)
                         if ok then
-                            selected = configName
-                            guilibrary.CurrentConfig = configName
-                            nameInput:SetValue("")
-                            manager:Refresh()
+                            selectRow(entry)
                             notify("Loaded " .. configName)
                         else
+                            selectRow(entry)
                             notify("Load failed: " .. tostring(err))
                         end
                     end)
+                    if selected == configName then selectRow(entry) end
                 end
             end
 
@@ -793,13 +878,11 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 Icon = "circle-plus",
                 Callback = function()
                     local name = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
-                    if name == "" then
-                        notify("Enter a config name")
-                        return
-                    end
+                    if name == "" then notify("Enter a config name"); return end
                     local ok, err = guilibrary:CreateConfig(name)
                     if ok then
                         selected = name
+                        guilibrary.CurrentConfig = name
                         nameInput:SetValue("")
                         manager:Refresh()
                         notify("Created " .. name)
@@ -810,14 +893,11 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             })
 
             section:AddButton({
-                Name = "Save current",
+                Name = "Save",
                 Icon = "floppy-disk",
                 Callback = function()
                     local target = selected or guilibrary.CurrentConfig
-                    if not target then
-                        notify("Select a config first")
-                        return
-                    end
+                    if not target then notify("Select a config first"); return end
                     local ok, err = guilibrary:SaveConfig(target)
                     notify(ok and ("Saved " .. target) or ("Save failed: " .. tostring(err)))
                 end,
@@ -827,14 +907,12 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 Name = "Remove",
                 Icon = "trash-can",
                 Callback = function()
-                    if not selected then
-                        notify("Select a config first")
-                        return
-                    end
+                    if not selected then notify("Select a config first"); return end
                     local name = selected
                     local ok, err = guilibrary:DeleteConfig(name)
                     if ok then
                         selected = nil
+                        guilibrary.CurrentConfig = nil
                         manager:Refresh()
                         notify("Removed " .. name)
                     else
@@ -847,24 +925,12 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 Name = "Rename",
                 Icon = "pencil",
                 Callback = function()
-                    if not selected then
-                        notify("Select a config first")
-                        return
-                    end
-                    local newName = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
-                    if newName == "" then
-                        notify("Enter the new name in the field")
-                        return
-                    end
-                    local oldName = selected
-                    local ok, err = guilibrary:RenameConfig(oldName, newName)
-                    if ok then
-                        selected = newName
-                        nameInput:SetValue("")
-                        manager:Refresh()
-                        notify("Renamed to " .. newName)
-                    else
-                        notify("Rename failed: " .. tostring(err))
+                    if not selected then notify("Select a config first"); return end
+                    for _, row in ipairs(rows) do
+                        if row.name == selected then
+                            createRenameBox(row)
+                            return
+                        end
                     end
                 end,
             })

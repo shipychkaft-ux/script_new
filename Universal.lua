@@ -4206,51 +4206,70 @@ runFunction(function()
 end)
 
 runFunction(function()
+    local hud = {Enabled = false}
+    hud = Tabs.Render:CreateToggle({
+        Name = "HUD",
+        HoverText = "Включает HUD Nightix с ватермарком.",
+        Default = false,
+        Callback = function(enabled)
+            hud.Enabled = enabled
+            local watermark = shared.NightixWatermark
+            if watermark and watermark.SetRender then
+                watermark:SetRender(enabled)
+            end
+        end
+    })
+end)
+
+runFunction(function()
     local timeOfDay = {Enabled = false}
     local hours = {Value = 13}
     local minutes = {Value = 0}
     local seconds = {Value = 0}
-    local oldClockTime
     local connection
 
     local function updateTime()
         local h = math.clamp(math.floor(tonumber(hours.Value) or 13), 0, 23)
         local m = math.clamp(math.floor(tonumber(minutes.Value) or 0), 0, 59)
         local sec = math.clamp(math.floor(tonumber(seconds.Value) or 0), 0, 59)
-        Lighting.ClockTime = h + (m / 60) + (sec / 3600)
+        local clock = h + (m / 60) + (sec / 3600)
+        Lighting.ClockTime = clock
+        Lighting.TimeOfDay = string.format("%02d:%02d:%02d", h, m, sec)
+    end
+
+    local function stop()
+        if connection then connection:Disconnect(); connection = nil end
     end
 
     timeOfDay = Tabs.Render:CreateToggle({
         Name = "Time",
-        HoverText = "Customizes the time of the game.",
+        HoverText = "Изменяет время суток и удерживает заданное значение.",
+        Default = false,
         Callback = function(enabled)
+            timeOfDay.Enabled = enabled
+            stop()
             if enabled then
-                oldClockTime = Lighting.ClockTime
                 updateTime()
-                if connection then connection:Disconnect() end
                 connection = RunService.RenderStepped:Connect(function()
                     if timeOfDay.Enabled then updateTime() end
                 end)
-            else
-                if connection then connection:Disconnect(); connection = nil end
-                if oldClockTime ~= nil then Lighting.ClockTime = oldClockTime end
             end
         end
     })
 
     hours = timeOfDay:CreateSlider({
         Name = "Hours",
-        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
+        Function = function(v) hours.Value = v; if timeOfDay.Enabled then updateTime() end end,
         Min = 0, Max = 23, Default = 13, Round = 0
     })
     minutes = timeOfDay:CreateSlider({
         Name = "Minutes",
-        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
+        Function = function(v) minutes.Value = v; if timeOfDay.Enabled then updateTime() end end,
         Min = 0, Max = 59, Default = 0, Round = 0
     })
     seconds = timeOfDay:CreateSlider({
         Name = "Seconds",
-        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
+        Function = function(v) seconds.Value = v; if timeOfDay.Enabled then updateTime() end end,
         Min = 0, Max = 59, Default = 0, Round = 0
     })
 end)
