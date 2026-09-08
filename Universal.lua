@@ -538,27 +538,42 @@ runFunction(function()
             or c:FindFirstChild("HumanoidRootPart")
     end
 
+    local auraCFrame = nil
+    local auraNeck = nil
+    local auraNeckBase = nil
+
+    local function getAuraOrigin()
+        local c = getCharacter(LocalPlayer)
+        if not c then return nil end
+        local head = c:FindFirstChild("Head")
+        local root = c:FindFirstChild("HumanoidRootPart")
+        return head or root
+    end
+
     local function acquire()
-        local mr = getHumanoidRootPart(LocalPlayer)
-        if not mr then return nil end
+        local originPart = getAuraOrigin()
+        if not originPart then return nil end
+        local origin = originPart.Position
+        local look = originPart.CFrame.LookVector
         local best, score = nil, math.huge
-        local rootLook = Vector3.new(mr.CFrame.LookVector.X, 0, mr.CFrame.LookVector.Z)
-        if rootLook.Magnitude > 0 then rootLook = rootLook.Unit end
 
         for _, plr in ipairs(Players:GetPlayers()) do
             if valid(plr) then
                 local a = part(plr)
                 if a then
-                    local delta = a.Position - mr.Position
-                    local d = delta.Magnitude
-                    local flat = Vector3.new(delta.X, 0, delta.Z)
-                    local angle = 180
-                    if flat.Magnitude > 0 and rootLook.Magnitude > 0 then
-                        angle = math.deg(math.acos(math.clamp(rootLook:Dot(flat.Unit), -1, 1)))
-                    end
-                    if d <= range.Value and (fov.Value >= 360 or angle <= fov.Value * 0.5) then
-                        local sc = angle + d * 0.15
-                        if sc < score then best, score = plr, sc end
+                    local delta = a.Position - origin
+                    local distance = delta.Magnitude
+                    local direction = distance > 0 and delta.Unit or look
+                    local dot = math.clamp(look:Dot(direction), -1, 1)
+                    local angle = math.deg(math.acos(dot))
+                    if fov.Value >= 360 or angle <= fov.Value * 0.5 then
+                        if not teamCheck.Value or plr.Team ~= LocalPlayer.Team then
+                            local scoreValue = angle * 2 + distance * 0.08
+                            if scoreValue < score then
+                                score = scoreValue
+                                best = plr
+                            end
+                        end
                     end
                 end
             end
@@ -566,38 +581,60 @@ runFunction(function()
         return best
     end
 
-    local function aim(plr, dt, forceCamera)
+    local function updateAuraAim(plr, dt)
         if not valid(plr) then return end
-        local r = getHumanoidRootPart(LocalPlayer)
-        local a = part(plr)
-        if not r or not a then return end
+        local root = getHumanoidRootPart(LocalPlayer)
+        local originPart = getAuraOrigin()
+        local targetPart = part(plr)
+        if not root or not originPart or not targetPart then return end
 
-        local flat = Vector3.new(a.Position.X - r.Position.X, 0, a.Position.Z - r.Position.Z)
-        if flat.Magnitude < 0.001 then return end
+        auraCFrame = CFrame.lookAt(originPart.Position, targetPart.Position)
 
-        local targetYaw = math.atan2(-flat.X, -flat.Z)
-        local _, yaw, _ = r.CFrame:ToOrientation()
-        local diff = math.atan2(math.sin(targetYaw - yaw), math.cos(targetYaw - yaw))
-        local step = math.rad(math.max(1, aimSpeed.Value) * 90) * math.max(dt or 1/60, 1/240)
-        local newYaw = yaw + math.clamp(diff, -step, step)
+        -- Rotate the character toward the target without touching workspace.CurrentCamera.
+        local flatTarget = Vector3.new(targetPart.Position.X, root.Position.Y, targetPart.Position.Z)
+        local desiredRoot = CFrame.lookAt(root.Position, flatTarget)
+        local alpha = math.clamp((math.max(1, aimSpeed.Value) / 30) * (dt * 12), 0, 1)
+        -- Character orientation is the aura aim; the user's actual Camera.CFrame is never changed.
+        root.CFrame = root.CFrame:Lerp(desiredRoot, math.min(1, alpha))
 
-        r.CFrame = CFrame.new(r.Position) * CFrame.Angles(0, newYaw, 0)
-
+        -- Small head-only aim so the aura visually tracks the target while the user's camera stays untouched.
+        local character = getCharacter(LocalPlayer)
+        local torso = character and (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso"))
+        local neck = torso and torso:FindFirstChild("Neck")
+        if neck and neck:IsA("Motor6D") then
+            if auraNeck ~= neck then
+                auraNeck = neck
+                auraNeckBase = neck.Transform
+            end
+            local localDir = torso.CFrame:VectorToObjectSpace((targetPart.Position - torso.Position).Unit)
+            local pitch = math.asin(math.clamp(localDir.Y, -1, 1))
+            local yaw = math.atan2(-localDir.X, -localDir.Z)
+            local targetTransform = CFrame.Angles(-pitch * 0.75, yaw * 0.8, 0)
+            neck.Transform = neck.Transform:Lerp(targetTransform, math.clamp(dt * 14, 0, 1))
+        end
     end
 
-    local function clickAttack()
-        -- Never modify Camera.CFrame here. The old implementation briefly
-        -- pointed the camera at the target on every click, which caused the
-        -- visible screen flicker reported by the user.
-        if mouse1click then pcall(mouse1click) end
+    local function restoreAuraAim()
+        if auraNeck and auraNeck.Parent then
+            auraNeck.Transform = auraNeckBase or CFrame.new()
+        end
+        auraNeck = nil
+        auraNeckBase = nil
+        auraCFrame = nil
+    end
+
+    local function triggerAttack()
         local character = LocalPlayer.Character
         local tool = character and character:FindFirstChildOfClass("Tool")
-        if tool then pcall(function() tool:Activate() end) end
+        if not tool then return false end
+        -- Never synthesize a desktop mouse click. Use Roblox's tool activation directly.
+        local ok = pcall(function() tool:Activate() end)
+        return ok
     end
 
     attackAura = Tabs.Combat:CreateToggle({
         Name = "AttackAura",
-        HoverText = "Автоматически наводится на цель и атакует ЛКМ.",
+        HoverText = "Автоматически наводится на цель и активирует оружие без клика мышью.",
         Callback = function(on)
             if on then
                 local h = getHumanoid(LocalPlayer)
@@ -605,26 +642,29 @@ runFunction(function()
                 if h then h.AutoRotate = false end
                 currentTarget = acquire()
 
+                local lastAcquire = 0
                 RunLoops:BindToRenderStep("AttackAuraAim", function(dt)
                     if not attackAura.Enabled then return end
-                    if not valid(currentTarget) then
+                    local now = os.clock()
+                    if not valid(currentTarget) or now - lastAcquire >= 0.12 then
                         currentTarget = acquire()
+                        lastAcquire = now
                     end
                     if currentTarget then
-                        aim(currentTarget, dt, false)
+                        updateAuraAim(currentTarget, dt)
                     end
                 end)
 
-                local lastClick = 0
+                local lastAttack = 0
                 RunLoops:BindToHeartbeat("AttackAuraClick", function()
                     if not attackAura.Enabled then return end
                     if not valid(currentTarget) then currentTarget = acquire() end
                     if currentTarget and valid(currentTarget)
-                        and not GuiLibrary.Toggled and not UserInputService:GetFocusedTextBox() then
-                        local now = tick()
-                        if now - lastClick >= 1 / math.max(1, cps.Value) then
-                            lastClick = now
-                            clickAttack()
+                        and not UserInputService:GetFocusedTextBox() then
+                        local now = os.clock()
+                        if now - lastAttack >= 1 / math.max(1, cps.Value) then
+                            lastAttack = now
+                            triggerAttack()
                         end
                     end
                 end)
@@ -632,6 +672,7 @@ runFunction(function()
                 RunLoops:UnbindFromRenderStep("AttackAuraAim")
                 RunLoops:UnbindFromHeartbeat("AttackAuraClick")
                 currentTarget = nil
+                restoreAuraAim()
                 local h = getHumanoid(LocalPlayer)
                 if h then h.AutoRotate = oldAutoRotate end
             end

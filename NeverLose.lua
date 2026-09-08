@@ -191,6 +191,7 @@ local ManualTween = TweenInfo.new(0.1);
 local SlowyTween = TweenInfo.new(0.175);
 local FastTween = TweenInfo.new(0.05);
 local VSlowTween = TweenInfo.new(0.5,Enum.EasingStyle.Quint);
+local ToggleCircleTween = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out);
 local Encryption = {};
 
 NeverLose.UserProfile = Players:GetUserThumbnailAsync(LocalPlayer.UserId , Enum.ThumbnailType.HeadShot , Enum.ThumbnailSize.Size150x150)
@@ -1269,7 +1270,11 @@ function NeverLose:CreateShadow(parent , RollingEffect, thicknessScale)
 
 	Shadow.Render = LPH_NO_VIRTUALIZE(function(self , value)
 		if RollingEffectThread then
-			task.cancel(RollingEffectThread);
+			if typeof(RollingEffectThread) == "RBXScriptConnection" then
+				RollingEffectThread:Disconnect()
+			else
+				pcall(task.cancel, RollingEffectThread)
+			end
 			RollingEffectThread = nil;
 		end;
 
@@ -1291,26 +1296,15 @@ function NeverLose:CreateShadow(parent , RollingEffect, thicknessScale)
 			})
 
 			if RollingEffect then
-				RollingEffectThread = task.spawn(function()
-					local level = 20;
-					while true do task.wait(0.025)
-						NeverLose.PlayAnimate(r1 , SlowyTween , {
-							Rotation = r1.Rotation + level
-						});
-
-						NeverLose.PlayAnimate(r2 , SlowyTween , {
-							Rotation = r2.Rotation + level
-						});
-
-						NeverLose.PlayAnimate(r3 , SlowyTween , {
-							Rotation = r3.Rotation + level
-						});
-
-						NeverLose.PlayAnimate(r4 , SlowyTween , {
-							Rotation = r4.Rotation + level
-						});
-					end;
-				end);
+				local rotations = {r1, r2, r3, r4}
+				local phase = 0
+				RollingEffectThread = RunService.RenderStepped:Connect(function(dt)
+					if not parent or not parent.Parent then return end
+					phase = (phase + dt * 45) % 360
+					for i, grad in ipairs(rotations) do
+						grad.Rotation = (phase + (i - 1) * 8) % 360
+					end
+				end)
 			end;
 		else
 			NeverLose.PlayAnimate(UIShadowSafe85 , SlowyTween , {
@@ -2000,7 +1994,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
                 ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, true)
                 CircleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
 
-				NeverLose.PlayAnimate(Circle,SlowyTween,{
+				NeverLose.PlayAnimate(Circle,ToggleCircleTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 					BackgroundTransparency = 0,
 					Position = UDim2.new(0.7, 0, 0.5, 0)
@@ -2013,7 +2007,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					BackgroundTransparency = 0
 				})
 
-				NeverLose.PlayAnimate(Circle,SlowyTween,{
+				NeverLose.PlayAnimate(Circle,ToggleCircleTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 					BackgroundTransparency = 0.500,
 					Position = UDim2.new(0.300000012, 0, 0.5, 0)
@@ -2043,7 +2037,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 					BackgroundColor3 = Color3.fromRGB(10, 13, 21)
 				})
 
-				NeverLose.PlayAnimate(Circle,SlowyTween,{
+				NeverLose.PlayAnimate(Circle,ToggleCircleTween,{
 					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
 					BackgroundTransparency = 1,
 					Position = UDim2.new(0.300000012, 0, 0.5, 0)
