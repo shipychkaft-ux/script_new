@@ -4096,19 +4096,6 @@ runFunction(function()
 end)
 
 runFunction(function()
-    local hud = {Enabled = false}
-    hud = Tabs.Render:CreateToggle({
-        Name = "HUD",
-        HoverText = "Показывает/скрывает HUD и ватермарк Nightix.",
-        Callback = function(on)
-            if shared.NightixHUDSet then
-                pcall(shared.NightixHUDSet, on == true)
-            end
-        end
-    })
-end)
-
-runFunction(function()
     local customSky = {Enabled = false}
     local choice = {Value = "1"}
     local sky
@@ -4225,7 +4212,6 @@ runFunction(function()
     local seconds = {Value = 0}
     local oldClockTime
     local connection
-    local timeEnabled = false
 
     local function updateTime()
         local h = math.clamp(math.floor(tonumber(hours.Value) or 13), 0, 23)
@@ -4236,41 +4222,35 @@ runFunction(function()
 
     timeOfDay = Tabs.Render:CreateToggle({
         Name = "Time",
-        HoverText = "Устанавливает выбранное время и удерживает его.",
+        HoverText = "Customizes the time of the game.",
         Callback = function(enabled)
-            timeEnabled = enabled == true
-            timeOfDay.Enabled = timeEnabled
-            if timeEnabled then
+            if enabled then
                 oldClockTime = Lighting.ClockTime
                 updateTime()
                 if connection then connection:Disconnect() end
                 connection = RunService.RenderStepped:Connect(function()
-                    if timeEnabled then
-                        updateTime()
-                    end
+                    if timeOfDay.Enabled then updateTime() end
                 end)
             else
                 if connection then connection:Disconnect(); connection = nil end
-                if oldClockTime ~= nil then
-                    Lighting.ClockTime = oldClockTime
-                end
+                if oldClockTime ~= nil then Lighting.ClockTime = oldClockTime end
             end
         end
     })
 
     hours = timeOfDay:CreateSlider({
         Name = "Hours",
-        Function = function(v) if timeEnabled then updateTime() end end,
+        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
         Min = 0, Max = 23, Default = 13, Round = 0
     })
     minutes = timeOfDay:CreateSlider({
         Name = "Minutes",
-        Function = function(v) if timeEnabled then updateTime() end end,
+        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
         Min = 0, Max = 59, Default = 0, Round = 0
     })
     seconds = timeOfDay:CreateSlider({
         Name = "Seconds",
-        Function = function(v) if timeEnabled then updateTime() end end,
+        Function = function(v) if timeOfDay.Enabled then updateTime() end end,
         Min = 0, Max = 59, Default = 0, Round = 0
     })
 end)
