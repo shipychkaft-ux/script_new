@@ -1302,6 +1302,7 @@ function NeverLose:CreateShadow(parent , RollingEffect, thicknessScale)
 end;
 
 local SharedOptionWindowPosition = nil
+local NightixOptionReflowHandlers = setmetatable({}, {__mode = "k"})
 
 function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	Zindex = Zindex or 9;
@@ -1340,7 +1341,6 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UIStroke.Color = Color3.fromRGB(45, 48, 58)
 	UIStroke.Parent = OptionHandler
 
-	local NightixOptionReflowHandlers = setmetatable({}, {__mode = "k"})
 
 	local function ReflowOptionWindow()
 		local wantedWidth = 220
@@ -3659,7 +3659,8 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 			if Frame:GetAttribute("NightixOptionWindow") then
 				BasedLabel.Size = UDim2.fromOffset(math.ceil(size.X + 2), 15)
 				BasedLabel.TextYAlignment = Enum.TextYAlignment.Center
-				if NightixOptionReflowHandlers[Frame] then task.defer(NightixOptionReflowHandlers[Frame]) end
+				local reflow = NightixOptionReflowHandlers[Frame]
+				if reflow then task.defer(reflow) end
 			else
 				BasedLabel.Size = UDim2.new(1, -155, 1, 0)
 				BasedLabel.TextYAlignment = Enum.TextYAlignment.Top;
@@ -3671,8 +3672,9 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		end;
 
 		local handle = NeverLose:RegisiterHandler(BasedHandler , Signel);
-		if Frame:GetAttribute("NightixOptionWindow") and NightixOptionReflowHandlers[Frame] then
-			task.defer(NightixOptionReflowHandlers[Frame])
+		if Frame:GetAttribute("NightixOptionWindow") then
+			local reflow = NightixOptionReflowHandlers[Frame]
+			if reflow then task.defer(reflow) end
 		end
 
 		handle.Root = BasedFrame;
@@ -5160,7 +5162,7 @@ function NeverLose:CreateWindow(Config)
 		LeftScroll.ScrollBarThickness = 0
 
 		UIListLayout.Parent = LeftScroll
-		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIListLayout.Padding = UDim.new(0, 5)
 
@@ -5872,7 +5874,7 @@ function NeverLose:CreateWindow(Config)
 
 				UIListLayout.Parent = BasedHandler
 				UIListLayout.FillDirection = Enum.FillDirection.Horizontal
-				UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+				UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 				UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 				UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 				UIListLayout.Padding = UDim.new(0, 5)
@@ -6290,17 +6292,28 @@ function NeverLose:CreateWindow(Config)
 		UICorner.CornerRadius = UDim.new(0, 12)
 		UICorner.Parent = Watermark
 
-		-- Watermark is independently draggable. The invisible handle sits above
-		-- the whole watermark so dragging any empty area moves the whole block.
-		local DragHandle = Instance.new("Frame")
-		DragHandle.Name = NeverLose.RandomString()
-		DragHandle.Parent = Watermark
-		DragHandle.BackgroundTransparency = 1
-		DragHandle.BorderSizePixel = 0
-		DragHandle.Position = UDim2.fromOffset(0, 0)
-		DragHandle.Size = UDim2.fromScale(1, 1)
-		DragHandle.ZIndex = 30
-		NeverLose.Drag(DragHandle, Watermark, 0)
+		-- Watermark dragging is handled directly by the root frame.
+		-- Do not add a drag-child here: UIListLayout would count it as content
+		-- and make the watermark resize/expand in the wrong direction.
+		local wmDragging, wmDragStart, wmStartPosition = false, nil, nil
+		Watermark.InputBegan:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				wmDragging = true
+				wmDragStart = input.Position
+				wmStartPosition = Watermark.Position
+			end
+		end)
+		Watermark.InputEnded:Connect(function(input)
+			if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+				wmDragging = false
+			end
+		end)
+		UserInputService.InputChanged:Connect(function(input)
+			if wmDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+				local delta = input.Position - wmDragStart
+				Watermark.Position = UDim2.fromOffset(wmStartPosition.X.Offset + delta.X, wmStartPosition.Y.Offset + delta.Y)
+			end
+		end)
 
 		-- Use the same glass/blur system as the main menu.
 		local WatermarkSignal = NeverLose:CreateSignal(true)
@@ -6311,7 +6324,7 @@ function NeverLose:CreateWindow(Config)
 		UIListLayout.Parent = Watermark
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 
 		Watermark:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
@@ -6550,7 +6563,7 @@ function NeverLose:CreateNotification()
 	Notification.Size = UDim2.new(0, 25, 0, 25)
 
 	UIListLayout.Parent = Notification
-	UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
+	UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 	UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 	UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	UIListLayout.Padding = UDim.new(0, 6)
