@@ -264,7 +264,17 @@ end
 function NeverLose:GetNightixGradient(phase, muted)
     local cfg = self.IconSettings or {}
     local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
-    local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
+    local c2 = cfg.Color2 or c1
+
+    -- Single mode is a true single-color theme. Never allow Color2 from the
+    -- previous double-mode setup to leak into tabs, toggles, sliders or icons.
+    if cfg.Mode == "Single" then
+        if muted then
+            c1 = c1:Lerp(Color3.new(0,0,0), 0.45)
+        end
+        return ColorSequence.new(c1)
+    end
+
     if muted then
         c1 = c1:Lerp(Color3.new(0,0,0), 0.45)
         c2 = c2:Lerp(Color3.new(0,0,0), 0.45)
@@ -2205,7 +2215,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		SlideMoving.Name = NeverLose.RandomString();
 		SlideMoving.Parent = SlideFrame
-		SlideMoving.BackgroundColor3 = (NeverLose.IconSettings and NeverLose.IconSettings.Color1) or NeverLose.AccentColor
+		SlideMoving.BackgroundColor3 = (NeverLose.IconSettings and NeverLose.IconSettings.Color1) or Color3.fromRGB(255,255,255)
 		SlideMoving.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		SlideMoving.BorderSizePixel = 0
 		SlideMoving.Size = UDim2.new(SliderLib.GetSize(), 0, 1, 0)
@@ -4469,11 +4479,7 @@ function NeverLose:CreateWindow(Config)
 	local NightixGradient = Instance.new("UIGradient")
     NightixGradient.Name = "NightixThemeGradient"
     NightixGradient.Rotation = 0
-    NightixGradient.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0.00, Color3.fromRGB(216, 148, 245)),
-        ColorSequenceKeypoint.new(0.50, Color3.fromRGB(123, 131, 243)),
-        ColorSequenceKeypoint.new(1.00, Color3.fromRGB(216, 148, 245))
-    })
+    NightixGradient.Color = NeverLose:GetNightixGradient(0, false)
     NightixGradient.Parent = LogoImage
     task.spawn(function()
         while LogoImage and LogoImage.Parent do
@@ -5129,38 +5135,16 @@ function NeverLose:CreateWindow(Config)
         TabButtonGradient.Enabled = false
         TabButtonGradient.Transparency = NumberSequence.new(1)
 
-        local function getThemeAccentSequence()
-            local cfg = NeverLose.IconSettings or {}
-            local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
-            local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
-            -- Nursultan accent: exact two-color direction 216,148,245 -> 123,131,243.
-            return ColorSequence.new({
-                ColorSequenceKeypoint.new(0.00, c1),
-                ColorSequenceKeypoint.new(1.00, c2)
-            })
+        local function getThemeAccentSequence(phase)
+            return NeverLose:GetNightixGradient(phase or 0, false)
         end
 
         local function getIconGradientColor(phase)
             local cfg = NeverLose.IconSettings or {}
             if cfg.Enabled == false then
                 return ColorSequence.new(Color3.fromRGB(255, 255, 255))
-            elseif cfg.Mode == "Single" then
-                return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255, 255, 255))
             end
-            local c1 = cfg.Color1 or Color3.fromRGB(216, 148, 245)
-            local c2 = cfg.Color2 or Color3.fromRGB(123, 131, 243)
-            phase = phase or 0
-            local keys = {}
-            -- A periodic cosine wave moves the two theme colors from right to
-            -- left without ever jumping back to the first frame. At phase 0
-            -- and 1 the exact same ColorSequence is produced, so the cycle is
-            -- mathematically seamless.
-            for i = 0, 8 do
-                local x = i / 8
-                local mix = (1 - math.cos((x + phase) * math.pi * 2)) * 0.5
-                keys[#keys + 1] = ColorSequenceKeypoint.new(x, c1:Lerp(c2, mix))
-            end
-            return ColorSequence.new(keys)
+            return NeverLose:GetNightixGradient(phase or 0, false)
         end
         local function setGradient(gradient, alpha, phase)
             gradient.Color = getIconGradientColor(phase)
