@@ -1340,6 +1340,10 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UIStroke.Color = Color3.fromRGB(45, 48, 58)
 	UIStroke.Parent = OptionHandler
 
+	local UpdateOptionWindowEvent = Instance.new("BindableEvent")
+	UpdateOptionWindowEvent.Name = "NightixUpdateSize"
+	UpdateOptionWindowEvent.Parent = OptionHandler
+
 	local UpdateOptionWindowSize = LPH_NO_VIRTUALIZE(function()
 		local wantedWidth = 220
 		for _, row in ipairs(OptionHandler:GetChildren()) do
@@ -1363,7 +1367,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 		})
 	end)
 
-	Window.UpdateSize = UpdateOptionWindowSize
+	NeverLose:AddSignal(UpdateOptionWindowEvent.Event:Connect(UpdateOptionWindowSize))
 	NeverLose:AddSignal(UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(UpdateOptionWindowSize))
 
 	NeverLose:AddSignal(OptionHandler:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
@@ -1503,7 +1507,7 @@ function NeverLose:CreateColorPicker(HandleFrame: Frame)
 	local ColorMapSelection = Instance.new("Frame")
 	local UIStroke_3 = Instance.new("UIStroke")
 	local UICorner_5 = Instance.new("UICorner")
-	local RGBLabel = Instance.new("TextLabel")
+	local RGBLabel = Instance.new("TextBox")
 	local UICorner_6 = Instance.new("UICorner")
 	local Shadow = NeverLose:CreateShadow(ColorPickerHandler);
 
@@ -1621,9 +1625,49 @@ function NeverLose:CreateColorPicker(HandleFrame: Frame)
 	RGBLabel.TextSize = 12.000
 	RGBLabel.TextTransparency = 0.400
 	RGBLabel.TextXAlignment = Enum.TextXAlignment.Left
+	RGBLabel.ClearTextOnFocus = false
+	RGBLabel.PlaceholderText = "#RRGGBB / rgb(255,0,0) / 255,0,0"
+	RGBLabel.PlaceholderColor3 = Color3.fromRGB(170, 170, 180)
+	RGBLabel.TextEditable = true
 
 	UICorner_6.CornerRadius = UDim.new(0, 4)
 	UICorner_6.Parent = RGBLabel
+
+	local function ParseColorCode(input)
+		if typeof(input) ~= "string" then return nil end
+		local text = input:gsub("%s+", "")
+		if text == "" then return nil end
+
+		local hex = text:gsub("^#", ""):gsub("^0[xX]", "")
+		if hex:match("^%x+$") and (#hex == 3 or #hex == 6) then
+			if #hex == 3 then
+				hex = hex:sub(1,1)..hex:sub(1,1)..hex:sub(2,2)..hex:sub(2,2)..hex:sub(3,3)..hex:sub(3,3)
+			end
+			local ok, color = pcall(Color3.fromHex, hex)
+			if ok then return color end
+		end
+
+		local body = text:match("^[rR][gG][bB][aA]?%((.+)%)") or text
+		local r,g,b = body:match("^(%d+)[,;](%d+)[,;](%d+)")
+		if not r then r,g,b = body:match("^(%d+)%s+(%d+)%s+(%d+)") end
+		if r then
+			r,g,b = tonumber(r), tonumber(g), tonumber(b)
+			if r and g and b and r <= 255 and g <= 255 and b <= 255 then return Color3.fromRGB(r,g,b) end
+		end
+
+		local fnR,fnG,fnB = text:match("^[Cc]olor3%.fromRGB%((%d+),(%d+),(%d+)%)$")
+		if fnR then
+			fnR,fnG,fnB = tonumber(fnR), tonumber(fnG), tonumber(fnB)
+			if fnR <= 255 and fnG <= 255 and fnB <= 255 then return Color3.fromRGB(fnR,fnG,fnB) end
+		end
+
+		local newR,newG,newB = text:match("^[Cc]olor3%.new%(([%.%d%-]+),([%.%d%-]+),([%.%d%-]+)%)$")
+		if newR then
+			newR,newG,newB = tonumber(newR), tonumber(newG), tonumber(newB)
+			if newR and newG and newB and newR >= 0 and newR <= 1 and newG >= 0 and newG <= 1 and newB >= 0 and newB <= 1 then return Color3.new(newR,newG,newB) end
+		end
+		return nil
+	end
 
 	ColorPickerLib.SetRender = LPH_NO_VIRTUALIZE(function(value)
 		if value then
@@ -1724,8 +1768,9 @@ function NeverLose:CreateColorPicker(HandleFrame: Frame)
 
 	function ColorPickerLib:SetValue(Color)
 		if typeof(Color) == 'string' then
-			Color = Color3.fromHex(Color);
+			Color = ParseColorCode(Color);
 		end;
+		if typeof(Color) ~= 'Color3' then return false end
 
 		local H , S , V = Color:ToHSV();
 
@@ -1735,6 +1780,16 @@ function NeverLose:CreateColorPicker(HandleFrame: Frame)
 
 		ColorPickerLib:Update();
 	end;
+
+	NeverLose:AddSignal(RGBLabel.FocusLost:Connect(function()
+		local parsed = ParseColorCode(RGBLabel.Text)
+		if parsed then
+			ColorPickerLib:SetValue(parsed)
+		else
+			local current = Color3.fromHSV(ColorPickerLib.H, ColorPickerLib.S, ColorPickerLib.V)
+			RGBLabel.Text = "#"..current:ToHex()
+		end
+	end))
 
 	ColorPickerLib.IsHold = false;
 
@@ -3656,15 +3711,21 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		if handlerLayout then
 			NeverLose:AddSignal(handlerLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 				local parentOption = BasedFrame.Parent
-				if parentOption and parentOption:GetAttribute("NightixOptionWindow") and parentOption.UpdateSize then
-					parentOption.UpdateSize()
+				if parentOption and parentOption:GetAttribute("NightixOptionWindow") then
+					local resizeEvent = parentOption:FindFirstChild("NightixUpdateSize")
+					if resizeEvent and resizeEvent:IsA("BindableEvent") then
+						resizeEvent:Fire()
+					end
 				end
 			end))
 		end
 		task.defer(function()
 			local parentOption = BasedFrame.Parent
-			if parentOption and parentOption:GetAttribute("NightixOptionWindow") and parentOption.UpdateSize then
-				parentOption.UpdateSize()
+			if parentOption and parentOption:GetAttribute("NightixOptionWindow") then
+				local resizeEvent = parentOption:FindFirstChild("NightixUpdateSize")
+				if resizeEvent and resizeEvent:IsA("BindableEvent") then
+					resizeEvent:Fire()
+				end
 			end
 		end)
 
@@ -3726,8 +3787,11 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 
 			BasedLabel.Text = t;
 			local parentOption = BasedFrame.Parent
-			if parentOption and parentOption:GetAttribute("NightixOptionWindow") and parentOption.UpdateSize then
-				parentOption.UpdateSize()
+			if parentOption and parentOption:GetAttribute("NightixOptionWindow") then
+				local resizeEvent = parentOption:FindFirstChild("NightixUpdateSize")
+				if resizeEvent and resizeEvent:IsA("BindableEvent") then
+					resizeEvent:Fire()
+				end
 			end
 
 			if Warp and oldtxt ~= t then
