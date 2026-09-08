@@ -4478,18 +4478,17 @@ function NeverLose:CreateWindow(Config)
     task.spawn(function()
         while LogoImage and LogoImage.Parent do
             local cfg = NeverLose.IconSettings or {}
-            local enabled = cfg.Enabled ~= false
+            local iconEnabled = cfg.Enabled ~= false
             local single = cfg.Mode == "Single"
-            local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
-            local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
+            local theme = NeverLose.ThemePalette or {}
+            local c1 = theme.Icon1 or cfg.Color1 or Color3.fromRGB(216,148,245)
+            local c2 = theme.Icon2 or cfg.Color2 or c1
+            LogoImage.ImageTransparency = iconEnabled and 0 or 1
+            LogoImage.ImageColor3 = Color3.fromRGB(255,255,255)
             if single then
                 LogoImage.ImageColor3 = c1
                 NightixGradient.Enabled = false
-            elseif not enabled then
-                LogoImage.ImageColor3 = Color3.fromRGB(255,255,255)
-                NightixGradient.Enabled = false
             else
-                LogoImage.ImageColor3 = Color3.fromRGB(255,255,255)
                 NightixGradient.Enabled = true
                 local speed = math.max(0, tonumber(cfg.Speed) or 0.65)
                 local phase = (os.clock() * speed) % 1
@@ -5134,10 +5133,6 @@ function NeverLose:CreateWindow(Config)
         end
 
         local function getIconGradientColor(phase)
-            local cfg = NeverLose.IconSettings or {}
-            if cfg.Enabled == false then
-                return ColorSequence.new(Color3.fromRGB(255, 255, 255))
-            end
             return NeverLose:GetNightixGradient(phase or 0, false)
         end
         local function setGradient(gradient, alpha, phase)

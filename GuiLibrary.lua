@@ -292,10 +292,30 @@ end
 
 createFolder("Nightix")
 createFolder("Nightix/Configs")
-createFolder("Nightix/Configs/" .. tostring(game.PlaceId))
-
-guilibrary.ConfigRoot = "Nightix/Configs/" .. tostring(game.PlaceId)
+guilibrary.ConfigRoot = "Nightix/Configs"
 guilibrary.CurrentConfig = nil
+
+-- Migrate legacy per-place configs into one shared config folder. Existing
+-- root configs win when names collide.
+pcall(function()
+    local legacyFolders = listfiles("Nightix/Configs")
+    for _, entry in ipairs(legacyFolders) do
+        local text = tostring(entry)
+        local folderName = text:match("([^/\\]+)$")
+        if folderName and isfolder and isfolder(entry) then
+            local files = listfiles(entry)
+            for _, filePath in ipairs(files) do
+                local filename = tostring(filePath):match("([^/\\]+)$")
+                if filename and filename:lower():sub(-5) == ".json" then
+                    local dst = guilibrary.ConfigRoot .. "/" .. filename
+                    if not isfile(dst) then
+                        pcall(function() writefile(dst, readfile(filePath)) end)
+                    end
+                end
+            end
+        end
+    end
+end)
 
 local function configPath(name)
     local safe = sanitizeConfigName(name)

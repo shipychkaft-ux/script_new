@@ -859,6 +859,16 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             function manager:Refresh()
                 clearRows()
                 local configs = guilibrary:ListConfigs()
+                local exists = false
+                for _, configName in ipairs(configs) do
+                    if selected == configName then exists = true break end
+                end
+                if selected and not exists then
+                    selected = nil
+                end
+                if guilibrary.CurrentConfig and not table.find(configs, guilibrary.CurrentConfig) then
+                    guilibrary.CurrentConfig = nil
+                end
                 for _, configName in ipairs(configs) do
                     local row = section:AddLabel(configName)
                     local root = row.Root
@@ -873,14 +883,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     entry.label = root:FindFirstChildOfClass("TextLabel")
                     table.insert(rows, entry)
                     NeverLose:CreateInput(root, function()
-                        local ok, err = guilibrary:LoadConfig(configName)
-                        if ok then
-                            selectRow(entry)
-                            notify("Loaded " .. configName)
-                        else
-                            selectRow(entry)
-                            notify("Load failed: " .. tostring(err))
-                        end
+                        -- Selecting a config never loads it. Loading is explicit via the Load button.
+                        selectRow(entry)
                     end)
                     if selected == configName then selectRow(entry) end
                 end
@@ -895,12 +899,32 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     local ok, err = guilibrary:CreateConfig(name)
                     if ok then
                         selected = name
-                        guilibrary.CurrentConfig = name
                         nameInput:SetValue("")
                         manager:Refresh()
                         notify("Created " .. name)
                     else
                         notify("Create failed: " .. tostring(err))
+                    end
+                end,
+            })
+
+            section:AddButton({
+                Name = "Load",
+                Icon = "download",
+                Callback = function()
+                    if not selected then notify("Select a config first"); return end
+                    local target = selected
+                    local ok, err = guilibrary:LoadConfig(target)
+                    if ok then
+                        guilibrary.CurrentConfig = target
+                        notify("Loaded " .. target)
+                        manager:Refresh()
+                    else
+                        -- Never leave a ghost current config after a failed load.
+                        if not guilibrary:ListConfigs()[1] then
+                            guilibrary.CurrentConfig = nil
+                        end
+                        notify("Load failed: " .. tostring(err))
                     end
                 end,
             })
@@ -925,7 +949,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     local ok, err = guilibrary:DeleteConfig(name)
                     if ok then
                         selected = nil
-                        guilibrary.CurrentConfig = nil
+                        if guilibrary.CurrentConfig == name then
+                            guilibrary.CurrentConfig = nil
+                        end
                         manager:Refresh()
                         notify("Removed " .. name)
                     else

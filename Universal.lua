@@ -624,12 +624,47 @@ runFunction(function()
     end
 
     local function triggerAttack()
-        local character = LocalPlayer.Character
-        local tool = character and character:FindFirstChildOfClass("Tool")
+        local character = getCharacter(LocalPlayer)
+        if not character then return false end
+        local tool = character:FindFirstChildOfClass("Tool")
+        if not tool then
+            local backpack = LocalPlayer:FindFirstChildOfClass("Backpack")
+            local candidate = backpack and backpack:FindFirstChildOfClass("Tool")
+            local humanoid = getHumanoid(LocalPlayer)
+            if candidate and humanoid then
+                pcall(function() humanoid:EquipTool(candidate) end)
+                tool = candidate
+            end
+        end
         if not tool then return false end
-        -- Never synthesize a desktop mouse click. Use Roblox's tool activation directly.
+        -- Never synthesize a desktop click. Activate the equipped Roblox Tool directly.
         local ok = pcall(function() tool:Activate() end)
         return ok
+    end
+
+    local function hasAuraTargetInCrosshair()
+        local originPart = getAuraOrigin()
+        if not originPart then return nil end
+        local origin = originPart.Position
+        local direction = originPart.CFrame.LookVector
+        local best, bestAngle = nil, math.huge
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if valid(plr) then
+                local targetPart = part(plr)
+                if targetPart then
+                    local delta = targetPart.Position - origin
+                    local distance = delta.Magnitude
+                    if distance > 0 and distance <= range.Value then
+                        local angle = math.deg(math.acos(math.clamp(direction:Dot(delta.Unit), -1, 1)))
+                        if angle < bestAngle and angle <= math.max(2, fov.Value * 0.02) then
+                            bestAngle = angle
+                            best = plr
+                        end
+                    end
+                end
+            end
+        end
+        return best
     end
 
     attackAura = Tabs.Combat:CreateToggle({
@@ -691,6 +726,31 @@ runFunction(function()
     shared.NightixAttackAuraTarget = function()
         return currentTarget
     end
+
+    local triggerBot = {Enabled = false}
+    triggerBot = Tabs.Combat:CreateToggle({
+        Name = "TriggerBot",
+        HoverText = "Активирует экипированное оружие, когда цель попадает в прицел ауры. Камера игрока не используется и не кликается мышью.",
+        Callback = function(on)
+            if on then
+                RunLoops:BindToHeartbeat("TriggerBot", function()
+                    if not triggerBot.Enabled or UserInputService:GetFocusedTextBox() then return end
+                    local target = hasAuraTargetInCrosshair()
+                    if target then
+                        local now = os.clock()
+                        local interval = 1 / math.max(1, cps.Value)
+                        if not triggerBot._last or now - triggerBot._last >= interval then
+                            triggerBot._last = now
+                            triggerAttack()
+                        end
+                    end
+                end)
+            else
+                RunLoops:UnbindFromHeartbeat("TriggerBot")
+                triggerBot._last = nil
+            end
+        end
+    })
 end)
 
 -- // Movement tab
