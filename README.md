@@ -1,5 +1,7 @@
 # Nightix — Roblox Client
 
+**Version: 1.0.8**
+
 Nightix is a Roblox Lua client with a Nightix-style ClickGUI.
 
 ## GitHub loader
@@ -80,3 +82,9 @@ Configs are **not** saved automatically. Use the Profiles tab:
 - Circle uses asset 107258187506657 as a 3D moving ring from feet to head and back, with Bloom glow and a tight particle trail.
 - Ромб variants: 1 default, 2 132493106112220, 3 108556924043797, 4 139726405706582.
 - Menu logo/watermark gradient was changed to smooth purple/white motion with a seamless wrap.
+
+
+## SystemDLC shader bridge
+- `ShaderBridge.lua` reads SystemDLC JSON definitions from `shaders/` on the GitHub repo.
+- GLSL `.vsh/.fsh` files are retained as reference/design sources; they are not compiled by Roblox.
+- Compatible effects are rendered with Roblox-native APIs.

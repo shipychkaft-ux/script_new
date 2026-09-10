@@ -161,6 +161,13 @@ Mana.RunLoops = RunLoops
 Mana.PlayersHandler = playersHandler
 Mana.ToolHandler = toolHandler
 Mana.EspLibrary = espLibrary
+
+-- Remote shader bridge: reads SystemDLC shader definitions as data and renders compatible effects with Roblox APIs.
+local ShaderBridge = Functions:RunFile("ShaderBridge.lua")
+Mana.ShaderBridge = ShaderBridge.new({
+    BaseUrl = GitHubRepo .. "shaders/",
+    CacheFolder = "Mana/Shaders",
+})
 --Mana.WhitelistHandler = whitelistHandler
 Mana.Activated = true
 Mana.Whitelisted = false
