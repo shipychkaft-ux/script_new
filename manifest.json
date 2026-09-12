@@ -1,0 +1,66 @@
+{
+  "source": "SystemDLC-main",
+  "renderStrategy": "Roblox-native approximation; GLSL kept for reference",
+  "shaders": {
+    "gradient": {
+      "json": "shaders/gradient.json",
+      "vsh": "shaders/gradient.vsh",
+      "fsh": "shaders/gradient.fsh"
+    },
+    "circle": {
+      "json": "shaders/circle.json",
+      "vsh": "shaders/circle.vsh",
+      "fsh": "shaders/circle.fsh"
+    },
+    "ring": {
+      "json": "shaders/ring.json",
+      "vsh": "shaders/ring.vsh",
+      "fsh": "shaders/ring.fsh"
+    },
+    "blur": {
+      "json": "shaders/blur.json",
+      "vsh": "shaders/blur.vsh",
+      "fsh": "shaders/blur.fsh"
+    },
+    "liquidglass_rect": {
+      "json": "shaders/liquidglass_rect.json",
+      "vsh": "shaders/liquidglass_rect.vsh",
+      "fsh": "shaders/liquidglass_rect.fsh"
+    },
+    "targetesp_glow": {
+      "json": "shaders/targetesp_glow.json",
+      "vsh": "shaders/targetesp_glow.vsh",
+      "fsh": "shaders/targetesp_glow.fsh"
+    },
+    "jump_circle": {
+      "json": "shaders/jump_circle.json",
+      "vsh": "shaders/jump_circle.vsh",
+      "fsh": "shaders/jump_circle.fsh"
+    },
+    "sky_neon": {
+      "json": "shaders/sky_neon.json",
+      "vsh": "shaders/sky_neon.vsh",
+      "fsh": "shaders/sky_neon.fsh"
+    },
+    "sky_stars": {
+      "json": "shaders/sky_stars.json",
+      "vsh": "shaders/sky_stars.vsh",
+      "fsh": "shaders/sky_stars.fsh"
+    },
+    "bloom_extract": {
+      "json": "shaders/bloom_extract.json",
+      "vsh": "shaders/bloom_extract.vsh",
+      "fsh": "shaders/bloom_extract.fsh"
+    },
+    "bloom_blur": {
+      "json": "shaders/bloom_blur.json",
+      "vsh": "shaders/bloom_blur.vsh",
+      "fsh": "shaders/bloom_blur.fsh"
+    },
+    "bloom_composite": {
+      "json": "shaders/bloom_composite.json",
+      "vsh": "shaders/bloom_composite.vsh",
+      "fsh": "shaders/bloom_composite.fsh"
+    }
+  }
+}

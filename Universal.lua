@@ -71,6 +71,23 @@ local playersHandler = Mana.PlayersHandler
 local toolHandler = Mana.ToolHandler
 local espLibrary = Mana.EspLibrary
 local guifont = GuiLibrary.Font
+local ShaderBridge = Mana.ShaderBridge
+
+local function loadShaderDefinition(name)
+    if not ShaderBridge or type(ShaderBridge.LoadDefinition) ~= "function" then return nil end
+    local ok, data = pcall(function() return ShaderBridge:LoadDefinition(name) end)
+    return ok and data or nil
+end
+
+local function destroyIf(obj)
+    if obj then pcall(function() obj:Destroy() end) end
+end
+
+local function themeColor(fallback)
+    local cfg = NeverLose and NeverLose.IconSettings or {}
+    return cfg.Color1 or fallback or Color3.fromRGB(216, 148, 245)
+end
+
 Mana.StartTick = startTick
 
 playersHandler:start()
@@ -1832,6 +1849,7 @@ end)
 runFunction(function()
     local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
     local target; local billboard; local img
+    local highlight
     local circlePart; local circleSurfaceTop; local circleSurfaceBottom; local circleImageTop; local circleImageBottom
     local circleSize={Value=2.0}
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
@@ -1840,6 +1858,26 @@ runFunction(function()
     local function clearDiamond()
         if billboard then pcall(function() billboard:Destroy() end) end
         billboard=nil; img=nil
+    end
+
+    local function clearHighlight()
+        if highlight then pcall(function() highlight:Destroy() end) end
+        highlight=nil
+    end
+
+    local function updateHighlight()
+        if not target or not isAlive(target) or not target.Character then clearHighlight(); return end
+        if not highlight then
+            highlight=Instance.new("Highlight")
+            highlight.Name="NightixTargetShaderGlow"
+            highlight.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.FillTransparency=0.96
+            highlight.OutlineTransparency=0.08
+            highlight.Parent=CoreGui
+        end
+        highlight.Adornee=target.Character
+        highlight.Enabled=true
+        highlight.OutlineColor=themeColor(color.Value)
     end
 
     local function clearCircle()
@@ -1938,10 +1976,11 @@ runFunction(function()
         if on then
             RunLoops:BindToRenderStep("TargetESP",function()
                 target=findAuraTarget()
+                if not target then clearHighlight() else updateHighlight() end
                 if mode.Value=="Circle" then clearDiamond(); updateCircle(tick()) else clearCircle(); updateDiamond() end
             end)
         else
-            RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); target=nil
+            RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); clearHighlight(); target=nil
         end
     end})
     mode=targetESP:CreateDropdown({Name="Режим",List={"Ромб","Circle"},Default="Ромб",Function=function(v) mode.Value=v; vis(diamond,v=="Ромб"); vis(size,v=="Ромб"); vis(circleVariant,v=="Circle"); vis(circleSize,v=="Circle") end})
@@ -3913,9 +3952,12 @@ runFunction(function()
     local density = {Value = 0.5}
     local glare = {Value = 0.5}
     local haze = {Value = 0.5}
-    local offset = {Value = 0.5}
+    local offset = {Value = 0}
     local atmosphere
     local old = {}
+    local colorCorrection, bloom
+
+    loadShaderDefinition("gradient")
 
     local function applyAtmosphere()
         if not atmosphere or atmosphere.Parent ~= Lighting then return end
@@ -3925,16 +3967,39 @@ runFunction(function()
         atmosphere.Glare = glare.Value
         atmosphere.Haze = haze.Value
         atmosphere.Offset = offset.Value
+        if colorCorrection then
+            colorCorrection.TintColor = Color3.new(1,1,1):Lerp(color.Value, math.clamp(density.Value * 0.22, 0, 0.22))
+            colorCorrection.Saturation = math.clamp((density.Value - 0.5) * 0.35, -0.2, 0.2)
+            colorCorrection.Contrast = math.clamp(glare.Value * 0.08, 0, 0.08)
+        end
+        if bloom then
+            bloom.Intensity = math.clamp(density.Value * 0.18 + glare.Value * 0.08, 0, 0.28)
+            bloom.Size = 24 + math.floor(haze.Value * 16)
+        end
+    end
+
+    local function createShaderFX()
+        destroyIf(colorCorrection); destroyIf(bloom)
+        colorCorrection = Instance.new("ColorCorrectionEffect")
+        colorCorrection.Name = "NightixAtmosphereShader"
+        colorCorrection.Parent = Lighting
+        bloom = Instance.new("BloomEffect")
+        bloom.Name = "NightixAtmosphereBloom"
+        bloom.Threshold = 1.15
+        bloom.Parent = Lighting
+        applyAtmosphere()
+    end
+
+    local function destroyShaderFX()
+        destroyIf(colorCorrection); colorCorrection = nil
+        destroyIf(bloom); bloom = nil
     end
 
     atmosphereModule = Tabs.Render:CreateToggle({
         Name = "Atmosphere",
-        HoverText = "Customizes the atmosphere of the game.",
+        HoverText = "Системная Atmosphere + native-порт shader gradient.",
         Callback = function(callback)
             if callback then
-                -- Hide existing atmospheres without parenting them under game.
-                -- The old LightingChanged listener recreated the custom
-                -- atmosphere immediately after it was destroyed on disable.
                 table.clear(old)
                 for _, v in ipairs(Lighting:GetChildren()) do
                     if v:IsA("Atmosphere") then
@@ -3942,19 +4007,16 @@ runFunction(function()
                         v.Parent = nil
                     end
                 end
-
                 atmosphere = Instance.new("Atmosphere")
+                atmosphere.Name = "NightixAtmosphere"
                 atmosphere.Parent = Lighting
+                createShaderFX()
                 applyAtmosphere()
             else
-                if atmosphere then
-                    atmosphere:Destroy()
-                    atmosphere = nil
-                end
+                if atmosphere then atmosphere:Destroy(); atmosphere = nil end
+                destroyShaderFX()
                 for _, v in ipairs(old) do
-                    if v and v.Parent == nil then
-                        v.Parent = Lighting
-                    end
+                    if v and v.Parent == nil then v.Parent = Lighting end
                 end
                 table.clear(old)
             end
@@ -3962,63 +4024,28 @@ runFunction(function()
     })
 
     color = atmosphereModule:CreateColorSlider({
-        Name = "Color",
-        Default = Color3.fromRGB(255, 255, 255),
-        Function = function(v)
-            if atmosphere then atmosphere.Color = v end
-        end
+        Name = "Color", Default = Color3.fromRGB(255,255,255),
+        Function = function(v) color.Value=v; applyAtmosphere() end
     })
-
     decay = atmosphereModule:CreateColorSlider({
-        Name = "Decay",
-        Default = Color3.fromRGB(255, 255, 255),
-        Function = function(v)
-            if atmosphere then atmosphere.Decay = v end
-        end
+        Name = "Decay", Default = Color3.fromRGB(255,255,255),
+        Function = function(v) decay.Value=v; applyAtmosphere() end
     })
-
     density = atmosphereModule:CreateSlider({
-        Name = "Density",
-        Function = function(v)
-            if atmosphere then atmosphere.Density = v end
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 0.5,
-        Round = 2
+        Name = "Density", Min=0, Max=1, Default=0.5, Round=2,
+        Function = function(v) density.Value=v; applyAtmosphere() end
     })
-
     glare = atmosphereModule:CreateSlider({
-        Name = "Glare",
-        Function = function(v)
-            if atmosphere then atmosphere.Glare = v end
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 0.5,
-        Round = 2
+        Name = "Glare", Min=0, Max=1, Default=0.5, Round=2,
+        Function = function(v) glare.Value=v; applyAtmosphere() end
     })
-
     haze = atmosphereModule:CreateSlider({
-        Name = "Haze",
-        Function = function(v)
-            if atmosphere then atmosphere.Haze = v end
-        end,
-        Min = 0,
-        Max = 1,
-        Default = 0.5,
-        Round = 2
+        Name = "Haze", Min=0, Max=1, Default=0.5, Round=2,
+        Function = function(v) haze.Value=v; applyAtmosphere() end
     })
-
     offset = atmosphereModule:CreateSlider({
-        Name = "Offset",
-        Function = function(v)
-            if atmosphere then atmosphere.Offset = v end
-        end,
-        Min = -1,
-        Max = 1,
-        Default = 0,
-        Round = 2
+        Name = "Offset", Min=-1, Max=1, Default=0, Round=2,
+        Function = function(v) offset.Value=v; applyAtmosphere() end
     })
 end)
 
@@ -4201,6 +4228,7 @@ runFunction(function()
     local choice = {Value = "1"}
     local sky
     local old = {}
+    local skyColorCorrection, skyBloom
 
     -- Sky presets copied from the Roblox Studio property screenshots.
     -- Each preset is a complete Sky configuration (all six faces + celestial settings).
@@ -4249,6 +4277,26 @@ runFunction(function()
         },
     }
 
+    local function applyShaderLook()
+        local palettes = {
+            ["1"] = Color3.fromRGB(125, 92, 190), ["2"] = Color3.fromRGB(85, 125, 205),
+            ["3"] = Color3.fromRGB(74, 175, 165), ["4"] = Color3.fromRGB(205, 150, 80),
+            ["5"] = Color3.fromRGB(155, 95, 210), ["6"] = Color3.fromRGB(75, 145, 210),
+            ["7"] = Color3.fromRGB(120, 120, 220), ["8"] = Color3.fromRGB(100, 170, 220),
+        }
+        local palette = palettes[choice.Value] or themeColor(Color3.fromRGB(125,92,190))
+        if skyColorCorrection then
+            skyColorCorrection.TintColor = Color3.new(1,1,1):Lerp(palette, 0.11)
+            skyColorCorrection.Saturation = 0.05
+            skyColorCorrection.Contrast = 0.03
+        end
+        if skyBloom then
+            skyBloom.Intensity = 0.08
+            skyBloom.Size = 18
+            skyBloom.Threshold = 1.2
+        end
+    end
+
     local function apply()
         if not sky then return end
         local data = skies[choice.Value] or skies["1"]
@@ -4268,6 +4316,7 @@ runFunction(function()
         sky.SunAngularSize = data.SunAngularSize
         sky.MoonTextureId = "rbxasset://sky/moon.jpg"
         sky.SunTextureId = "rbxasset://sky/sun.jpg"
+        applyShaderLook()
     end
 
     customSky = Tabs.Render:CreateToggle({
@@ -4275,6 +4324,19 @@ runFunction(function()
         HoverText = "Меняет небо.",
         Callback = function(on)
             if on then
+                -- Fetch a real SystemDLC shader definition as the source-of-design.
+                if choice.Value == "7" or choice.Value == "8" then
+                    loadShaderDefinition("sky_stars")
+                else
+                    loadShaderDefinition("sky_neon")
+                end
+                destroyIf(skyColorCorrection); destroyIf(skyBloom)
+                skyColorCorrection = Instance.new("ColorCorrectionEffect")
+                skyColorCorrection.Name = "NightixSkyShader"
+                skyColorCorrection.Parent = Lighting
+                skyBloom = Instance.new("BloomEffect")
+                skyBloom.Name = "NightixSkyShaderBloom"
+                skyBloom.Parent = Lighting
                 table.clear(old)
                 for _, v in ipairs(Lighting:GetChildren()) do
                     if v:IsA("Sky") then
@@ -4288,6 +4350,8 @@ runFunction(function()
                 apply()
             else
                 if sky then sky:Destroy(); sky = nil end
+                destroyIf(skyColorCorrection); skyColorCorrection=nil
+                destroyIf(skyBloom); skyBloom=nil
                 for _, v in ipairs(old) do
                     if v and v.Parent == nil then v.Parent = Lighting end
                 end
@@ -4314,7 +4378,11 @@ runFunction(function()
         Default = false,
         Callback = function(enabled)
             hud.Enabled = enabled
+            loadShaderDefinition("liquidglass_rect")
             local watermark = shared.NightixWatermark
+            if watermark and watermark.SetShaderVisual then
+                watermark:SetShaderVisual(enabled)
+            end
             if watermark and watermark.SetRender then
                 watermark:SetRender(enabled)
             end

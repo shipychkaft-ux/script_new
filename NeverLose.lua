@@ -245,8 +245,9 @@ local function sameColor(a,b)
 end
 function NeverLose:RefreshNightixTheme()
     local p = self.ThemePalette or {}
-    local c1 = (self.IconSettings and self.IconSettings.Color1) or p.Icon1 or Color3.fromRGB(216, 148, 245)
-    local c2 = (self.IconSettings and self.IconSettings.Color2) or p.Icon2 or Color3.fromRGB(123, 131, 243)
+    local iconEnabled = not (self.IconSettings and self.IconSettings.Enabled == false)
+    local c1 = iconEnabled and ((self.IconSettings and self.IconSettings.Color1) or p.Icon1 or Color3.fromRGB(216, 148, 245)) or Color3.fromRGB(255,255,255)
+    local c2 = iconEnabled and ((self.IconSettings and self.IconSettings.Color2) or p.Icon2 or Color3.fromRGB(123, 131, 243)) or Color3.fromRGB(255,255,255)
     self.MainColor = Color3.fromRGB(8, 8, 13)
     self.IconColor = c1
     -- Theme presets intentionally do not recolor menu/button backgrounds.
@@ -264,6 +265,9 @@ end
 
 function NeverLose:GetNightixGradient(phase, muted)
     local cfg = self.IconSettings or {}
+    if cfg.Enabled == false then
+        return ColorSequence.new(Color3.fromRGB(255,255,255))
+    end
     local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
     local c2 = cfg.Color2 or c1
 
@@ -6347,6 +6351,47 @@ function NeverLose:CreateWindow(Config)
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+
+		local WatermarkShaderGradient = Instance.new("UIGradient")
+		WatermarkShaderGradient.Name = "NightixLiquidGlassGradient"
+		WatermarkShaderGradient.Enabled = false
+		WatermarkShaderGradient.Rotation = 90
+		WatermarkShaderGradient.Color = ColorSequence.new(Color3.fromRGB(255,255,255))
+		WatermarkShaderGradient.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.86),
+			NumberSequenceKeypoint.new(0.5, 0.94),
+			NumberSequenceKeypoint.new(1, 0.86),
+		})
+		WatermarkShaderGradient.Parent = Watermark
+
+		local shaderVisualEnabled = false
+		local shaderVisualConnection
+		local function updateWatermarkShaderVisual()
+			local cfg = NeverLose.IconSettings or {}
+			local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
+			local c2 = (cfg.Mode == "Single") and c1 or (cfg.Color2 or c1)
+			WatermarkShaderGradient.Color = ColorSequence.new({
+				ColorSequenceKeypoint.new(0, c1),
+				ColorSequenceKeypoint.new(0.5, c2),
+				ColorSequenceKeypoint.new(1, c1),
+			})
+			WatermarkShaderGradient.Enabled = shaderVisualEnabled and cfg.Enabled ~= false
+		end
+
+		function Watermark_lb:SetShaderVisual(value)
+			shaderVisualEnabled = value == true
+			updateWatermarkShaderVisual()
+			if shaderVisualConnection then shaderVisualConnection:Disconnect(); shaderVisualConnection=nil end
+			if shaderVisualEnabled then
+				shaderVisualConnection = RunService.RenderStepped:Connect(function()
+					if not Watermark.Parent then return end
+					local cfg = NeverLose.IconSettings or {}
+					local speed = tonumber(cfg.Speed) or 0.65
+					WatermarkShaderGradient.Offset = Vector2.new(math.sin(os.clock()*speed*0.7)*0.5, 0)
+					updateWatermarkShaderVisual()
+				end)
+			end
+		end
 
 		-- Draggable watermark. Position is kept in viewport offsets.
 		local draggingWatermark, dragStart, watermarkStart
