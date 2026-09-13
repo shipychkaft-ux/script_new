@@ -26,13 +26,13 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         ConfigFolder = "NightixConfigs",
         EnableConfig = false,
         Enable3DRenderer = false,
-        MultiColumn = true,
         Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
     })
 
     -- watermark
     local Watermark = window:Watermark()
     shared.NightixWatermark = Watermark
+    Watermark:AddBlock("rbxassetid://106084104602244", "Release | UID: " .. tostring(localPlayer.UserId))
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
@@ -83,7 +83,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- menu scale, adjustable through UserSettings
     local function scaleSize(scale)
         scale = tonumber(scale) or 1
-        return UDim2.fromOffset(math.floor(1420 * scale), math.floor(520 * scale))
+        return UDim2.fromOffset(math.floor(640 * scale), math.floor(480 * scale))
     end
     local menuScaleValue = savedNightixScale
     local menuScale = scaleSize(menuScaleValue)
@@ -551,29 +551,17 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             end,
         })
 
-        local function applyModuleRowState(enabled)
-            local p = NeverLose.ThemePalette or {}
-            label.Root.BackgroundColor3 = enabled and (p.ActiveFunction or Color3.fromRGB(41,35,67)) or (p.FunctionBackground or Color3.fromRGB(30,30,52))
-            label.Root:SetAttribute("NightixThemeRole", enabled and "ActiveFunction" or "Function")
-            label.Root.BackgroundTransparency = 0.02
-        end
-        applyModuleRowState(ToggleTable.Enabled)
-
         local toggleLib = label:AddToggle({
             Default = ToggleTable.Enabled,
             Callback = function(v)
-                applyModuleRowState(v)
                 if ToggleTable.Enabled ~= v then
                     ToggleTable:Toggle(false, v)
                 end
             end,
         })
 
-        local optionWindow = label:AddOption({Icon=1, AlwaysVisible=argstable.OptionsAlwaysVisible == true}) -- gear: module options
+        local optionWindow = label:AddOption(1) -- gear: module options
         table.insert(optionWindows, optionWindow)
-        NeverLose:AddSignal(label.Root.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton2 then optionWindow.Signal:SetValue(true) end
-        end))
 
         local function reapplyModuleOptions()
             for _, optionData in next, ToggleTable.Options do
@@ -884,7 +872,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 for _, configName in ipairs(configs) do
                     local row = section:AddLabel(configName)
                     local root = row.Root
-                    root.Size = UDim2.new(1, 0, 0, 56)
                     local stroke = Instance.new("UIStroke")
                     stroke.Color = Color3.fromRGB(255,255,255)
                     stroke.Thickness = 1
@@ -892,50 +879,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     stroke.Parent = root
                     local glow = NeverLose:CreateShadow(root, true, 0.75)
                     local entry = {name=configName, root=root, label=nil, stroke=stroke, glow=glow}
+                    -- AddLabel does not expose its internal TextLabel, so use the first TextLabel child.
                     entry.label = root:FindFirstChildOfClass("TextLabel")
-                    if entry.label then
-                        entry.label.Position = UDim2.fromOffset(10, 5)
-                        entry.label.Size = UDim2.new(1, -20, 0, 18)
-                        entry.label.TextSize = 13
-                        entry.label.TextXAlignment = Enum.TextXAlignment.Left
-                    end
-                    local meta = guilibrary.GetConfigMetadata and guilibrary:GetConfigMetadata(configName) or nil
-                    local creator = Instance.new("TextLabel")
-                    creator.Name = "ConfigCreator"
-                    creator.Parent = root
-                    creator.BackgroundTransparency = 1
-                    creator.Position = UDim2.new(0, 10, 0, 27)
-                    creator.Size = UDim2.new(1, -20, 0, 13)
-                    creator.ZIndex = root.ZIndex + 2
-                    creator.Font = Enum.Font.GothamMedium
-                    creator.Text = "от " .. tostring(meta and meta.CreatedBy or "Unknown")
-                    creator.TextColor3 = Color3.fromRGB(170,170,180)
-                    creator.TextSize = 9
-                    creator.TextXAlignment = Enum.TextXAlignment.Left
-                    local date = Instance.new("TextLabel")
-                    date.Name = "ConfigDate"
-                    date.Parent = root
-                    date.BackgroundTransparency = 1
-                    date.Position = UDim2.new(0, 10, 0, 40)
-                    date.Size = UDim2.new(1, -35, 0, 12)
-                    date.ZIndex = root.ZIndex + 2
-                    date.Font = Enum.Font.GothamMedium
-                    date.Text = tostring(meta and meta.CreatedAt or "--.--.---- --:--")
-                    date.TextColor3 = Color3.fromRGB(145,145,155)
-                    date.TextSize = 9
-                    date.TextXAlignment = Enum.TextXAlignment.Left
-                    local check = Instance.new("TextLabel")
-                    check.Name = "ConfigCheck"
-                    check.Parent = root
-                    check.BackgroundTransparency = 1
-                    check.Position = UDim2.new(1, -25, 0, 37)
-                    check.Size = UDim2.fromOffset(18, 18)
-                    check.ZIndex = root.ZIndex + 3
-                    check.Font = Enum.Font.GothamBold
-                    check.Text = "✓"
-                    check.TextColor3 = Color3.fromRGB(255,255,255)
-                    check.TextSize = 14
-                    check.TextXAlignment = Enum.TextXAlignment.Center
                     table.insert(rows, entry)
                     NeverLose:CreateInput(root, function()
                         -- Selecting a config never loads it. Loading is explicit via the Load button.
@@ -949,12 +894,12 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 Name = "Add",
                 Icon = "circle-plus",
                 Callback = function()
-                    local name = tostring(nameInput.Value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+                    local name = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
                     if name == "" then notify("Enter a config name"); return end
                     local ok, err = guilibrary:CreateConfig(name)
                     if ok then
                         selected = name
-                        nameInput:Set("")
+                        nameInput:SetValue("")
                         manager:Refresh()
                         notify("Created " .. name)
                     else
@@ -1172,7 +1117,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     end
 
     guilibrary.NightixMenu = {
-        Version = "1.0.10",
+        Version = 2,
         Window = window,
         NeverLose = NeverLose,
     }

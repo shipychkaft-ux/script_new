@@ -1847,46 +1847,151 @@ end)
 
 -- Target ESP: synchronized strictly with AttackAura.
 runFunction(function()
-    local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=.2}; local color={Value=Color3.fromRGB(197,132,211)}; local circleVariant={Value="1"}
-    local target; local billboard; local img; local circlePart; local circleImageTop; local circleImageBottom
-    local diamonds={["1"]="113363639205880",["2"]="132493106112220",["3"]="108556924043797",["4"]="139726405706582"}
-    local ringTarget="107258187506657"; local ringJump="88864906064603"
-    local function clearDiamond() if billboard then pcall(function() billboard:Destroy() end) end; billboard=nil; img=nil end
-    local function clearCircle() if circlePart then pcall(function() circlePart:Destroy() end) end; circlePart=nil; circleImageTop=nil; circleImageBottom=nil end
+    local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
+    local target; local billboard; local img
+    local highlight
+    local circlePart; local circleSurfaceTop; local circleSurfaceBottom; local circleImageTop; local circleImageBottom
+    local circleSize={Value=2.0}
+    local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
+    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
+
+    local function clearDiamond()
+        if billboard then pcall(function() billboard:Destroy() end) end
+        billboard=nil; img=nil
+    end
+
+    local function clearHighlight()
+        if highlight then pcall(function() highlight:Destroy() end) end
+        highlight=nil
+    end
+
+    local function updateHighlight()
+        if not target or not isAlive(target) or not target.Character then clearHighlight(); return end
+        if not highlight then
+            highlight=Instance.new("Highlight")
+            highlight.Name="NightixTargetShaderGlow"
+            highlight.DepthMode=Enum.HighlightDepthMode.AlwaysOnTop
+            highlight.FillTransparency=0.96
+            highlight.OutlineTransparency=0.08
+            highlight.Parent=CoreGui
+        end
+        highlight.Adornee=target.Character
+        highlight.Enabled=true
+        highlight.OutlineColor=themeColor(color.Value)
+    end
+
+    local function clearCircle()
+        if circlePart then pcall(function() circlePart:Destroy() end) end
+        circlePart=nil; circleSurfaceTop=nil; circleSurfaceBottom=nil; circleImageTop=nil; circleImageBottom=nil
+    end
+
+    local function createCircleSurface(face)
+        local surface=Instance.new("SurfaceGui")
+        surface.Name="CircleTexture3D_"..tostring(face)
+        surface.Face=face
+        surface.AlwaysOnTop=true
+        surface.LightInfluence=0
+        surface.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+        surface.PixelsPerStud=256
+        surface.CanvasSize=Vector2.new(512,512)
+        surface.Parent=circlePart
+
+        local image=Instance.new("ImageLabel")
+        image.Name="CircleTexture"
+        image.AnchorPoint=Vector2.new(.5,.5)
+        image.Position=UDim2.fromScale(.5,.5)
+        image.Size=UDim2.fromScale(1,1)
+        image.BackgroundTransparency=1
+        image.ScaleType=Enum.ScaleType.Fit
+        image.Parent=surface
+        return surface,image
+    end
+
     local function ensureCircle()
         if circlePart and circlePart.Parent then return end
-        circlePart=Instance.new("Part"); circlePart.Name="NightixTargetESPCircle3D"; circlePart.Anchored=true; circlePart.CanCollide=false; circlePart.CanTouch=false; circlePart.CanQuery=false; circlePart.CastShadow=false; circlePart.Transparency=1; circlePart.Parent=workspace
-        for _,face in ipairs({Enum.NormalId.Top,Enum.NormalId.Bottom}) do
-            local sg=Instance.new("SurfaceGui"); sg.Face=face; sg.AlwaysOnTop=true; sg.LightInfluence=0; sg.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud; sg.PixelsPerStud=256; sg.CanvasSize=Vector2.new(512,512); sg.Parent=circlePart
-            local im=Instance.new("ImageLabel"); im.AnchorPoint=Vector2.new(.5,.5); im.Position=UDim2.fromScale(.5,.5); im.Size=UDim2.fromScale(1,1); im.BackgroundTransparency=1; im.ScaleType=Enum.ScaleType.Fit; im.Parent=sg
-            if face==Enum.NormalId.Top then circleImageTop=im else circleImageBottom=im end
+        circlePart=Instance.new("Part")
+        circlePart.Name="NightixTargetESPCircle3D"
+        circlePart.Anchored=true
+        circlePart.CanCollide=false
+        circlePart.CanTouch=false
+        circlePart.CanQuery=false
+        circlePart.CastShadow=false
+        circlePart.Transparency=1
+        circlePart.Material=Enum.Material.SmoothPlastic
+        circlePart.Parent=workspace
+        -- Two-sided rendering: the same 3D texture is visible from above and below.
+        circleSurfaceTop,circleImageTop=createCircleSurface(Enum.NormalId.Top)
+        circleSurfaceBottom,circleImageBottom=createCircleSurface(Enum.NormalId.Bottom)
+    end
+
+    local function updateCircle(t)
+        if not target or not isAlive(target) or not target.Character then clearCircle(); return end
+        local c=target.Character
+        local humanoid=c:FindFirstChildOfClass("Humanoid")
+        local root=c:FindFirstChild("HumanoidRootPart") or c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso")
+        local head=c:FindFirstChild("Head")
+        if not root or not humanoid then clearCircle(); return end
+        ensureCircle()
+
+        local boxCF, boxSize=c:GetBoundingBox()
+        local center=boxCF.Position
+        local bottomY=center.Y-boxSize.Y*0.5
+        local headTop=head and (head.Position.Y+head.Size.Y*0.5) or (center.Y+boxSize.Y*0.5)
+        local headRadius=head and math.max(head.Size.X,head.Size.Z)*0.62 or math.max(boxSize.X,boxSize.Z)*0.7
+        local diameter=math.max(2.0,headRadius*2*math.max(0.25,circleSize.Value))
+
+        -- Smooth endless head -> feet -> head motion.
+        local phase=(t*math.max(0,speed.Value)*0.003)%2
+        local progress=phase<=1 and phase or 2-phase
+        local y=headTop+(bottomY-headTop)*progress
+
+        circlePart.Size=Vector3.new(diameter,0.04,diameter)
+        circlePart.CFrame=CFrame.new(root.Position.X,y,root.Position.Z)
+        local texture="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"])
+        local transparency=math.clamp(alpha.Value,0,1)
+        for _,image in ipairs({circleImageTop,circleImageBottom}) do
+            if image then
+                image.Image=texture
+                image.ImageColor3=color.Value
+                image.ImageTransparency=transparency
+                image.Rotation=0
+            end
         end
     end
-    local function findAuraTarget() local t=shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget(); return (t and isAlive(t)) and t or nil end
+
     local function updateDiamond()
         if not target or not isAlive(target) then if billboard then billboard.Enabled=false end; return end
         local c=target.Character; local anchor=c and (c:FindFirstChild("UpperTorso") or c:FindFirstChild("Torso") or getHumanoidRootPart(target)); if not anchor then if billboard then billboard.Enabled=false end; return end
-        if not billboard then billboard=Instance.new("BillboardGui"); billboard.Name="NightixTargetESP"; billboard.AlwaysOnTop=true; billboard.LightInfluence=0; billboard.Size=UDim2.fromOffset(size.Value,size.Value); billboard.ResetOnSpawn=false; billboard.Parent=CoreGui; img=Instance.new("ImageLabel"); img.AnchorPoint=Vector2.new(.5,.5); img.Position=UDim2.fromScale(.5,.5); img.Size=UDim2.fromScale(1,1); img.BackgroundTransparency=1; img.ScaleType=Enum.ScaleType.Fit; img.Parent=billboard end
-        billboard.Adornee=anchor; billboard.Enabled=true; billboard.Size=UDim2.fromOffset(size.Value,size.Value); img.Image="rbxassetid://"..(diamonds[diamond.Value] or diamonds["1"]); img.ImageColor3=themeColor(color.Value); img.ImageTransparency=math.clamp(alpha.Value,0,1); img.Rotation=(tick()*speed.Value)%360
+        if not billboard then
+            billboard=Instance.new("BillboardGui"); billboard.Name="NightixTargetESP"; billboard.AlwaysOnTop=true; billboard.LightInfluence=0; billboard.Size=UDim2.fromOffset(size.Value,size.Value); billboard.StudsOffset=Vector3.new(0,0,0); billboard.MaxDistance=1000; billboard.ResetOnSpawn=false; billboard.Parent=CoreGui
+            img=Instance.new("ImageLabel"); img.Name="TargetDiamond"; img.AnchorPoint=Vector2.new(.5,.5); img.Position=UDim2.fromScale(.5,.5); img.Size=UDim2.fromScale(1,1); img.BackgroundTransparency=1; img.ScaleType=Enum.ScaleType.Fit; img.Parent=billboard
+        end
+        billboard.Adornee=anchor; billboard.Enabled=true; billboard.Size=UDim2.fromOffset(size.Value,size.Value); img.Image="rbxassetid://"..(diamonds[diamond.Value] or diamonds["1"]); img.ImageColor3=color.Value; img.ImageTransparency=math.clamp(alpha.Value,0,1); img.Rotation=(tick()*speed.Value)%360
     end
-    local function updateCircle(t)
-        if not target or not isAlive(target) then clearCircle(); return end
-        local c=target.Character; local root=c and c:FindFirstChild("HumanoidRootPart"); if not root then clearCircle(); return end
-        ensureCircle(); local boxCF,boxSize=c:GetBoundingBox(); local center=boxCF.Position; local bottomY=center.Y-boxSize.Y*.5; local head=c:FindFirstChild("Head"); local headTop=head and head.Position.Y+head.Size.Y*.5 or center.Y+boxSize.Y*.5; local radius=head and math.max(head.Size.X,head.Size.Z)*.62 or math.max(boxSize.X,boxSize.Z)*.7; local diameter=math.max(2,radius*2)
-        local phase=(t*speed.Value*.003)%2; local progress=phase<=1 and phase or 2-phase; local y=headTop+(bottomY-headTop)*progress; circlePart.Size=Vector3.new(diameter,.04,diameter); circlePart.CFrame=CFrame.new(root.Position.X,y,root.Position.Z)
-        local tex=(circleVariant.Value=="2" and ringJump) or ringTarget
-        for _,im in ipairs({circleImageTop,circleImageBottom}) do if im then im.Image="rbxassetid://"..tex; im.ImageColor3=themeColor(color.Value); im.ImageTransparency=math.clamp(alpha.Value,0,1) end end
-    end
-    targetESP=Tabs.Render:CreateToggle({Name="Target ESP",HoverText="Показывает ESP только на текущей цели AttackAura.",Callback=function(on) if on then RunLoops:BindToRenderStep("TargetESP",function() target=findAuraTarget(); if mode.Value=="Не отображать" then clearDiamond(); clearCircle() elseif mode.Value=="Ромб" then clearCircle(); updateDiamond() else clearDiamond(); updateCircle(tick()) end end) else RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); target=nil end end})
+
+    local function findAuraTarget() local t=shared.NightixAttackAuraTarget and shared.NightixAttackAuraTarget(); return (t and isAlive(t)) and t or nil end
     local function vis(x,v) if x and x.Container then x.Container.Visible=v end end
-    mode=targetESP:CreateDropdown({Name="Отображение цели",List={"Кольцо","Ромб","Не отображать"},Default="Ромб",Function=function(v) mode.Value=v; vis(diamond,v=="Ромб"); vis(size,v=="Ромб"); vis(circleVariant,v=="Кольцо") end})
-    circleVariant=targetESP:CreateDropdown({Name="Вариант кольца",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v end})
+
+    targetESP=Tabs.Render:CreateToggle({Name="Target ESP",HoverText="Показывает ESP только на текущей цели AttackAura.",Callback=function(on)
+        if on then
+            RunLoops:BindToRenderStep("TargetESP",function()
+                target=findAuraTarget()
+                if not target then clearHighlight() else updateHighlight() end
+                if mode.Value=="Circle" then clearDiamond(); updateCircle(tick()) else clearCircle(); updateDiamond() end
+            end)
+        else
+            RunLoops:UnbindFromRenderStep("TargetESP"); clearDiamond(); clearCircle(); clearHighlight(); target=nil
+        end
+    end})
+    mode=targetESP:CreateDropdown({Name="Режим",List={"Ромб","Circle"},Default="Ромб",Function=function(v) mode.Value=v; vis(diamond,v=="Ромб"); vis(size,v=="Ромб"); vis(circleVariant,v=="Circle"); vis(circleSize,v=="Circle") end})
     diamond=targetESP:CreateDropdown({Name="Ромб",List={"1","2","3","4"},Default="1",Function=function(v) diamond.Value=v end})
     size=targetESP:CreateSlider({Name="Размер ромба",Min=60,Max=300,Default=150,Round=0,Function=function(v) size.Value=v end})
     speed=targetESP:CreateSlider({Name="Скорость",Min=0,Max=720,Default=180,Round=0,Function=function(v) speed.Value=v end})
     alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
-    color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(197,132,211),Function=function(v) color.Value=v end})
-    vis(circleVariant,false); vis(diamond,true); vis(size,true)
+    color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
+    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
+    circleSize=targetESP:CreateSlider({Name="Размер круга",Min=0.5,Max=4,Default=2,Round=2,Function=function(v) circleSize.Value=v end})
+    vis(diamond,true); vis(size,true); vis(circleVariant,false); vis(circleSize,false)
 end)
 
 runFunction(function()
@@ -4266,60 +4371,23 @@ runFunction(function()
 end)
 
 runFunction(function()
-    local interface = {Enabled = false}
-    local logo = {Value = false}
-    local blur = {Value = false}
-    local blurStrength = {Value = 0.65}
-    local backgroundColor = {Value = nil}
-    local pingBlock
-    local watermark = shared.NightixWatermark
-
-    local function getThemeBackground()
-        local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-        local p = nl and nl.ThemePalette or {}
-        local visual = p.VisualFunctions or themeColor(Color3.fromRGB(197,132,211))
-        return p.HudBackground or visual:Lerp(Color3.new(0,0,0), 0.72)
-    end
-    local function updateHud()
-        watermark = watermark or shared.NightixWatermark
-        if not watermark then return end
-        if watermark.SetRender then watermark:SetRender(logo.Value) end
-        if watermark.SetBlur then watermark:SetBlur(blur.Value and logo.Value, blurStrength.Value) end
-        if watermark.SetBackgroundColor then watermark:SetBackgroundColor(backgroundColor.Value or getThemeBackground()) end
-    end
-
-    interface = Tabs.Render:CreateToggle({Name="Interface", HoverText="Настройки HUD Nightix.", Default=false, OptionsAlwaysVisible=true, Callback=function(on) interface.Enabled=on end})
-    logo = interface:CreateToggle({Name="Логотип", Default=false, Function=function(v) logo.Value=v; updateHud() end})
-    blur = interface:CreateToggle({Name="Размытие", Default=false, Function=function(v) blur.Value=v; updateHud() end})
-    blurStrength = interface:CreateSlider({Name="Сила блюра", Min=0, Max=1, Default=.65, Round=2, Function=function(v) blurStrength.Value=v; updateHud() end})
-    local backgroundPicker = interface:CreateColorSlider({Name="Цвет фона", Default=getThemeBackground(), Function=function(v) backgroundColor.Value=v; updateHud() end})
-    backgroundColor.Value=nil
-
-    for _,deadName in ipairs({"Броня","Счетчик тотемов","Информация о цели","Администрация онлайн","Уведомления","Задержки","Funtime/HolyWorld бинды","Зелья","Инвентарь","Горячие клавиши"}) do
-        interface:CreateToggle({Name=deadName, Default=false, Function=function() end})
-    end
-    interface:CreateButton({Name="Закрыть редактор цветов", Function=function() end})
-    interface:CreateButton({Name="Закрыть редактор конфигов", Function=function() end})
-
-    if watermark and watermark.AddBlock then
-        watermark._NightixLogoBlock = watermark.AddBlock("rbxassetid://106084104602244", "Release")
-        watermark._NightixUserBlock = watermark.AddBlock("rbxassetid://118066261212798", LocalPlayer.Name)
-        pingBlock = watermark.AddBlock("rbxassetid://123183227014022", "0 Ping")
-        watermark._NightixPingBlock = pingBlock
-    end
-
-    local Stats = game:GetService("Stats")
-    RunLoops:BindToHeartbeat("NightixHUDPing", function()
-        if not logo.Value or not pingBlock or not pingBlock.SetText then return end
-        local text="0 Ping"
-        pcall(function()
-            local item=Stats.Network.ServerStatsItem["Data Ping"]
-            local n=math.floor(tonumber(item:GetValue()) or 0)
-            text=tostring(math.max(0,n)).." Ping"
-        end)
-        pingBlock:SetText(text)
-    end)
-    updateHud()
+    local hud = {Enabled = false}
+    hud = Tabs.Render:CreateToggle({
+        Name = "HUD",
+        HoverText = "Включает HUD Nightix с ватермарком.",
+        Default = false,
+        Callback = function(enabled)
+            hud.Enabled = enabled
+            loadShaderDefinition("liquidglass_rect")
+            local watermark = shared.NightixWatermark
+            if watermark and watermark.SetShaderVisual then
+                watermark:SetShaderVisual(enabled)
+            end
+            if watermark and watermark.SetRender then
+                watermark:SetRender(enabled)
+            end
+        end
+    })
 end)
 
 runFunction(function()
