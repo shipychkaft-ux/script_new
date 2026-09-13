@@ -189,64 +189,19 @@ end
 GuiLibrary:CreateWindow()
 
 local Tabs = {
-    Combat = GuiLibrary:CreateTab({
-        Name = "Combat",
-        Color = Color3.fromRGB(252, 60, 68), --252, 60, 68
-        TabIcon = "CombatTabIcon.png"
-    }),
-    Movement = GuiLibrary:CreateTab({
-        Name = "Movement",
-        Color = Color3.fromRGB(255, 148, 36), --255, 148, 36
-        TabIcon = "MovementTabIcon.png"
-    }),
-    Render = GuiLibrary:CreateTab({
-        Name = "Visuals",
-        Color = Color3.fromRGB(59, 170, 222), --59, 170, 222
-        TabIcon = "RenderTabIcon.png"
-    }),
-    Utility = GuiLibrary:CreateTab({
-        Name = "Utility",
-        Color = Color3.fromRGB(83, 214, 110),
-        TabIcon = "rbxassetid://89294237251926",
-    }),
-    Settings = GuiLibrary:CreateOptionsTab({
-        Name = "Settings",
-        Color = Color3.fromRGB(240, 157, 62), --240, 157, 62
-        TabIcon = "MiscTabIcon.png"
-    }),
-    Confings = GuiLibrary:CreateOptionsTab({
-        Name = "Confings",
-        Color = Color3.fromRGB(255, 255, 255), --255, 255, 255
-        TabIcon = "MiscTabIcon.png"
-    }),
-    Friends = GuiLibrary:CreateOptionsTab({
-        Name = "Friends",
-        Color = Color3.fromRGB(240, 157, 62), --240, 157, 62
-        TabIcon = "PlayerImage.png"
-    }),
-    --[[
-    FE = GuiLibrary:CreateTab({
-        Name = "FE + Trolling",
-        Color = Color3.fromRGB(255, 0, 34),
-        Visible = true,
-        TabIcon = "Utility.png",
-        Callback = function() end
-    }),
-    Plugins = GuiLibrary:CreateTab({
-        Name = "Plugins",
-        Color = Color3.fromRGB(49, 204, 90),
-        Visible = true,
-        TabIcon = "MiscTabIcon.png",
-        Callback = function() end
-    }),
-    ]]
-    --[[
-    SessionInfo = GuiLibrary:CreateCustomTab({
-        Name = "Session info",
-        Color = Color3.fromRGB(240, 157, 62)
-    })
-    ]]
+    Combat = GuiLibrary:CreateTab({Name = "Combat", Color = Color3.fromRGB(252,60,68), TabIcon = "CombatTabIcon.png"}),
+    Movement = GuiLibrary:CreateTab({Name = "Movement", Color = Color3.fromRGB(255,148,36), TabIcon = "MovementTabIcon.png"}),
+    Render = GuiLibrary:CreateTab({Name = "Visuals", Color = Color3.fromRGB(59,170,222), TabIcon = "RenderTabIcon.png"}),
+    Player = GuiLibrary:CreateTab({Name = "Player", Color = Color3.fromRGB(83,214,110), TabIcon = "PlayerImage.png"}),
+    Miscellaneous = GuiLibrary:CreateOptionsTab({Name = "Miscellaneous", Color = Color3.fromRGB(240,157,62), TabIcon = "MiscTabIcon.png"}),
 }
+
+-- Backwards-compatible aliases used by Universal.lua. They point to the
+-- single Miscellaneous/Player windows, so the client has only five visible panes.
+Tabs.Utility = Tabs.Player
+Tabs.Settings = Tabs.Miscellaneous
+Tabs.Confings = Tabs.Miscellaneous
+Tabs.Friends = Tabs.Miscellaneous
 Mana.Tabs = Tabs
 
 if GuiLibrary.Device == "Mobile" then
@@ -323,28 +278,38 @@ runFunction(function()
 
     -- Icon is a real function. All appearance controls live inside its option window.
     local iconFunction = Tabs.Settings:CreateToggle({
-        Name = "Icon",
+        Name = "Theme Editor",
         Default = true,
-        Callback = function(v)
-            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl then
-                nl.IconSettings = nl.IconSettings or {}
-                nl.IconSettings.Enabled = v
-            end
-        end
+        Callback = function() end
     })
-
     local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+    if nl then nl.ThemeEditorToggle = iconFunction end
     if nl then
         nl.IconSettings = nl.IconSettings or {}
         nl.IconSettings.Enabled = true
         nl.IconSettings.Mode = nl.IconSettings.Mode or "Double"
-        nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(216, 148, 245)
-        nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(123, 131, 243)
+        nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(197, 132, 211)
+        nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(95, 63, 121)
         nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
+        nl.VisualTheme = nl.VisualTheme or {}
+        nl.VisualTheme.Mode = nl.VisualTheme.Mode or "Double"
+        nl.VisualTheme.Color1 = nl.VisualTheme.Color1 or Color3.fromRGB(197, 132, 211)
+        nl.VisualTheme.Color2 = nl.VisualTheme.Color2 or Color3.fromRGB(95, 63, 121)
+        nl.VisualTheme.Speed = nl.VisualTheme.Speed or 0.65
     end
 
     local iconColor2, iconSpeed
+    local iconToggle = iconFunction:CreateToggle({
+        Name = "Icon",
+        Default = true,
+        Function = function(v)
+            local nlt = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if nlt then
+                nlt.IconSettings.Enabled = v
+                if nlt.RefreshNightixTheme then nlt:RefreshNightixTheme() end
+            end
+        end
+    })
     local iconMode = iconFunction:CreateDropdown({
         Name = "Режим",
         List = {"Одиночный", "Двойной"},
@@ -353,8 +318,10 @@ runFunction(function()
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
             if not nl2 then return end
             nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
+            nl2.VisualTheme = nl2.VisualTheme or {}
+            nl2.VisualTheme.Mode = nl2.IconSettings.Mode
             if nl2.IconSettings.Mode == "Single" and not nl2.IconSettings.SingleInitialized then
-                nl2.IconSettings.Color1 = Color3.fromRGB(255, 255, 255)
+                nl2.IconSettings.Color1 = Color3.fromRGB(197, 132, 211)
                 nl2.IconSettings.SingleInitialized = true
             end
             local double = nl2.IconSettings.Mode == "Double"
@@ -364,20 +331,32 @@ runFunction(function()
     })
 
     local iconColor1 = iconFunction:CreateColorSlider({
-        Name = "Первый цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
+        Name = "Визуальные функции — Цвет 1",
+        Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(197, 132, 211),
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Color1 = v end
+            if nl2 then
+                nl2.VisualTheme = nl2.VisualTheme or {}
+                nl2.VisualTheme.Color1 = v
+                nl2.IconSettings.Color1 = v
+                if nl2.RefreshNightixTheme then nl2:RefreshNightixTheme() end
+                if shared.NightixRefreshVisualTheme then pcall(shared.NightixRefreshVisualTheme) end
+            end
         end
     })
 
     iconColor2 = iconFunction:CreateColorSlider({
-        Name = "Второй цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
+        Name = "Визуальные функции — Цвет 2",
+        Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(95, 63, 121),
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Color2 = v end
+            if nl2 then
+                nl2.VisualTheme = nl2.VisualTheme or {}
+                nl2.VisualTheme.Color2 = v
+                nl2.IconSettings.Color2 = v
+                if nl2.RefreshNightixTheme then nl2:RefreshNightixTheme() end
+                if shared.NightixRefreshVisualTheme then pcall(shared.NightixRefreshVisualTheme) end
+            end
         end
     })
 
@@ -386,7 +365,12 @@ runFunction(function()
         Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.65, Round = 2,
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Speed = v end
+            if nl2 then
+                nl2.VisualTheme = nl2.VisualTheme or {}
+                nl2.VisualTheme.Speed = v
+                nl2.IconSettings.Speed = v
+                if nl2.RefreshNightixTheme then nl2:RefreshNightixTheme() end
+            end
         end
     })
 
@@ -408,15 +392,15 @@ runFunction(function()
                 Color5 = Color3.fromRGB(20, 20, 20),
                 Color6 = Color3.fromRGB(200, 200, 200),
                 ToggleColor = Color3.fromRGB(0, 0, 0),
-                ToggleColor2 = Color3.fromRGB(123, 131, 243),
+                ToggleColor2 = Color3.fromRGB(95, 63, 121),
                 TextColor = Color3.fromRGB(255, 255, 255),
                 PlaceholderColor = Color3.fromRGB(220, 220, 220),
                 PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
                 InfoColor = Color3.fromRGB(180, 180, 180),
                 WarningColor = Color3.fromRGB(198, 205, 64),
                 ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(216, 148, 245),
-                Icon2 = Color3.fromRGB(123, 131, 243),
+                Icon1 = Color3.fromRGB(197, 132, 211),
+                Icon2 = Color3.fromRGB(95, 63, 121),
             },
             ["Nursultan 1.16.5"] = {
                 Color1 = Color3.fromRGB(14, 14, 23),
@@ -433,8 +417,8 @@ runFunction(function()
                 InfoColor = Color3.fromRGB(180, 180, 180),
                 WarningColor = Color3.fromRGB(198, 205, 64),
                 ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(207, 156, 211),
-                Icon2 = Color3.fromRGB(94, 74, 103),
+                Icon1 = Color3.fromRGB(197, 132, 211),
+                Icon2 = Color3.fromRGB(95, 63, 121),
             },
         }
         local theme = themes[v]
@@ -451,6 +435,7 @@ runFunction(function()
         nl2.IconSettings.Color1 = theme.Icon1
         nl2.IconSettings.Color2 = theme.Icon2
         nl2.IconSettings.Speed = 0.65
+        nl2.VisualTheme = {Mode = "Double", Color1 = theme.Icon1, Color2 = theme.Icon2, Speed = 0.65}
         -- Update the visible controls too; changing the preset must not leave
         -- stale picker swatches from the previous theme.
         pcall(function() iconColor1:SetValue(theme.Icon1) end)
@@ -471,6 +456,42 @@ runFunction(function()
         Name = "Nursultan 1.16.5",
         Callback = function() applyTheme("Nursultan 1.16.5") end
     })
+
+    -- Custom theme creation. One default theme exists initially; each created
+    -- theme gets its own visual-module colors and can be selected later.
+    local themeNames = {"Default"}
+    local customThemeData = {
+        Default = {Color1 = Color3.fromRGB(197,132,211), Color2 = Color3.fromRGB(95,63,121)}
+    }
+    local themeNameInput = iconFunction:CreateTextBox({
+        Name = "Название темы", Placeholder = "Название", Size = 110,
+        Callback = function() end
+    })
+    local function applyCustomTheme(name)
+        local data = customThemeData[name]
+        if not data or not nl2 then return end
+        nl2.IconSettings.Mode = "Double"
+        nl2.IconSettings.Color1 = data.Color1
+        nl2.IconSettings.Color2 = data.Color2
+        nl2.VisualTheme = {Mode = "Double", Color1 = data.Color1, Color2 = data.Color2, Speed = 0.65}
+        shared.NightixVisualColor1 = data.Color1
+        shared.NightixVisualColor2 = data.Color2
+        if shared.NightixRefreshVisualTheme then pcall(shared.NightixRefreshVisualTheme) end
+        if iconColor1 then pcall(function() iconColor1:SetValue(data.Color1) end) end
+        if iconColor2 then pcall(function() iconColor2:SetValue(data.Color2) end) end
+        if nl2.RefreshNightixTheme then nl2:RefreshNightixTheme() end
+    end
+    iconFunction:CreateButton({
+        Name = "Создать тему", Icon = "circle-plus", Callback = function()
+            local name = tostring(themeNameInput:GetValue() or ""):gsub("^%s+",""):gsub("%s+$","")
+            if name == "" or customThemeData[name] then return end
+            customThemeData[name] = {Color1 = Color3.fromRGB(197,132,211), Color2 = Color3.fromRGB(95,63,121)}
+            table.insert(themeNames, name)
+            iconFunction:CreateButton({Name = "● " .. name, Icon = "circle", Callback = function() applyCustomTheme(name) end})
+            themeNameInput:SetValue("")
+        end
+    })
+    iconFunction:CreateButton({Name = "● Default", Icon = "circle", Callback = function() applyCustomTheme("Default") end})
 
     -- The function itself starts with the default client theme.
     iconMode:Select("Двойной")
