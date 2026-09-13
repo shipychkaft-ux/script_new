@@ -151,6 +151,16 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
+-- Default UI skin. Existing NeverLose architecture is kept intact.
+NeverLose.ThemeColors = {
+    Background = Color3.fromRGB(30, 30, 52),
+    Active = Color3.fromRGB(41, 35, 67),
+    Outline = Color3.fromRGB(45, 38, 72),
+    Text = Color3.fromRGB(255, 255, 255),
+    Accent = Color3.fromRGB(197, 132, 211),
+    AccentDark = Color3.fromRGB(95, 63, 121),
+}
+
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
 NeverLose.GlobalSignals = {};
@@ -1096,7 +1106,7 @@ NeverLose.ProcessParams = LPH_NO_VIRTUALIZE(function(self , Params , Fixed)
 	return k;
 end);
 
-NeverLose.EnabledBlur = true;
+NeverLose.EnabledBlur = false;
 NeverLose.BlurModuleParent = workspace.CurrentCamera;
 
 NeverLose.GetCalculatePosition = LPH_NO_VIRTUALIZE(function(planePos, planeNormal, rayOrigin, rayDirection)
@@ -1332,8 +1342,6 @@ function NeverLose:CreateShadow(parent , RollingEffect, thicknessScale)
 	return Shadow;
 end;
 
-local SharedOptionWindowPosition = nil
-
 function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	Zindex = Zindex or 9;
 
@@ -1350,7 +1358,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	OptionHandler.Name = NeverLose.RandomString();
 	OptionHandler.Parent = NeverLose.ScreenGui
 	OptionHandler.AnchorPoint = Vector2.new(0, 0)
-	OptionHandler.BackgroundColor3 = Color3.fromRGB(20, 22, 27)
+	OptionHandler.BackgroundColor3 = NeverLose.ThemeColors.Background
 	OptionHandler.BackgroundTransparency = 0.035
 	OptionHandler.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	OptionHandler.BorderSizePixel = 0
@@ -1368,7 +1376,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	UIStroke.Transparency = 0.650
-	UIStroke.Color = Color3.fromRGB(45, 48, 58)
+	UIStroke.Color = NeverLose.ThemeColors.Outline
 	UIStroke.Parent = OptionHandler
 
 	local UpdateOptionWindowEvent = Instance.new("BindableEvent")
@@ -1430,6 +1438,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 
 	local FollowingThread; local ManualPosition = false
 	local Dragging = false; local DragStart; local StartPosition
+    local LocalOptionPosition = nil
 	DragHandle.InputBegan:Connect(function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
 			Dragging=true; ManualPosition=true; DragStart=input.Position; StartPosition=OptionHandler.Position
@@ -1441,8 +1450,8 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UserInputService.InputChanged:Connect(function(input)
 		if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
 			local delta=input.Position-DragStart
-			SharedOptionWindowPosition = UDim2.fromOffset(StartPosition.X.Offset+delta.X,StartPosition.Y.Offset+delta.Y)
-			OptionHandler.Position = SharedOptionWindowPosition
+			LocalOptionPosition = UDim2.fromOffset(StartPosition.X.Offset+delta.X,StartPosition.Y.Offset+delta.Y)
+			OptionHandler.Position = LocalOptionPosition
 		end
 	end)
 	local SetPosition = LPH_NO_VIRTUALIZE(function()
@@ -1452,16 +1461,14 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 			OptionHandler.AnchorPoint = Vector2.new(0,0)
 		end;
 
-		if SharedOptionWindowPosition then
-			OptionHandler.Position = SharedOptionWindowPosition
+		if LocalOptionPosition then
+			OptionHandler.Position = LocalOptionPosition
 			return
 		end
 		if ManualPosition then return end
-		-- The first opened options window establishes the shared position.
-		-- Every other module options window then opens at exactly that position
-		-- instead of jumping back next to its own feature row.
-		SharedOptionWindowPosition = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65)
-		OptionHandler.Position = SharedOptionWindowPosition;
+        OptionHandler.AnchorPoint = Vector2.new(0, 0)
+        LocalOptionPosition = UDim2.fromOffset(Frame.AbsolutePosition.X, Frame.AbsolutePosition.Y + Frame.AbsoluteSize.Y + 4)
+		OptionHandler.Position = LocalOptionPosition;
 	end);
 
 	Window.SetRender = LPH_NO_VIRTUALIZE(function(value)
@@ -2033,6 +2040,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		end)
 
 		ToggleLib.SetVisible = LPH_NO_VIRTUALIZE(function(value)
+            if Toggle:GetAttribute("NightixHiddenModuleControl") then Toggle.Visible = false; return end
 			if value then
 				ToggleLib.SetUI(Config.Default);
 			else
@@ -2698,6 +2706,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		ValueLabel.TextTransparency = 0.500
 
 		KeybindLib.SetRender = LPH_NO_VIRTUALIZE(function(value)
+            if Keybind:GetAttribute("NightixHiddenModuleControl") then Keybind.Visible = false; return end
 			if value then
 				NeverLose.PlayAnimate(Keybind,SlowyTween, {
 					BackgroundTransparency = 0
@@ -3660,7 +3669,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 
 		BasedFrame.Name = NeverLose.RandomString();
 		BasedFrame.Parent = Frame
-		BasedFrame.BackgroundColor3 = Color3.fromRGB(25, 27, 33)
+		BasedFrame.BackgroundColor3 = NeverLose.ThemeColors.Background
 		BasedFrame.BackgroundTransparency = 1.000
 		BasedFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		BasedFrame.BorderSizePixel = 0
@@ -3689,7 +3698,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		LineFrame.Name = NeverLose.RandomString();
 		LineFrame.Parent = BasedFrame
 		LineFrame.AnchorPoint = Vector2.new(0.5, 1)
-		LineFrame.BackgroundColor3 = Color3.fromRGB(45, 48, 58)
+		LineFrame.BackgroundColor3 = NeverLose.ThemeColors.Outline
 		LineFrame.BackgroundTransparency = 0.650
 		LineFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		LineFrame.BorderSizePixel = 0
@@ -3718,8 +3727,15 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 		UIListLayout.Padding = UDim.new(0, 5)
 
-		UICorner.CornerRadius = UDim.new(0, 10)
+		UICorner.CornerRadius = UDim.new(0, 6)
 		UICorner.Parent = BasedFrame
+        local ThemeStroke = Instance.new("UIStroke")
+        ThemeStroke.Name = "NightixThemeStroke"
+        ThemeStroke.Color = NeverLose.ThemeColors.Outline
+        ThemeStroke.Transparency = 0.35
+        ThemeStroke.Thickness = 1
+        ThemeStroke.Parent = BasedFrame
+        ThemeStroke:SetAttribute("NightixThemeStroke", true)
 
 		local UpdateWarp = LPH_NO_VIRTUALIZE(function()
 			local size = TextService:GetTextSize(BasedLabel.Text , BasedLabel.TextSize , BasedLabel.Font , Vector2.new(math.huge,math.huge));
@@ -3763,7 +3779,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		handle.SetRender = LPH_NO_VIRTUALIZE(function(value)
 			if value then
 				NeverLose.PlayAnimate(BasedFrame , SlowyTween , {
-					BackgroundTransparency = 1
+					BackgroundTransparency = 0.04
 				});
 
 				NeverLose.PlayAnimate(BasedLabel , SlowyTween , {
@@ -4195,7 +4211,7 @@ function NeverLose:CreateWindow(Config)
 	WindowFrame.Name = NeverLose.RandomString();
 	WindowFrame.Parent = NeverLose.ScreenGui;
 	WindowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	WindowFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+	WindowFrame.BackgroundColor3 = NeverLose.ThemeColors.Background
 	WindowFrame.BackgroundTransparency = 0.055
 	WindowFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	WindowFrame.BorderSizePixel = 0
@@ -4424,9 +4440,7 @@ function NeverLose:CreateWindow(Config)
 		end)))
 	end)
 
-	if NeverLose.EnabledBlur then
-		NeverLose:CreateBlurModule(WindowFrame,Window.Signal);
-	end;
+	-- Interface controls blur explicitly; never enable it on startup.
 
 	do
 		local Frame = Instance.new("Frame")
@@ -4537,7 +4551,7 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.Size = UDim2.new(0, 200, 0, 15)
 	WindowContent.ZIndex = 7
 	WindowContent.Font = Enum.Font.GothamBold
-	WindowContent.Text = "Nightix v.1.0.5"
+	WindowContent.Text = "Default"
 	WindowContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowContent.TextSize = 9.000
 	WindowContent.TextTransparency = 0.650
@@ -4675,7 +4689,7 @@ function NeverLose:CreateWindow(Config)
 
 	RightMenuFrame.Name = NeverLose.RandomString();
 	RightMenuFrame.Parent = WindowFrame
-	RightMenuFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+	RightMenuFrame.BackgroundColor3 = NeverLose.ThemeColors.Background
 	RightMenuFrame.BackgroundTransparency = 0.600
 	RightMenuFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	RightMenuFrame.BorderSizePixel = 0
@@ -6334,7 +6348,7 @@ function NeverLose:CreateWindow(Config)
 		Watermark.Name = NeverLose.RandomString();
 		Watermark.Parent = NeverLose.ScreenGui
 		Watermark.AnchorPoint = Vector2.new(1, 0)
-		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+		Watermark.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
 		Watermark.BackgroundTransparency = 0
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
@@ -6441,13 +6455,12 @@ function NeverLose:CreateWindow(Config)
 			})
 		end));
 
+		Watermark_lb.Root = Watermark;
 		NeverLose.__WatermarkCache = Watermark_lb;
 		Watermark_lb.Renders = {};
 		Watermark_lb.Status = false;
 		WatermarkSignal:SetValue(false)
-		if NeverLose.EnabledBlur then
-			NeverLose:CreateBlurModule(Watermark, WatermarkSignal)
-		end
+		-- HUD blur is controlled by Interface.
 
 		function Watermark_lb:SetRender(value)
 			Watermark_lb.Status = value;

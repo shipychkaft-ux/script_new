@@ -74,7 +74,7 @@ local guipallet = {
     Color5 = Color3.fromRGB(20, 20, 20),
     Color6 = Color3.fromRGB(200, 200, 200),
     ToggleColor = Color3.fromRGB(0, 0, 0),
-    ToggleColor2 = Color3.fromRGB(41, 35, 67),
+    ToggleColor2 = Color3.fromRGB(52, 235, 58),
     TextColor = Color3.fromRGB(255, 255, 255),
     PlaceholderColor = Color3.fromRGB(220, 220, 220),
     PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
@@ -337,7 +337,7 @@ local function collectOption(optionData)
 end
 
 function guilibrary:BuildConfigData()
-    local data = {Version = 3, Meta = {Author = (LocalPlayer and LocalPlayer.Name) or "Nursultan", CreatedAt = os.date("%d.%m.%Y %H:%M")}, Tabs = {}, Toggles = {}}
+    local data = {Version = 3, CreatedAt = os.time(), CreatedAtText = os.date("%d.%m.%Y %H:%M"), Author = (LocalPlayer and LocalPlayer.Name) or "Default", Tabs = {}, Toggles = {}}
 
     for tabKey, tabData in next, guilibrary.ObjectsToSave.Tabs do
         local container = tabData.API and tabData.API.Container
@@ -359,7 +359,6 @@ function guilibrary:BuildConfigData()
                 Name = toggleData.Name,
                 Enabled = toggleData.API.Enabled == true,
                 Keybind = toggleData.API.Keybind or "None",
-                BindMode = toggleData.API.BindMode or "Toggle",
                 Options = {}
             }
             for optionKey, optionData in next, (toggleData.Options or {}) do
@@ -380,13 +379,19 @@ function guilibrary:SaveConfig(name)
     local path = configPath(name)
     if not path then return false, "Invalid config name" end
 
-    local configData = guilibrary:BuildConfigData()
-    configData.Meta = configData.Meta or {}
-    configData.Meta.Author = (LocalPlayer and LocalPlayer.Name) or "Nursultan"
-    configData.Meta.CreatedAt = os.date("%d.%m.%Y %H:%M")
-
     local ok, err = pcall(function()
-        writefile(path, httpService:JSONEncode(configData))
+        local data = guilibrary:BuildConfigData()
+        -- Creation metadata is immutable when a config is saved again.
+        if isfile(path) then
+            local oldRaw = readfile(path)
+            local oldData = httpService:JSONDecode(oldRaw)
+            if type(oldData) == "table" then
+                data.CreatedAt = oldData.CreatedAt or data.CreatedAt
+                data.CreatedAtText = oldData.CreatedAtText or data.CreatedAtText
+                data.Author = oldData.Author or data.Author
+            end
+        end
+        writefile(path, httpService:JSONEncode(data))
     end)
     if not ok then return false, tostring(err) end
 
@@ -474,9 +479,6 @@ function guilibrary:LoadConfig(name)
             end
             if savedToggle.API.UpdateKeybind and toggleData.Keybind then
                 savedToggle.API:UpdateKeybind(false, toggleData.Keybind)
-            end
-            if toggleData.BindMode and savedToggle.API then
-                savedToggle.API.BindMode = toggleData.BindMode == "Hold" and "Hold" or "Toggle"
             end
         end
     end

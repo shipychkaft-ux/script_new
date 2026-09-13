@@ -4370,67 +4370,6 @@ runFunction(function()
     })
 end)
 
-runFunction(function()
-    local state = Mana.GuiLibrary.InterfaceState or {Logo=false, Blur=false, BlurStrength=8}
-    local interface = Tabs.Render:CreateToggle({
-        Name = "Interface",
-        HoverText = "Интерфейс и HUD Nursultan.",
-        Default = false,
-        Callback = function(enabled)
-            state.Enabled = enabled
-        end
-    })
-
-    interface:CreateToggle({
-        Name = "Логотип",
-        Default = false,
-        Callback = function(v)
-            Mana.GuiLibrary:SetInterfaceLogo(v)
-        end
-    })
-    interface:CreateToggle({
-        Name = "Размытие",
-        Default = false,
-        Callback = function(v)
-            state.Blur = v
-            Mana.GuiLibrary:SetInterfaceBlur(v, state.BlurStrength or 8)
-        end
-    })
-    interface:CreateSlider({
-        Name = "Сила размытия",
-        Min = 0, Max = 56, Default = 8, Round = 0,
-        Function = function(v)
-            state.BlurStrength = v
-            if state.Blur then Mana.GuiLibrary:SetInterfaceBlur(true, v) end
-        end
-    })
-    interface:CreateColorSlider({
-        Name = "Цвет фона",
-        Default = Color3.fromRGB(30,30,52),
-        Function = function(v)
-            state.BackgroundColor = v
-            Mana.GuiLibrary:SetInterfaceBackground(v)
-        end
-    })
-    interface:CreateButton({
-        Name = "Открыть редактор тем",
-        Function = function()
-            Mana.GuiLibrary:OpenThemeEditor()
-        end
-    })
-    interface:CreateButton({
-        Name = "Открыть редактор конфигов",
-        Function = function()
-            Mana.GuiLibrary:OpenConfigEditor()
-        end
-    })
-    interface:CreateButton({
-        Name = "Закрыть",
-        Function = function()
-            Mana.GuiLibrary:Toggle(false)
-        end
-    })
-end)
 
 runFunction(function()
     local timeOfDay = {Enabled = false}

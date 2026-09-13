@@ -259,9 +259,149 @@ Mana.TextList = textList
 Tabs.TextList = textList.tab
 ]]
 
--- Settings are now exposed through Interface and the rebuilt Nursultan menu.
+-- // Settings tab
+runFunction(function()
+    local volume = {Value = 1}
 
--- Friends tab
+    Tabs.Settings:CreateDivider("UI")
+
+    Tabs.Settings:CreateToggle({
+        Name = "Notifications",
+        Default = true,
+        Callback = function(v)
+            GuiLibrary.Notifications = v
+        end
+    })
+
+    local sounds = Tabs.Settings:CreateToggle({
+        Name = "Sounds",
+        Default = true,
+        Callback = function(v)
+            GuiLibrary.Sounds = v
+            if volume.MainObject then volume.MainObject.Visible = v end
+        end
+    })
+
+    volume = Tabs.Settings:CreateSlider({
+        Name = "Volume",
+        Function = function(v) GuiLibrary.SoundVolume = v end,
+        Min = 0, Max = 1, Default = 1, Round = 2
+    })
+
+    Tabs.Settings:CreateSlider({
+        Name = "UI scale",
+        Function = function(v)
+            GuiLibrary.Scale = v
+            GuiLibrary.NightixScale = v
+            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
+                GuiLibrary.NightixMenu:SetNightixScale(v)
+            elseif GuiLibrary.UIScale then
+                GuiLibrary.UIScale.Scale = v
+            end
+        end,
+        Min = 0.5, Max = 2, Default = tonumber(GuiLibrary.NightixScale or GuiLibrary.Scale or 1) or 1, Round = 2
+    })
+
+    Tabs.Settings:CreateButton({
+        Name = "Сбросить UI scale",
+        Function = function()
+            local defaultScale = 1
+            GuiLibrary.Scale = defaultScale
+            GuiLibrary.NightixScale = defaultScale
+            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
+                GuiLibrary.NightixMenu:SetNightixScale(defaultScale)
+            elseif GuiLibrary.UIScale then
+                GuiLibrary.UIScale.Scale = defaultScale
+            end
+        end
+    })
+
+    -- Interface is a normal Visuals function. HUD/theme/config controls live inside it.
+    local interfaceFunction = Tabs.Render:CreateToggle({
+        Name = "Interface",
+        Default = false,
+        Callback = function(v)
+            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if nl and nl.SetInterfaceEnabled then
+                nl:SetInterfaceEnabled(v)
+            end
+        end
+    })
+
+    local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+    if nl then
+        nl.InterfaceSettings = nl.InterfaceSettings or {
+            HUD = false,
+            Blur = false,
+            BlurStrength = 12,
+            BackgroundColor = Color3.fromRGB(30, 30, 52),
+        }
+        nl.InterfaceSettings.HUD = false
+        nl.InterfaceSettings.Blur = false
+        nl.InterfaceSettings.BlurStrength = 12
+    end
+
+    interfaceFunction:CreateToggle({
+        Name = "Логотип",
+        Default = false,
+        Function = function(v)
+            local n = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if n and n.SetHUDEnabled then n:SetHUDEnabled(v) end
+        end
+    })
+
+    interfaceFunction:CreateToggle({
+        Name = "Размытие",
+        Default = false,
+        Function = function(v)
+            local n = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if n and n.SetBlurEnabled then n:SetBlurEnabled(v) end
+        end
+    })
+
+    interfaceFunction:CreateSlider({
+        Name = "Сила размытия",
+        Min = 0, Max = 56, Default = 12, Round = 0,
+        Function = function(v)
+            local n = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if n and n.SetBlurStrength then n:SetBlurStrength(v) end
+        end
+    })
+
+    interfaceFunction:CreateColorSlider({
+        Name = "Цвет фона",
+        Default = Color3.fromRGB(30, 30, 52),
+        Function = function(v)
+            local n = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if n and n.SetHUDBackgroundColor then n:SetHUDBackgroundColor(v) end
+        end
+    })
+
+    interfaceFunction:CreateButton({
+        Name = "Открыть редактор тем",
+        Callback = function()
+            local n = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if n and n.OpenThemeEditor then n:OpenThemeEditor() end
+        end
+    })
+
+    interfaceFunction:CreateButton({
+        Name = "Открыть редактор конфигов",
+        Callback = function()
+            local n = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if n and n.OpenConfigEditor then n:OpenConfigEditor() end
+        end
+    })
+
+    interfaceFunction:CreateButton({
+        Name = "Закрыть",
+        Callback = function()
+            local n = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            if n and n.CloseInterfaceWindows then n:CloseInterfaceWindows() end
+        end
+    })
+
+    -- Friends tab
 runFunction(function()
     local Friends = Tabs.Friends:CreateTextList({
         Name = "Friends",
