@@ -1,1126 +1,693 @@
--- Nightix menu powered by the NeverLose UI library.
--- All Mana modules (Universal.lua) are exposed through the standard Mana API
--- (CreateTab / CreateToggle / CreateSlider / ...). No module code is modified.
+-- Nursultan / Default UI
+-- Rebuilt menu layer: independent function buttons, inline right-click options,
+-- middle-mouse bind editor, external theme/config editors and no legacy Modules UI.
 
 return function(guilibrary, OptionFunctions, connections, userInputService, tweenService, textService, mouse, spawn)
     local Mana = shared.Mana
     local Functions = Mana.Functions
     local ObjectsToSave = guilibrary.ObjectsToSave
-    local localPlayer = game:GetService("Players").LocalPlayer
-    local runService = game:GetService("RunService")
+    local Players = game:GetService("Players")
+    local LocalPlayer = Players.LocalPlayer
+    local RunService = game:GetService("RunService")
+    local Lighting = game:GetService("Lighting")
+    local CoreGui = game:GetService("CoreGui")
 
-    -- Load the NeverLose UI library (Nightix-style UI)
     local NeverLose = Functions:RunFile("NeverLose.lua")
-    if not (NeverLose and NeverLose.CreateWindow) then
-        error("[NightixMenu]: failed to load the NeverLose UI library")
+    if not NeverLose then error("[Nursultan]: NeverLose failed to load") end
+
+    -- Never start with the old global blur implementation. Blur is controlled by Interface.
+    NeverLose.EnabledBlur = false
+
+    local C = {
+        Background = Color3.fromRGB(30,30,52),
+        Active = Color3.fromRGB(41,35,67),
+        Outline = Color3.fromRGB(45,38,72),
+        Text = Color3.fromRGB(245,245,250),
+        Muted = Color3.fromRGB(160,157,178),
+        Accent1 = Color3.fromRGB(197,132,211),
+        Accent2 = Color3.fromRGB(95,63,121),
+        White = Color3.fromRGB(255,255,255),
+    }
+
+    local function corner(obj, radius)
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(0, radius or 7)
+        c.Parent = obj
+        return c
+    end
+    local function stroke(obj, color, transparency, thickness)
+        local s = Instance.new("UIStroke")
+        s.Color = color or C.Outline
+        s.Transparency = transparency or 0
+        s.Thickness = thickness or 1
+        s.Parent = obj
+        return s
+    end
+    local function label(parent, text, size, color, font)
+        local l = Instance.new("TextLabel")
+        l.BackgroundTransparency = 1
+        l.Text = tostring(text or "")
+        l.TextColor3 = color or C.Text
+        l.Font = font or Enum.Font.GothamMedium
+        l.TextSize = size or 13
+        l.TextXAlignment = Enum.TextXAlignment.Left
+        l.TextYAlignment = Enum.TextYAlignment.Center
+        l.Parent = parent
+        return l
     end
 
-    -- ------------------------------------------------------------------
-    -- Window
-    -- ------------------------------------------------------------------
-    local window = NeverLose:CreateWindow({
-        Logo = "rbxassetid://106084104602244",
-        Name = "Nursultan",
-        Content = "Nursultan",
-        Size = NeverLose.Scales.Default,
-        ConfigFolder = "NightixConfigs",
-        EnableConfig = false,
-        Enable3DRenderer = false,
-        Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
-    })
+    -- NeverLose is used only as the control backend. Do not create its legacy visual window.
+    local legacyWindow={
+        Signal=NeverLose:CreateSignal(false),
+        SetRender=function() end,
+    }
 
-    -- watermark
-    local Watermark = window:Watermark()
-    shared.NightixWatermark = Watermark
-    Watermark:AddBlock("rbxassetid://106084104602244", "Release | UID: " .. tostring(localPlayer.UserId))
+    local screen = NeverLose.ScreenGui
+    screen.Name = "Nursultan"
+    screen.DisplayOrder = 200
 
-    -- load notification
-    local Notification = NeverLose:CreateNotification()
-    Notification.new({
-        Title = "Nursultan",
-        Content = "Nursultan loaded",
-        Duration = 4,
-    })
+    -- Main menu root.
+    local menu = Instance.new("Frame")
+    menu.Name = "NursultanMenu"
+    menu.AnchorPoint = Vector2.new(0.5,0.5)
+    menu.Position = UDim2.fromScale(0.5,0.5)
+    menu.Size = UDim2.fromOffset(1060,610)
+    menu.BackgroundColor3 = C.Background
+    menu.BackgroundTransparency = 0.10
+    menu.BorderSizePixel = 0
+    menu.Visible = false
+    menu.Active = true
+    menu.ZIndex = 100
+    menu.Parent = screen
+    corner(menu, 10)
+    stroke(menu, C.Outline, 0.05, 1)
 
-    -- guilibrary state
-    -- Preserve UI scale across Nightix menu rebuilds/restarts.
-    local savedNightixScale = tonumber(guilibrary.NightixScale or guilibrary.Scale or 1) or 1
-    guilibrary.NightixScale = savedNightixScale
-    guilibrary.UIScale = { Scale = savedNightixScale }
-    guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
-    guilibrary.Toggled = false
-    local previousMouseBehavior
-    local previousMouseIconEnabled
-    local previousCameraMinZoomDistance
-    local previousCameraMaxZoomDistance
-    local previousCameraMode
-    local menuWasFirstPerson = false
-    local menuInputConnection
-    local optionWindows = {}
-    local toggleOnSound = "rbxassetid://95856755098572"
-    local toggleOffSound = "rbxassetid://74014422539208"
+    local top = Instance.new("Frame")
+    top.BackgroundTransparency = 1
+    top.Size = UDim2.new(1,-28,0,50)
+    top.Position = UDim2.fromOffset(14,10)
+    top.Parent = menu
 
-    local function showToggleNotification(name, enabled)
-        local status = enabled and "on" or "off"
-        local color = enabled and "#64EB7D" or "#FF5F69"
-        local Notification = NeverLose:CreateNotification()
-        Notification.new({
-            Title = "Nightix",
-            Content = tostring(name) .. " <font color=\"" .. color .. "\">" .. status .. "</font>",
-            Duration = 2,
-        })
-    end
+    local title = label(top, "Default", 19, C.Text)
+    title.Position = UDim2.fromOffset(2,0)
+    title.Size = UDim2.fromOffset(180,28)
+    local sub = label(top, "Nursultan", 11, C.Muted)
+    sub.Position = UDim2.fromOffset(3,27)
+    sub.Size = UDim2.fromOffset(180,18)
 
-    guilibrary.CreateNotification = function() end
+    local search = Instance.new("TextBox")
+    search.Size = UDim2.fromOffset(250,32)
+    search.Position = UDim2.new(1,-250,0,4)
+    search.BackgroundColor3 = C.Background
+    search.BackgroundTransparency = 0.12
+    search.BorderSizePixel = 0
+    search.Text = ""
+    search.PlaceholderText = "Поиск"
+    search.PlaceholderColor3 = C.Muted
+    search.TextColor3 = C.Text
+    search.Font = Enum.Font.Gotham
+    search.TextSize = 12
+    search.ClearTextOnFocus = false
+    search.Parent = top
+    corner(search,7)
+    stroke(search,C.Outline,0.1)
 
-    -- the library reveals the window ~0.25s after creation; hide it again
-    task.delay(0.4, function()
-        if not guilibrary.Toggled then
-            window.Signal:SetValue(false)
-        end
-    end)
+    local body = Instance.new("Frame")
+    body.BackgroundTransparency = 1
+    body.Position = UDim2.fromOffset(14,68)
+    body.Size = UDim2.new(1,-28,-0,530)
+    body.Parent = menu
 
-    -- menu scale, adjustable through UserSettings
-    local function scaleSize(scale)
-        scale = tonumber(scale) or 1
-        return UDim2.fromOffset(math.floor(640 * scale), math.floor(480 * scale))
-    end
-    local menuScaleValue = savedNightixScale
-    local menuScale = scaleSize(menuScaleValue)
+    local tabBar = Instance.new("Frame")
+    tabBar.BackgroundTransparency = 1
+    tabBar.Size = UDim2.fromOffset(145,530)
+    tabBar.Parent = body
 
-    function guilibrary:SetNightixScale(scale)
-        menuScaleValue = clampValue(tonumber(scale) or 1, 0.5, 2)
-        guilibrary.NightixScale = menuScaleValue
-        guilibrary.UIScale.Scale = menuScaleValue
-        menuScale = scaleSize(menuScaleValue)
-        if window and window.SetSize then
-            window:SetSize(menuScale)
-        end
-    end
+    local tabLayout = Instance.new("UIListLayout")
+    tabLayout.Padding = UDim.new(0,5)
+    tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabLayout.Parent = tabBar
 
-    -- ------------------------------------------------------------------
-    -- helpers
-    -- ------------------------------------------------------------------
-    local function clampValue(v, min, max)
-        return math.max(min, math.min(max, v))
-    end
+    local content = Instance.new("ScrollingFrame")
+    content.BackgroundTransparency = 1
+    content.Position = UDim2.fromOffset(158,0)
+    content.Size = UDim2.new(1,-158,1,0)
+    content.BorderSizePixel = 0
+    content.ScrollBarThickness = 2
+    content.ScrollBarImageColor3 = C.Active
+    content.CanvasSize = UDim2.new()
+    content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    content.ScrollingDirection = Enum.ScrollingDirection.Y
+    content.Parent = body
 
-    local function roundValue(v, round)
-        round = round or 0
-        return math.floor(v * (10 ^ round) + 0.5) / (10 ^ round)
-    end
+    local columnLayout = Instance.new("UIListLayout")
+    columnLayout.Padding = UDim.new(0,7)
+    columnLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    columnLayout.Parent = content
 
-    local function findStringInTable(t, str)
-        for i, v in pairs(t) do
-            if tostring(v) == tostring(str) then return i end
-        end
-        return nil
-    end
-
-    local function dummyContainer()
-        return Instance.new("Frame")
-    end
-
-    -- tab state: name -> { tab = nltab, section = current section }
     local tabStates = {}
+    local currentTab
+    local moduleRows = {}
+    local expandedRow
 
-    local function getSection(tabname)
-        local st = tabStates[tabname]
-        if not st then
-            error("[NightixMenu]: unknown tab '" .. tostring(tabname) .. "'")
-        end
-        if not st.section then
-            st.section = st.tab:AddSection({ Name = "Modules", Position = "Auto" })
-        end
-        return st.section
+    local function tabButton(name)
+        local b = Instance.new("TextButton")
+        b.Size = UDim2.new(1,0,0,34)
+        b.BackgroundColor3 = C.Background
+        b.BackgroundTransparency = 0.20
+        b.BorderSizePixel = 0
+        b.AutoButtonColor = false
+        b.Text = tostring(name)
+        b.TextColor3 = C.Muted
+        b.Font = Enum.Font.GothamMedium
+        b.TextSize = 12
+        b.TextXAlignment = Enum.TextXAlignment.Left
+        b.Parent = tabBar
+        corner(b,7)
+        stroke(b,C.Outline,0.15)
+        b.MouseEnter:Connect(function() if currentTab ~= name then b.BackgroundTransparency = 0.05 end end)
+        b.MouseLeave:Connect(function() if currentTab ~= name then b.BackgroundTransparency = 0.20 end end)
+        return b
     end
 
-    local function registerOption(toggleName, tabName, name, api, otype)
-        if toggleName and ObjectsToSave.Toggles[toggleName] then
-            ObjectsToSave.Toggles[toggleName].Options[name] = { Name = name, API = api, Type = otype }
-        elseif tabName and ObjectsToSave.Tabs[tabName] then
-            ObjectsToSave.Tabs[tabName].Options[name] = { Name = name, API = api, Type = otype }
+    local function clearContent()
+        -- Rows are persistent objects; switching tabs only reparents them.
+        for _, r in ipairs(moduleRows) do
+            if r.Root then r.Root.Parent=nil end
         end
-        return api
     end
 
-    -- ------------------------------------------------------------------
-    -- option creators (shared by module toggles and option tabs)
-    -- ------------------------------------------------------------------
-
-    local function createSlider(container, argstable, toggleName, tabName)
-        local name = tostring(argstable.Name or "Slider"):gsub("%s+$", "")
-        local min = argstable.Min or 0
-        local max = argstable.Max or 100
-        local def = argstable.Default or argstable.DefaultValue or min
-        local round = argstable.Round or 0
-        local callback = argstable.Callback or argstable.Function or function() end
-
-        local label = container:AddLabel(name)
-        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
-
-        local api
-        local lib = label:AddSlider({
-            Default = def,
-            Min = min,
-            Max = max,
-            Rounding = round,
-            Type = argstable.Type or "",
-            Size = 100,
-            Callback = function(v)
-                if api then
-                    api.Value = v
+    local function styleOptionTree(root)
+        for _,o in ipairs(root:GetDescendants()) do
+            if o:IsA("Frame") then
+                if o.BackgroundTransparency < 1 then
+                    o.BackgroundColor3 = C.Background
+                    o.BackgroundTransparency = 0.08
+                    if not o:FindFirstChildOfClass("UICorner") then corner(o,6) end
+                    local st=o:FindFirstChildOfClass("UIStroke")
+                    if st then st.Color=C.Outline; st.Transparency=0.15 end
                 end
-                callback(v)
-            end,
-        })
-
-        api = {
-            Name = name,
-            Value = def,
-            Min = min,
-            Max = max,
-            Round = round,
-            Callback = callback,
-            MainObject = label.Root,
-            Container = label.Root,
-        }
-
-        function api:Set(value, CanOverride)
-            local v = CanOverride and value or roundValue(clampValue(value, min, max), round)
-            api.Value = v
-            lib:SetValue(v)
-        end
-
-        if def then
-            api:Set(def)
-        end
-
-        return registerOption(toggleName, tabName, name, api, "Slider")
-    end
-
-    local function createDropdown(container, argstable, toggleName, tabName)
-        local name = tostring(argstable.Name or "Dropdown"):gsub("%s+$", "")
-        local list = argstable.List or {}
-        local def = argstable.Default or argstable.DefaultValue
-        if def == nil then
-            local first = next(list)
-            def = first and list[first] or "nil"
-        end
-        local callback = argstable.Callback or argstable.Function or function() end
-
-        local label = container:AddLabel(name)
-        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
-
-        local api = {
-            Name = name,
-            List = {},
-            Value = def,
-            Callback = callback,
-            MainObject = label.Root,
-            Container = label.Root,
-            Container1 = label.Root,
-            Container2 = label.Root,
-        }
-        for i, v in pairs(list) do
-            api.List[v] = v
-        end
-
-        local lib = label:AddDropdown({
-            Name = name,
-            Default = def,
-            Size = 100,
-            Callback = function(v)
-                api.Value = v
-                callback(v)
-            end,
-        })
-        lib:SetValues(list)
-
-        function api:Select(option)
-            if option == nil then return end
-            local opt = api.List[option] or list[option]
-            if not opt then
-                local i = findStringInTable(list, option)
-                if i then opt = list[i] end
-            end
-            if opt then
-                api.Value = opt
-                lib:SetValue(opt)
+            elseif o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox") then
+                if o.Text ~= "" then o.TextColor3=C.Text end
             end
         end
-
-        api:Select(def)
-
-        return registerOption(toggleName, tabName, name, api, "Dropdown")
     end
 
-    local function createOptionToggle(container, argstable, toggleName, tabName)
-        local name = tostring(argstable.Name or "Toggle")
-        local def = argstable.Default or argstable.DefaultValue or false
-        local callback = argstable.Callback or argstable.Function or function() end
+    local function makeInlineOptions(row, signal)
+        local panel = Instance.new("Frame")
+        panel.Name = "InlineOptions"
+        panel.BackgroundColor3 = C.Background
+        panel.BackgroundTransparency = 0.03
+        panel.BorderSizePixel = 0
+        panel.Size = UDim2.new(1,0,0,8)
+        panel.Visible = false
+        panel.ClipsDescendants = true
+        panel.ZIndex = 130
+        panel.Parent = row.Root
+        corner(panel,7)
+        stroke(panel,C.Outline,0.05)
 
-        local label = container:AddLabel(name)
-        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
+        local inner = Instance.new("Frame")
+        inner.BackgroundTransparency = 1
+        inner.Position = UDim2.fromOffset(7,5)
+        inner.Size = UDim2.new(1,-14,0,1)
+        inner.Parent = panel
+        local layout = Instance.new("UIListLayout")
+        layout.Padding = UDim.new(0,3)
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Parent = inner
 
-        local api = {
-            Name = name,
-            Value = def,
-            Callback = callback,
-            MainObject = label.Root,
-            Container = label.Root,
-        }
+        local handler = NeverLose:RegisiterHandler(inner, signal)
+        handler.Root = panel
 
-        local lib = label:AddToggle({
-            Default = def,
-            Callback = function(v)
-                api.Value = v
-                callback(v)
-            end,
-        })
-
-        function api:Toggle(value)
-            local v = value ~= nil and value or not api.Value
-            api.Value = v
-            lib:SetValue(v)
+        local function update()
+            local h = math.max(8, layout.AbsoluteContentSize.Y + 10)
+            panel.Size = UDim2.new(1,0,0,h)
+            panel.Visible = row._expanded == true
+            styleOptionTree(panel)
         end
-
-        function api:ReToggle()
-            api:Toggle(false)
-            api:Toggle(true)
-        end
-
-        api:Toggle(def)
-
-        return registerOption(toggleName, tabName, name, api, "Toggle")
+        layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(update)
+        signal:Connect(function(v) panel.Visible = v == true; task.defer(update) end)
+        return panel, handler, update
     end
 
-    local function createColorSlider(container, argstable, toggleName, tabName)
-        local name = tostring(argstable.Name or "Color"):gsub("%s+$", "")
-        local def = argstable.Default or argstable.DefaultValue or Color3.fromRGB(255, 255, 255)
-        local callback = argstable.Callback or argstable.Function or function() end
+    local function bindDisplay(value)
+        if value == "None" or value == nil then return "None" end
+        if value == "M1B" then return "Mouse 1" end
+        if value == "M2B" then return "Mouse 2" end
+        if value == "M3B" then return "Mouse 3" end
+        return tostring(value):gsub("LeftControl","LCtrl"):gsub("RightControl","RCtrl")
+    end
 
-        local label = container:AddLabel(name)
-        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
+    local function createBindPopup(api, anchor)
+        if menu:FindFirstChild("BindPopup") then menu.BindPopup:Destroy() end
+        local pop = Instance.new("Frame")
+        pop.Name="BindPopup"
+        pop.Size=UDim2.fromOffset(260,155)
+        pop.Position=UDim2.fromOffset(math.max(8,anchor.AbsolutePosition.X-menu.AbsolutePosition.X-245), math.max(8,anchor.AbsolutePosition.Y-menu.AbsolutePosition.Y+36))
+        pop.BackgroundColor3=C.Background
+        pop.BackgroundTransparency=0.02
+        pop.BorderSizePixel=0
+        pop.ZIndex=300
+        pop.Parent=menu
+        corner(pop,8); stroke(pop,C.Outline,0)
+        local t=label(pop,"Бинд",13,C.Text); t.Position=UDim2.fromOffset(12,8); t.Size=UDim2.fromOffset(160,24)
+        local field=Instance.new("TextButton")
+        field.Size=UDim2.fromOffset(198,30); field.Position=UDim2.fromOffset(10,38)
+        field.BackgroundColor3=C.Background; field.BorderSizePixel=0; field.AutoButtonColor=false
+        field.Text=bindDisplay(api.Keybind or "None"); field.TextColor3=C.Text; field.Font=Enum.Font.Gotham; field.TextSize=12; field.TextXAlignment=Enum.TextXAlignment.Left
+        field.Parent=pop; corner(field,6); stroke(field,C.Outline,0.1)
+        local del=Instance.new("TextButton")
+        del.Size=UDim2.fromOffset(34,30); del.Position=UDim2.fromOffset(216,38)
+        del.BackgroundColor3=C.Background; del.BorderSizePixel=0; del.AutoButtonColor=false; del.Text="×"; del.TextColor3=C.Muted; del.TextSize=18; del.Font=Enum.Font.GothamBold
+        del.Parent=pop; corner(del,6); stroke(del,C.Outline,0.1)
+        del.MouseButton1Click:Connect(function() api:UpdateKeybind(true); field.Text="None" end)
 
-        local api = {
-            Name = name,
-            Value = def,
-            RelativeTable = {},
-            Callback = callback,
-            MainObject = label.Root,
-            Container = label.Root,
-        }
+        local modeLabel=label(pop,"Режим",11,C.Muted); modeLabel.Position=UDim2.fromOffset(12,76); modeLabel.Size=UDim2.fromOffset(70,20)
+        local modes={"Toggle","Hold"}
+        local current=api.BindMode or "Toggle"
+        local modeButtons={}
+        for i,m in ipairs(modes) do
+            local b=Instance.new("TextButton"); b.Size=UDim2.fromOffset(82,28); b.Position=UDim2.fromOffset(10+(i-1)*92,103)
+            b.BackgroundColor3=(current==m and C.Active or C.Background); b.BorderSizePixel=0; b.AutoButtonColor=false; b.Text=m; b.TextColor3=C.Text; b.Font=Enum.Font.Gotham; b.TextSize=11; b.Parent=pop; corner(b,6); stroke(b,C.Outline,0.1); modeButtons[m]=b
+            b.MouseButton1Click:Connect(function()
+                current=m; api.BindMode=m
+                for n,x in pairs(modeButtons) do x.BackgroundColor3=(n==current and C.Active or C.Background) end
+            end)
+        end
 
-        local lib = label:AddColorPicker({
-            Default = def,
-            Callback = function(v)
-                api.Value = v
-                if typeof(v) == "Color3" then
-                    local h, ss, vv = v:ToHSV()
-                    api.RelativeTable = {h, ss, vv}
-                end
-                callback(v)
-            end,
-        })
-
-        function api:Set(hueValue, satValue, valValue, rainbow, load)
-            -- The color picker can call the public API with either a Color3
-            -- or HSV components.  Never pass a Color3 into HSVtoRGB.
-            local directColor
-            local okColor = pcall(function()
-                if type(hueValue) == "userdata" or typeof(hueValue) == "Color3" then
-                    directColor = hueValue
-                    directColor:ToHSV()
+        local captureOverlay
+        local function beginCapture()
+            if captureOverlay then captureOverlay:Destroy() end
+            captureOverlay=Instance.new("Frame")
+            captureOverlay.Name="BindCapture"
+            captureOverlay.BackgroundColor3=Color3.new(0,0,0)
+            captureOverlay.BackgroundTransparency=0.5
+            captureOverlay.BorderSizePixel=0
+            captureOverlay.Size=UDim2.fromScale(1,1)
+            captureOverlay.ZIndex=900
+            captureOverlay.Parent=screen
+            local msg=label(captureOverlay,"Нажмите на клавишу чтобы забиндить",18,C.White)
+            msg.AnchorPoint=Vector2.new(.5,.5); msg.Position=UDim2.fromScale(.5,.5); msg.Size=UDim2.fromOffset(500,40); msg.TextXAlignment=Enum.TextXAlignment.Center
+            local conn
+            conn=userInputService.InputBegan:Connect(function(input)
+                local selected=nil
+                if input.UserInputType==Enum.UserInputType.Keyboard and input.KeyCode~=Enum.KeyCode.Unknown then selected=input.KeyCode.Name
+                elseif input.UserInputType==Enum.UserInputType.MouseButton1 then selected="M1B"
+                elseif input.UserInputType==Enum.UserInputType.MouseButton2 then selected="M2B"
+                elseif input.UserInputType==Enum.UserInputType.MouseButton3 then selected="M3B" end
+                if selected then
+                    api:UpdateKeybind(false,selected)
+                    field.Text=bindDisplay(selected)
+                    if conn then conn:Disconnect() end
+                    captureOverlay:Destroy(); captureOverlay=nil
                 end
             end)
-            if okColor and directColor then
-                local color = directColor
-                local h, s, v = color:ToHSV()
-                api.Value = color
-                api.RelativeTable = { h, s, v }
-                lib:SetValue(color)
-                if not load then callback(color) end
-                return
-            end
-            hueValue = tonumber(hueValue) or 0
-            satValue = tonumber(satValue) or 1
-            valValue = tonumber(valValue) or 1
-            local color = guilibrary:HSVtoRGB(hueValue, satValue, valValue)
-            api.Value = color
-            api.RelativeTable = { hueValue, satValue, valValue }
-            lib:SetValue(color)
-            if not load then
-                callback(color)
-            end
         end
-
-        local h, s, v = def:ToHSV()
-        api.RelativeTable = { h, s, v }
-        lib:SetValue(def)
-        callback(def)
-
-        return registerOption(toggleName, tabName, name, api, "ColorSlider")
+        field.MouseButton1Click:Connect(beginCapture)
     end
 
-    local function createTextBox(container, argstable, toggleName, tabName)
-        local name = tostring(argstable.Name or "Textbox"):gsub("%s+$", "")
-        local def = tostring(argstable.Value or argstable.Default or argstable.DefaultValue or "")
-        local callback = argstable.Callback or argstable.Function or function() end
+    local function createModule(tabName, argstable)
+        local name=tostring(argstable.Name or "Function")
+        local def=argstable.Default or argstable.DefaultValue or false
+        local callback=argstable.Callback or argstable.Function or function() end
+        local bind=argstable.Keybind or "None"
 
-        local label = container:AddLabel(name)
-        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
+        local root=Instance.new("Frame")
+        root.Name="Function_"..name
+        root.Size=UDim2.new(1,0,0,38)
+        root.AutomaticSize=Enum.AutomaticSize.Y
+        root.BackgroundColor3=C.Background
+        root.BackgroundTransparency=0.06
+        root.BorderSizePixel=0
+        root.ClipsDescendants=true
+        root.LayoutOrder=#moduleRows+1
+        root.Parent=content
+        corner(root,7); local rs=stroke(root,C.Outline,0.08)
 
-        local api = {
-            Name = name,
-            Value = def,
-            Callback = callback,
-            MainObject = label.Root,
-            Container = label.Root,
-        }
+        local main=Instance.new("TextButton")
+        main.BackgroundColor3=def and C.Active or C.Background
+        main.BackgroundTransparency=def and 0.03 or 0.08
+        main.BorderSizePixel=0
+        main.AutoButtonColor=false
+        main.Text=""
+        main.Size=UDim2.new(1,0,0,38)
+        main.Parent=root
+        corner(main,7)
+        local txt=label(main,name,13,C.Text); txt.Position=UDim2.fromOffset(12,0); txt.Size=UDim2.new(1,-75,1,0)
+        local dots=Instance.new("TextButton")
+        dots.BackgroundTransparency=1; dots.BorderSizePixel=0; dots.AutoButtonColor=false; dots.Text="•••"; dots.TextColor3=C.Muted; dots.Font=Enum.Font.GothamBold; dots.TextSize=12; dots.Size=UDim2.fromOffset(38,30); dots.Position=UDim2.new(1,-44,0,4); dots.Parent=main
 
-        local lib = label:AddTextInput({
-            Default = def,
-            Placeholder = argstable.PlaceholderText or argstable.Placeholder or "",
-            Numeric = argstable.Numeric or false,
-            Size = argstable.Size or 100,
-            Callback = function(v)
-                api.Value = v
-                callback(v)
-            end,
-        })
-
-        function api:Set(text)
-            api.Value = tostring(text or "")
-            lib:SetValue(api.Value)
+        local signal=NeverLose:CreateSignal(false)
+        local fake={Name=name,Enabled=def,Value=def,Keybind=bind,BindMode="Toggle",Options={},MainObject=root,Container=root,Callback=callback}
+        local optionPanel, optionHandler, updateOptions=makeInlineOptions({Root=root,_expanded=false},signal)
+        local function saveOption(api, kind)
+            if api and api.Name then fake.Options[api.Name]={Name=api.Name,API=api,Type=kind} end
+            return api
         end
+        local rowRef={Root=root,Main=main,API=fake,OptionPanel=optionPanel,_expanded=false,Name=name}
+        moduleRows[#moduleRows+1]=rowRef
 
-        api:Set(def)
-
-        return registerOption(toggleName, tabName, name, api, "TextBox")
-    end
-
-    local function createButton(container, argstable, toggleName, tabName)
-        local name = tostring(argstable.Name or "Button")
-        local callback = argstable.Callback or argstable.Function or function() end
-
-        local lib = container:AddButton({
-            Name = name,
-            Icon = argstable.Icon or "chevron-large-right",
-            Callback = callback,
-        })
-
-        local api = {
-            Name = name,
-            Callback = callback,
-            MainObject = lib and lib.MainObject,
-            Container = lib and lib.Container,
-        }
-
-        return registerOption(toggleName, tabName, name, api, "Button")
-    end
-
-    local function createTextList(container, argstable, toggleName, tabName)
-        local name = tostring(argstable.Name or "List"):gsub("%s+$", "")
-        local callback = argstable.Callback or argstable.Function or function() end
-
-        local label = container:AddLabel(name)
-        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
-        local itemObjects = {}
-
-        local inputLib = label:AddTextInput({
-            Default = "",
-            Placeholder = argstable.PlaceholderText or "Value",
-            Numeric = argstable.Numeric or false,
-            Size = 100,
-            Callback = function() end,
-        })
-        if not argstable.HideAdd then
-            container:AddButton({
-                Name = "Add",
-                Icon = "circle-plus",
-                Callback = function()
-                    local text = inputLib:GetValue()
-                    if text and text ~= "" then
-                        api:CreateListObject(text)
-                        inputLib:SetValue("")
-                    end
-                end,
-            })
+        local function refreshVisual()
+            main.BackgroundColor3=fake.Enabled and C.Active or C.Background
+            main.BackgroundTransparency=fake.Enabled and 0.02 or 0.08
+            txt.TextColor3=C.Text
+            rs.Color=C.Outline
         end
-
-        local api = {
-            Name = name,
-            List = {},
-            Callback = callback,
-            MainObject = label.Root,
-            Container = label.Root,
-        }
-
-        function api:Clear()
-            for _, item in ipairs(itemObjects) do
-                if item.button and item.button.MainObject then
-                    item.button.MainObject:Destroy()
-                end
-                if item.label and item.label.Root then
-                    for i = #NeverLose.NameRegisitry, 1, -1 do
-                        if NeverLose.NameRegisitry[i].Root == item.label.Root then
-                            table.remove(NeverLose.NameRegisitry, i)
-                        end
-                    end
-                    item.label.Root:Destroy()
-                end
-            end
-            table.clear(itemObjects)
-            table.clear(api.List)
-        end
-
-        function api:CreateListObject(value)
-            local text = tostring(value)
-            if text == "" then return end
-            if findStringInTable(api.List, text) then return end
-            table.insert(api.List, text)
-            callback(text)
-
-            local itemLabel = container:AddLabel(text)
-            local removeButton = container:AddButton({
-                Name = "Remove",
-                Icon = "close",
-                Callback = function()
-                    for i, v in ipairs(api.List) do
-                        if v == text then
-                            table.remove(api.List, i)
-                            break
-                        end
-                    end
-                    itemLabel:SetVisible(false)
-                    if removeButton.MainObject then
-                        removeButton.MainObject:Destroy()
-                    end
-                    if itemLabel.Root then
-                        for i = #NeverLose.NameRegisitry, 1, -1 do
-                            if NeverLose.NameRegisitry[i].Root == itemLabel.Root then
-                                table.remove(NeverLose.NameRegisitry, i)
-                            end
-                        end
-                        itemLabel.Root:Destroy()
-                    end
-                    for i = #itemObjects, 1, -1 do
-                        if itemObjects[i].label == itemLabel then
-                            table.remove(itemObjects, i)
-                            break
-                        end
-                    end
-                end,
-            })
-            table.insert(itemObjects, {label = itemLabel, button = removeButton})
-        end
-
-        for _, v in pairs(argstable.DefaultList or argstable.List or {}) do
-            api:CreateListObject(v)
-        end
-
-        return registerOption(toggleName, tabName, name, api, "TextList")
-    end
-
-    -- ------------------------------------------------------------------
-    -- module toggle (a module row inside a tab)
-    -- ------------------------------------------------------------------
-    local function createModuleToggle(tabName, argstable)
-        local toggleName = tostring(argstable.Name or "Toggle")
-        local section = getSection(tabName)
-        local label = section:AddLabel(toggleName)
-        if argstable.HoverText then label:ToolTip(tostring(argstable.HoverText)) end
-
-        local ToggleTable = {
-            Name = toggleName,
-            Value = argstable.Default or argstable.DefaultValue or false,
-            Enabled = argstable.Default or argstable.DefaultValue or false,
-            Keybind = argstable.Keybind or "None",
-            Callback = argstable.Callback or argstable.Function or function() end,
-            MainObject = label.Root,
-            Container = label.Root,
-            Options = {},
-        }
-
-        local keybindLib = label:AddKeybind({
-            Default = ToggleTable.Keybind,
-            Blacklist = { RightShift = true, Insert = true },
-            Callback = function(v)
-                ToggleTable.Keybind = v
-            end,
-        })
-
-        local toggleLib = label:AddToggle({
-            Default = ToggleTable.Enabled,
-            Callback = function(v)
-                if ToggleTable.Enabled ~= v then
-                    ToggleTable:Toggle(false, v)
-                end
-            end,
-        })
-
-        local optionWindow = label:AddOption(1) -- gear: module options
-        table.insert(optionWindows, optionWindow)
-
-        local function reapplyModuleOptions()
-            for _, optionData in next, ToggleTable.Options do
-                local api = optionData.API
-                if not api then continue end
-                if optionData.Type == "TextList" then
-                    for _, item in ipairs(api.List or {}) do
-                        if api.Callback then pcall(function() api.Callback(item) end) end
-                    end
-                elseif api.Callback and api.Value ~= nil then
-                    pcall(function() api.Callback(api.Value) end)
-                end
-            end
-        end
-
-        function ToggleTable:SetEnabled(Bool, Silent)
-            Bool = Bool == true
-            if ToggleTable.Enabled == Bool then return false end
-
-            ToggleTable.Enabled = Bool
-            ToggleTable.Value = Bool
-            toggleLib:SetValue(Bool)
-
-            -- Explicit state changes (config loading/restarts) still need the
-            -- module callback even when UI feedback is suppressed.
-            if ToggleTable.Callback then
-                ToggleTable.Callback(Bool)
-            end
-            if Bool then
-                reapplyModuleOptions()
-            end
-
-            if not Silent then
-                guilibrary:playsound(Bool and toggleOnSound or toggleOffSound, 0.8)
-                showToggleNotification(ToggleTable.Name, Bool)
-            end
+        function fake:SetEnabled(v,Silent)
+            v=v==true
+            if fake.Enabled==v then return false end
+            fake.Enabled=v; fake.Value=v
+            callback(v)
+            refreshVisual()
             return true
         end
+        function fake:Toggle(Silent,v)
+            local target=v==nil and not fake.Enabled or v==true
+            if fake.Enabled==target then return end
+            fake.Enabled=target; fake.Value=target; callback(target); refreshVisual()
+        end
+        function fake:UpdateKeybind(remove,newKeybind)
+            fake.Keybind=remove and "None" or (newKeybind or "None")
+        end
+        function fake:ReToggle(Silent)
+            if fake.Enabled then callback(false); callback(true) end
+        end
+        function fake:CreateSlider(a) return saveOption(optionHandler:AddSlider({Name=a.Name,Default=a.Default or a.DefaultValue or a.Min or 0,Min=a.Min or 0,Max=a.Max or 100,Rounding=a.Round or 0,Type=a.Type or "",Size=140,Callback=a.Callback or a.Function or function() end}),"Slider") end
+        function fake:CreateDropdown(a) return saveOption(optionHandler:AddDropdown({Name=a.Name,Default=a.Default or a.DefaultValue,List=a.List or {},Size=140,Callback=a.Callback or a.Function or function() end}),"Dropdown") end
+        function fake:CreateColorSlider(a) return saveOption(optionHandler:AddColorPicker({Name=a.Name,Default=a.Default or a.DefaultValue or C.Accent1,Callback=a.Callback or a.Function or function() end}),"ColorSlider") end
+        function fake:CreateToggle(a) return saveOption(optionHandler:AddToggle({Name=a.Name,Default=a.Default or a.DefaultValue or false,Callback=a.Callback or a.Function or function() end}),"Toggle") end
+        function fake:CreateTextBox(a) return saveOption(optionHandler:AddTextInput({Name=a.Name,Default=a.Default or a.Value or "",Placeholder=a.PlaceholderText or a.Placeholder or "",Numeric=a.Numeric or false,Callback=a.Callback or a.Function or function() end}),"TextBox") end
+        function fake:CreateButton(a) return saveOption(optionHandler:AddButton({Name=a.Name or "Button",Icon=a.Icon or "chevron-large-right",Callback=a.Callback or a.Function or function() end}),"Button") end
+        function fake:CreateTextList(a) return saveOption(optionHandler:AddTextInput({Name=a.Name,Default="",Placeholder=a.PlaceholderText or "Value",Callback=function() end}),"TextList") end
 
-        function ToggleTable:Toggle(Silent, Bool)
-            local target = Bool == nil and not ToggleTable.Enabled or Bool == true
-            if ToggleTable.Enabled == target then return end
-            ToggleTable.Enabled = target
-            ToggleTable.Value = target
-            toggleLib:SetValue(target)
-            if ToggleTable.Callback then
-                ToggleTable.Callback(target)
+        main.MouseButton1Click:Connect(function() fake:Toggle(false); refreshVisual() end)
+        main.MouseButton2Click:Connect(function()
+            if expandedRow and expandedRow~=rowRef then
+                expandedRow._expanded=false
+                expandedRow.OptionPanel.Visible=false
             end
-            if target then
-                reapplyModuleOptions()
+            rowRef._expanded=not rowRef._expanded
+            expandedRow=rowRef._expanded and rowRef or nil
+            signal:SetValue(rowRef._expanded)
+            updateOptions()
+        end)
+        main.InputBegan:Connect(function(input)
+            if input.UserInputType==Enum.UserInputType.MouseButton3 then
+                createBindPopup(fake,main)
             end
-            guilibrary:playsound(target and toggleOnSound or toggleOffSound, 0.8)
-            if not Silent then
-                showToggleNotification(ToggleTable.Name, target)
-            end
-        end
+        end)
+        dots.MouseButton1Click:Connect(function()
+            if expandedRow and expandedRow~=rowRef then expandedRow._expanded=false; expandedRow.OptionPanel.Visible=false end
+            rowRef._expanded=not rowRef._expanded; expandedRow=rowRef._expanded and rowRef or nil; signal:SetValue(rowRef._expanded); updateOptions()
+        end)
 
-        function ToggleTable:ReToggle(Silent)
-            -- Restart an enabled module so option changes are applied without
-            -- accidentally leaving the module disabled.
-            if not ToggleTable.Enabled then
-                ToggleTable:SetEnabled(true, Silent == true)
-                return
-            end
-
-            ToggleTable:SetEnabled(false, true)
-            ToggleTable:SetEnabled(true, true)
-        end
-
-        function ToggleTable:UpdateKeybind(remove, newKeybind)
-            if remove then
-                ToggleTable.Keybind = "None"
-                keybindLib:SetValue("None")
-            else
-                local kb = newKeybind or "None"
-                ToggleTable.Keybind = kb
-                keybindLib:SetValue(kb)
-            end
-        end
-
-        function ToggleTable:CreateSlider(argstable)
-            return createSlider(optionWindow, argstable, toggleName, nil)
-        end
-
-        function ToggleTable:CreateDropdown(argstable)
-            return createDropdown(optionWindow, argstable, toggleName, nil)
-        end
-
-        function ToggleTable:CreateColorSlider(argstable)
-            return createColorSlider(optionWindow, argstable, toggleName, nil)
-        end
-
-        function ToggleTable:CreateToggle(argstable)
-            return createOptionToggle(optionWindow, argstable, toggleName, nil)
-        end
-
-        function ToggleTable:CreateButton(argstable)
-            return createButton(optionWindow, argstable, toggleName, nil)
-        end
-
-        function ToggleTable:CreateTextBox(argstable)
-            return createTextBox(optionWindow, argstable, toggleName, nil)
-        end
-
-        function ToggleTable:CreateTextList(argstable)
-            return createTextList(getSection(tabName), argstable, toggleName, nil)
-        end
-
-        table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed then return end
-
-            local keybind = ToggleTable.Keybind
-            local pressed = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode.Name == keybind
-                or (keybind == "M1B" or keybind == "MouseButton1") and input.UserInputType == Enum.UserInputType.MouseButton1
-                or (keybind == "M2B" or keybind == "MouseButton2") and input.UserInputType == Enum.UserInputType.MouseButton2
-                or (keybind == "M3B" or keybind == "MouseButton3") and input.UserInputType == Enum.UserInputType.MouseButton3
-
+        connections[#connections+1]=userInputService.InputBegan:Connect(function(input,processed)
+            if processed then return end
+            local key=fake.Keybind
+            local pressed=(input.UserInputType==Enum.UserInputType.Keyboard and input.KeyCode~=Enum.KeyCode.Unknown and input.KeyCode.Name==key)
+                or (key=="M1B" and input.UserInputType==Enum.UserInputType.MouseButton1)
+                or (key=="M2B" and input.UserInputType==Enum.UserInputType.MouseButton2)
+                or (key=="M3B" and input.UserInputType==Enum.UserInputType.MouseButton3)
             if pressed then
-                -- A keybind is a normal toggle. ReToggle was restarting the
-                -- module instead, which made a bound AttackAura immediately
-                -- return to the wrong state and appear impossible to disable.
-                ToggleTable:Toggle(false)
+                if fake.BindMode=="Hold" then
+                    fake:SetEnabled(true,true)
+                else
+                    fake:Toggle(true)
+                end
             end
-        end))
+        end)
+        connections[#connections+1]=userInputService.InputEnded:Connect(function(input,processed)
+            if processed or fake.BindMode~="Hold" then return end
+            local key=fake.Keybind
+            local released=(input.UserInputType==Enum.UserInputType.Keyboard and input.KeyCode~=Enum.KeyCode.Unknown and input.KeyCode.Name==key)
+                or (key=="M1B" and input.UserInputType==Enum.UserInputType.MouseButton1)
+                or (key=="M2B" and input.UserInputType==Enum.UserInputType.MouseButton2)
+                or (key=="M3B" and input.UserInputType==Enum.UserInputType.MouseButton3)
+            if released then fake:SetEnabled(false,true) end
+        end)
 
-        ObjectsToSave.Toggles[toggleName] = {
-            Name = toggleName,
-            API = ToggleTable,
-            Options = ToggleTable.Options,
-        }
-
-        return ToggleTable
+        ObjectsToSave.Toggles[name]={Name=name,API=fake,Options=fake.Options}
+        refreshVisual()
+        return fake
     end
 
-    -- ------------------------------------------------------------------
-    -- tabs
-    -- ------------------------------------------------------------------
-    local function createTab(argstable, isOptionsTab)
-        local tabname = tostring(argstable.Name or "Tab")
-        local tabIcons = {
-            Combat = "sword",
-            Movement = "mouse-scrollwheel",
-            Render = "paint-brush",
-            Visuals = "paint-brush",
-            Utility = "rbxassetid://89294237251926",
-            Settings = "gear",
-            Confings = "three-dots-horizontal",
-            Friends = "person",
-        }
-
-        local nltab = window:AddTab({
-            Icon = tabIcons[tabname] or "folder",
-            Name = tabname,
-            Type = "Single",
-        })
-
-        tabStates[tabname] = { tab = nltab }
-
-        local tabtable = {}
-        tabtable.Options = {}
-        tabtable.Container = dummyContainer()
-        tabtable.Order = ObjectsToSave.Tabs and #ObjectsToSave.Tabs + 1 or 1
-
-        if isOptionsTab then
-            function tabtable:CreateToggle(argstable)
-                -- Settings -> Icon is a full function so its controls are opened from the gear.
-                if tabname == "Settings" and tostring(argstable.Name or "") == "Icon" then
-                    return createModuleToggle(tabname, argstable)
-                end
-                return createOptionToggle(getSection(tabname), argstable, nil, tabname)
-            end
-        else
-            function tabtable:CreateToggle(argstable)
-                return createModuleToggle(tabname, argstable)
-            end
+    local function showTab(name)
+        currentTab=name
+        clearContent()
+        for tabName,state in pairs(tabStates) do
+            local b=state.button
+            b.BackgroundColor3=(tabName==name and C.Active or C.Background)
+            b.BackgroundTransparency=(tabName==name and 0.02 or 0.20)
+            b.TextColor3=(tabName==name and C.Text or C.Muted)
         end
-
-        function tabtable:CreateSlider(argstable)
-            return createSlider(getSection(tabname), argstable, nil, tabname)
+        for _,r in ipairs(moduleRows) do
+            if r.TabName==name then r.Root.Parent=content end
         end
+        content.CanvasPosition=Vector2.new(0,0)
+    end
 
-        function tabtable:CreateDropdown(argstable)
-            return createDropdown(getSection(tabname), argstable, nil, tabname)
+    local function createTab(argstable,isOptions)
+        local tabname=tostring(argstable.Name or "Tab")
+        local b=tabButton(tabname)
+        local state={Name=tabname,button=b,isOptions=isOptions,modules={}}
+        tabStates[tabname]=state
+        b.MouseButton1Click:Connect(function() showTab(tabname) end)
+
+        local tabtable={Name=tabname,Container=content,Options={},Order=1}
+        function tabtable:CreateDivider() end
+        function tabtable:CreateSecondDivider() end
+        function tabtable:CreateToggle(a)
+            local api=createModule(tabname,a); api.TabName=tabname; state.modules[#state.modules+1]=api
+            -- createModule initially parents to content; hide until tab is selected.
+            api.MainObject.Parent=content
+            if currentTab~=tabname then api.MainObject.Parent=nil end
+            return api
         end
-
-        function tabtable:CreateColorSlider(argstable)
-            return createColorSlider(getSection(tabname), argstable, nil, tabname)
-        end
-
-        function tabtable:CreateButton(argstable)
-            return createButton(getSection(tabname), argstable, nil, tabname)
-        end
-
-        function tabtable:CreateTextBox(argstable)
-            return createTextBox(getSection(tabname), argstable, nil, tabname)
-        end
-
-        function tabtable:CreateTextList(argstable)
-            return createTextList(getSection(tabname), argstable, nil, tabname)
-        end
-
-        function tabtable:CreateConfigManager(argstable)
-            argstable = argstable or {}
-            local section = getSection(tabname)
-            local manager = {}
-            local selected = nil
-            local rows = {}
-            local renameBox
-
-            local title = section:AddLabel(tostring(argstable.Name or "Configs"))
-            title:ToolTip("Click a config to select it. Use Rename or Remove for the selected config.")
-
-            local nameInput = title:AddTextInput({
-                Default = "",
-                Placeholder = "Config name",
-                Numeric = false,
-                Size = 120,
-                Callback = function() end,
-            })
-
-            local function notify(text)
-                local notification = NeverLose:CreateNotification()
-                notification.new({Title = "Confings", Content = tostring(text), Duration = 2.5})
-            end
-
-            local function clearRows()
-                for _, row in ipairs(rows) do
-                    if row.root then
-                        pcall(function() row.glow:Render(false) end)
-                        row.root:Destroy()
-                    end
-                end
-                table.clear(rows)
-            end
-
-            local function selectRow(row)
-                selected = row.name
-                guilibrary.CurrentConfig = row.name
-                for _, item in ipairs(rows) do
-                    local active = item == row
-                    if item.stroke then
-                        item.stroke.Color = Color3.fromRGB(255,255,255)
-                        item.stroke.Thickness = active and 2 or 1
-                        item.stroke.Transparency = active and 0 or 0.7
-                    end
-                    if item.glow then item.glow:Render(active) end
-                    if item.label then
-                        item.label.Text = (active and "●  " or "○  ") .. item.name
-                    end
-                end
-            end
-
-            local function createRenameBox(row)
-                if renameBox then renameBox:Destroy(); renameBox = nil end
-                local box = Instance.new("TextBox")
-                renameBox = box
-                box.Name = NeverLose.RandomString()
-                box.Parent = row.root
-                box.BackgroundColor3 = Color3.fromRGB(18,20,26)
-                box.BackgroundTransparency = 0.05
-                box.BorderSizePixel = 0
-                box.Position = UDim2.fromOffset(8, 3)
-                box.Size = UDim2.new(1, -16, 0, 24)
-                box.ZIndex = 220
-                box.ClearTextOnFocus = false
-                box.Font = Enum.Font.GothamMedium
-                box.TextSize = 12
-                box.TextColor3 = Color3.fromRGB(255,255,255)
-                box.TextXAlignment = Enum.TextXAlignment.Left
-                box.Text = row.name
-                box:CaptureFocus()
-                box.FocusLost:Connect(function(enterPressed)
-                    if renameBox ~= box then return end
-                    renameBox = nil
-                    if enterPressed then
-                        local newName = tostring(box.Text or ""):gsub("^%s+", ""):gsub("%s+$", "")
-                        if newName ~= "" then
-                            local oldName = row.name
-                            local ok, err = guilibrary:RenameConfig(oldName, newName)
-                            if ok then
-                                selected = newName
-                                guilibrary.CurrentConfig = newName
-                                box:Destroy()
-                                manager:Refresh()
-                                notify("Renamed to " .. newName)
-                                return
-                            end
-                            notify("Rename failed: " .. tostring(err))
-                        end
-                    end
-                    box:Destroy()
-                end)
-            end
-
-            function manager:Refresh()
-                clearRows()
-                local configs = guilibrary:ListConfigs()
-                local exists = false
-                for _, configName in ipairs(configs) do
-                    if selected == configName then exists = true break end
-                end
-                if selected and not exists then
-                    selected = nil
-                end
-                if guilibrary.CurrentConfig and not table.find(configs, guilibrary.CurrentConfig) then
-                    guilibrary.CurrentConfig = nil
-                end
-                for _, configName in ipairs(configs) do
-                    local row = section:AddLabel(configName)
-                    local root = row.Root
-                    local stroke = Instance.new("UIStroke")
-                    stroke.Color = Color3.fromRGB(255,255,255)
-                    stroke.Thickness = 1
-                    stroke.Transparency = 0.7
-                    stroke.Parent = root
-                    local glow = NeverLose:CreateShadow(root, true, 0.75)
-                    local entry = {name=configName, root=root, label=nil, stroke=stroke, glow=glow}
-                    -- AddLabel does not expose its internal TextLabel, so use the first TextLabel child.
-                    entry.label = root:FindFirstChildOfClass("TextLabel")
-                    table.insert(rows, entry)
-                    NeverLose:CreateInput(root, function()
-                        -- Selecting a config never loads it. Loading is explicit via the Load button.
-                        selectRow(entry)
-                    end)
-                    if selected == configName then selectRow(entry) end
-                end
-            end
-
-            section:AddButton({
-                Name = "Add",
-                Icon = "circle-plus",
-                Callback = function()
-                    local name = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
-                    if name == "" then notify("Enter a config name"); return end
-                    local ok, err = guilibrary:CreateConfig(name)
-                    if ok then
-                        selected = name
-                        nameInput:SetValue("")
-                        manager:Refresh()
-                        notify("Created " .. name)
-                    else
-                        notify("Create failed: " .. tostring(err))
-                    end
-                end,
-            })
-
-            section:AddButton({
-                Name = "Load",
-                Icon = "download",
-                Callback = function()
-                    if not selected then notify("Select a config first"); return end
-                    local target = selected
-                    local ok, err = guilibrary:LoadConfig(target)
-                    if ok then
-                        guilibrary.CurrentConfig = target
-                        notify("Loaded " .. target)
-                        manager:Refresh()
-                    else
-                        -- Never leave a ghost current config after a failed load.
-                        if not guilibrary:ListConfigs()[1] then
-                            guilibrary.CurrentConfig = nil
-                        end
-                        notify("Load failed: " .. tostring(err))
-                    end
-                end,
-            })
-
-            section:AddButton({
-                Name = "Save",
-                Icon = "floppy-disk",
-                Callback = function()
-                    local target = selected or guilibrary.CurrentConfig
-                    if not target then notify("Select a config first"); return end
-                    local ok, err = guilibrary:SaveConfig(target)
-                    notify(ok and ("Saved " .. target) or ("Save failed: " .. tostring(err)))
-                end,
-            })
-
-            section:AddButton({
-                Name = "Remove",
-                Icon = "trash-can",
-                Callback = function()
-                    if not selected then notify("Select a config first"); return end
-                    local name = selected
-                    local ok, err = guilibrary:DeleteConfig(name)
-                    if ok then
-                        selected = nil
-                        if guilibrary.CurrentConfig == name then
-                            guilibrary.CurrentConfig = nil
-                        end
-                        manager:Refresh()
-                        notify("Removed " .. name)
-                    else
-                        notify("Remove failed: " .. tostring(err))
-                    end
-                end,
-            })
-
-            section:AddButton({
-                Name = "Rename",
-                Icon = "pencil",
-                Callback = function()
-                    if not selected then notify("Select a config first"); return end
-                    for _, row in ipairs(rows) do
-                        if row.name == selected then
-                            createRenameBox(row)
-                            return
-                        end
-                    end
-                end,
-            })
-
-            manager:Refresh()
-            return manager
-        end
-
-        function tabtable:CreateDivider(DividerText)
-            return getSection(tabname):AddLabel(tostring(DividerText or ""))
-        end
-
-        ObjectsToSave.Tabs[tabname] = {
-            Name = tabname,
-            Type = isOptionsTab and "OptionTab" or "Tab",
-            API = tabtable,
-            Options = tabtable.Options,
-        }
-
+        function tabtable:CreateSlider(a) return createModule(tabname,{Name=a.Name,Default=true,Callback=function() end}):CreateSlider(a) end
+        function tabtable:CreateDropdown(a) return createModule(tabname,{Name=a.Name,Default=true,Callback=function() end}):CreateDropdown(a) end
+        function tabtable:CreateColorSlider(a) return createModule(tabname,{Name=a.Name,Default=true,Callback=function() end}):CreateColorSlider(a) end
+        function tabtable:CreateButton(a) return createModule(tabname,{Name=a.Name,Default=false,Callback=a.Callback or a.Function}):CreateButton(a) end
+        function tabtable:CreateTextBox(a) return createModule(tabname,{Name=a.Name,Default=true,Callback=function() end}):CreateTextBox(a) end
+        function tabtable:CreateTextList(a) return createModule(tabname,{Name=a.Name,Default=true,Callback=function() end}):CreateTextList(a) end
         return tabtable
     end
 
-    local function createOptionsTab(argstable)
-        return createTab(argstable, true)
-    end
+    -- Disable the old GuiLibrary renderer; this rebuild owns the complete UI.
+    guilibrary.CreateWindow=function() return true end
+    guilibrary.CreateTab=function(_,a) return createTab(a,false) end
+    guilibrary.CreateOptionsTab=function(_,a) return createTab(a,true) end
 
-    -- ------------------------------------------------------------------
-    -- window toggle (RightShift / GUI button)
-    -- ------------------------------------------------------------------
-    function guilibrary:Toggle(state)
-        local current = window.Signal:GetValue()
-        local newState
-        if state == nil then
-            newState = not current
-        else
-            newState = state and true or false
-        end
-        if current == newState then return end
-
-        window:ToggleInterface()
-        guilibrary.Toggled = window.Signal:GetValue()
-        if guilibrary.Toggled then
-            previousMouseBehavior = userInputService.MouseBehavior
-            previousMouseIconEnabled = userInputService.MouseIconEnabled
-            previousCameraMinZoomDistance = localPlayer.CameraMinZoomDistance
-            previousCameraMaxZoomDistance = localPlayer.CameraMaxZoomDistance
-            previousCameraMode = localPlayer.CameraMode
-            local camera = workspace.CurrentCamera
-            local cameraDistance = 10
-            pcall(function()
-                cameraDistance = (camera.CFrame.Position - camera.Focus.Position).Magnitude
-            end)
-            menuWasFirstPerson = (previousCameraMode == Enum.CameraMode.LockFirstPerson) or cameraDistance <= 0.75
-
-            -- Only force the camera out of first person. If the player already
-            -- is in third person, opening the menu must not zoom them in.
-            if menuWasFirstPerson then
-                localPlayer.CameraMode = Enum.CameraMode.Classic
-                localPlayer.CameraMinZoomDistance = 1.5
-                localPlayer.CameraMaxZoomDistance = 1.5
-            end
-
-            userInputService.MouseBehavior = Enum.MouseBehavior.Default
-            userInputService.MouseIconEnabled = true
-            menuInputConnection = runService.RenderStepped:Connect(function()
-                if guilibrary.Toggled then
-                    if menuWasFirstPerson then
-                        localPlayer.CameraMode = Enum.CameraMode.Classic
-                        localPlayer.CameraMinZoomDistance = 1.5
-                        localPlayer.CameraMaxZoomDistance = 1.5
-                    end
-                    userInputService.MouseBehavior = Enum.MouseBehavior.Default
-                    userInputService.MouseIconEnabled = true
-                end
-            end)
-            menuScale = scaleSize(menuScaleValue)
-            window:SetSize(menuScale)
-        else
-            for _, optionWindow in ipairs(optionWindows) do
-                if optionWindow.Signal then
-                    optionWindow.Signal:SetValue(false)
-                end
-            end
-            for _, popup in ipairs(NeverLose.ScreenGui:GetChildren()) do
-                if popup:IsA("Frame") and popup.ZIndex >= 125 then
-                    popup.BackgroundTransparency = 1
-                end
-            end
-            if menuInputConnection then
-                menuInputConnection:Disconnect()
-                menuInputConnection = nil
-            end
-            local restoreCameraMode = previousCameraMode
-            local restoreMinZoomDistance = previousCameraMinZoomDistance
-            local restoreMaxZoomDistance = previousCameraMaxZoomDistance
-            local restoreCamera = function()
-                localPlayer.CameraMode = restoreCameraMode
-                localPlayer.CameraMinZoomDistance = restoreMinZoomDistance
-                localPlayer.CameraMaxZoomDistance = restoreMaxZoomDistance
-            end
-            restoreCamera()
-            task.defer(restoreCamera)
-            userInputService.MouseBehavior = previousMouseBehavior
-            userInputService.MouseIconEnabled = previousMouseIconEnabled
-            previousMouseBehavior = nil
-            previousMouseIconEnabled = nil
-            previousCameraMinZoomDistance = nil
-            previousCameraMaxZoomDistance = nil
-            menuWasFirstPerson = false
-        end
-    end
-
-    table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == guilibrary.GuiKeybind then
-            guilibrary:Toggle()
-        end
-    end))
-
-    -- ------------------------------------------------------------------
-    -- create window / clean up
-    -- ------------------------------------------------------------------
-    guilibrary.CreateWindow = function()
-        guilibrary.TabsFrame = nil
-        guilibrary.SearchFrame = nil
-        return guilibrary
-    end
-
-    local oldDestruct = guilibrary.Destruct
-    guilibrary.Destruct = function(self, ...)
-        pcall(function()
-            if NeverLose and NeverLose.ScreenGui then
-                NeverLose.ScreenGui:Destroy()
-            end
-        end)
-        return oldDestruct(self, ...)
-    end
-
-    -- the window keybind is handled by Mana (GuiLibrary:Toggle); the library's
-    -- own handler never matches since the keybind is "None"
-    guilibrary.CreateTab = function(_, argstable)
-        return createTab(argstable, false)
-    end
-    guilibrary.CreateOptionsTab = function(_, argstable)
-        return createOptionsTab(argstable)
-    end
-
-    guilibrary.NightixMenu = {
-        Version = 2,
-        Window = window,
-        NeverLose = NeverLose,
+    -- Theme state. One Default theme initially; creating a theme adds a new circle.
+    local themes={
+        Default={
+            Name="Default",
+            Background=C.Background, Active=C.Active, Outline=C.Outline,
+            Accent1=C.Accent1, Accent2=C.Accent2,
+        }
     }
+    local activeTheme="Default"
+    local themeEditor, configEditor
+    local hud, hudIcon, hudText, hudSub
 
+    local function applyTheme(name)
+        local t=themes[name] or themes.Default
+        activeTheme=name
+        C.Background=t.Background; C.Active=t.Active; C.Outline=t.Outline; C.Accent1=t.Accent1; C.Accent2=t.Accent2
+        menu.BackgroundColor3=C.Background
+        if hud then hud.BackgroundColor3=C.Background; hudIcon.ImageColor3=C.Accent1; hudText.TextColor3=C.Text; hudSub.TextColor3=C.Muted end
+        for _,r in ipairs(moduleRows) do
+            r.Main.BackgroundColor3=r.API.Enabled and C.Active or C.Background
+        end
+        if themeEditor and themeEditor.Parent then
+            local sw=themeEditor:FindFirstChild("Swatches")
+            if sw then for _,x in ipairs(sw:GetChildren()) do if x:IsA("TextButton") then local n=x:GetAttribute("ThemeName"); local tt=themes[n]; if tt then x.BackgroundColor3=tt.Accent1 end end end end
+        end
+    end
+
+    local function createThemeEditor()
+        if themeEditor and themeEditor.Parent then themeEditor.Visible=not themeEditor.Visible; return end
+        themeEditor=Instance.new("Frame")
+        themeEditor.Name="ThemeEditor"; themeEditor.Size=UDim2.fromOffset(320,560); themeEditor.AnchorPoint=Vector2.new(1,.5); themeEditor.Position=UDim2.new(.5,-545,.5,0)
+        themeEditor.BackgroundColor3=C.Background; themeEditor.BackgroundTransparency=.02; themeEditor.BorderSizePixel=0; themeEditor.ZIndex=500; themeEditor.Parent=screen; corner(themeEditor,9); stroke(themeEditor,C.Outline,0)
+        local h=label(themeEditor,"Редактор тем",15,C.Text); h.Position=UDim2.fromOffset(14,10); h.Size=UDim2.fromOffset(200,25)
+        local close=Instance.new("TextButton"); close.Text="×"; close.BackgroundTransparency=1; close.TextColor3=C.Muted; close.TextSize=20; close.Size=UDim2.fromOffset(30,30); close.Position=UDim2.new(1,-38,0,6); close.Parent=themeEditor; close.MouseButton1Click:Connect(function() themeEditor.Visible=false end)
+        local input=Instance.new("TextBox"); input.Size=UDim2.new(1,-88,0,30); input.Position=UDim2.fromOffset(10,48); input.BackgroundColor3=C.Background; input.Text=""; input.PlaceholderText="Название темы"; input.PlaceholderColor3=C.Muted; input.TextColor3=C.Text; input.Font=Enum.Font.Gotham; input.TextSize=11; input.BorderSizePixel=0; input.Parent=themeEditor; corner(input,6); stroke(input,C.Outline,.1)
+        local create=Instance.new("TextButton"); create.Size=UDim2.fromOffset(65,30); create.Position=UDim2.new(1,-75,0,48); create.BackgroundColor3=C.Active; create.Text="Создать"; create.TextColor3=C.Text; create.Font=Enum.Font.Gotham; create.TextSize=11; create.BorderSizePixel=0; create.Parent=themeEditor; corner(create,6)
+        local sw=Instance.new("Frame"); sw.Name="Swatches"; sw.BackgroundTransparency=1; sw.Position=UDim2.fromOffset(12,90); sw.Size=UDim2.new(1,-24,0,45); sw.Parent=themeEditor
+        local sl=Instance.new("UIListLayout"); sl.FillDirection=Enum.FillDirection.Horizontal; sl.Padding=UDim.new(0,7); sl.Parent=sw
+        local function addCircle(name,t)
+            local b=Instance.new("TextButton"); b.Size=UDim2.fromOffset(32,32); b.Text=""; b.BackgroundColor3=t.Accent1; b.BorderSizePixel=0; b.AutoButtonColor=false; b:SetAttribute("ThemeName",name); b.Parent=sw; corner(b,16); stroke(b,C.White,.55)
+            b.MouseButton1Click:Connect(function() applyTheme(name) end)
+        end
+        addCircle("Default",themes.Default)
+        create.MouseButton1Click:Connect(function()
+            local n=tostring(input.Text or ""):gsub("^%s+",""):gsub("%s+$","")
+            if n=="" or themes[n] then return end
+            -- New themes always start from the first/default client colors.
+            themes[n]={Name=n,Background=Color3.fromRGB(30,30,52),Active=Color3.fromRGB(41,35,67),Outline=Color3.fromRGB(45,38,72),Accent1=Color3.fromRGB(197,132,211),Accent2=Color3.fromRGB(95,63,121)}
+            addCircle(n,themes[n]); input.Text=""; applyTheme(n)
+        end)
+
+        local colorsFrame=Instance.new("Frame")
+        colorsFrame.Name="VisualFunctions"
+        colorsFrame.BackgroundTransparency=1
+        colorsFrame.Position=UDim2.fromOffset(10,145)
+        colorsFrame.Size=UDim2.new(1,-20,0,260)
+        colorsFrame.Parent=themeEditor
+        local ct=label(colorsFrame,"Визуальные функции",12,C.Text); ct.Position=UDim2.fromOffset(4,0); ct.Size=UDim2.new(1,-8,0,22)
+        local cs=NeverLose:CreateSignal(true)
+        local handler=NeverLose:RegisiterHandler(colorsFrame,cs)
+        local function themeColor(name,key)
+            local holder
+            holder=handler:AddColorPicker({Name=name,Default=themes[activeTheme][key],Callback=function(v)
+                local t=themes[activeTheme]
+                t[key]=v
+                applyTheme(activeTheme)
+            end})
+            return holder
+        end
+        themeColor("Фон", "Background")
+        themeColor("Активные функции", "Active")
+        themeColor("Обводка", "Outline")
+        themeColor("Цвет 1", "Accent1")
+        themeColor("Цвет 2", "Accent2")
+        local info=label(themeEditor,"Цвета функций настраиваются здесь, а HUD использует ту же тему.",11,C.Muted); info.Position=UDim2.fromOffset(14,420); info.Size=UDim2.new(1,-28,0,42); info.TextWrapped=true
+        return themeEditor
+    end
+
+    local function configDate(path)
+        local ok,data=pcall(function() return game:GetService("HttpService"):JSONDecode(readfile(path)) end)
+        if ok and type(data)=="table" and data.Meta and data.Meta.CreatedAt then return data.Meta.CreatedAt,data.Meta.Author end
+        return "—", "Nursultan"
+    end
+
+    local function createConfigEditor()
+        if configEditor and configEditor.Parent then configEditor.Visible=not configEditor.Visible; return end
+        configEditor=Instance.new("Frame"); configEditor.Name="ConfigEditor"; configEditor.Size=UDim2.fromOffset(330,390); configEditor.AnchorPoint=Vector2.new(1,1); configEditor.Position=UDim2.new(1,-18,1,-18); configEditor.BackgroundColor3=C.Background; configEditor.BackgroundTransparency=.02; configEditor.BorderSizePixel=0; configEditor.ZIndex=600; configEditor.Parent=screen; corner(configEditor,9); stroke(configEditor,C.Outline,0)
+        local h=label(configEditor,"Конфиги",15,C.Text); h.Position=UDim2.fromOffset(14,10); h.Size=UDim2.fromOffset(180,25)
+        local close=Instance.new("TextButton"); close.Text="×"; close.BackgroundTransparency=1; close.TextColor3=C.Muted; close.TextSize=20; close.Size=UDim2.fromOffset(30,30); close.Position=UDim2.new(1,-38,0,6); close.Parent=configEditor; close.MouseButton1Click:Connect(function() configEditor.Visible=false end)
+        local input=Instance.new("TextBox"); input.Size=UDim2.new(1,-88,0,30); input.Position=UDim2.fromOffset(10,48); input.BackgroundColor3=C.Background; input.Text=""; input.PlaceholderText="Название"; input.PlaceholderColor3=C.Muted; input.TextColor3=C.Text; input.Font=Enum.Font.Gotham; input.TextSize=11; input.BorderSizePixel=0; input.Parent=configEditor; corner(input,6); stroke(input,C.Outline,.1)
+        local create=Instance.new("TextButton"); create.Size=UDim2.fromOffset(65,30); create.Position=UDim2.new(1,-75,0,48); create.BackgroundColor3=C.Active; create.Text="Создать"; create.TextColor3=C.Text; create.Font=Enum.Font.Gotham; create.TextSize=11; create.BorderSizePixel=0; create.Parent=configEditor; corner(create,6)
+        local list=Instance.new("ScrollingFrame"); list.BackgroundTransparency=1; list.BorderSizePixel=0; list.Position=UDim2.fromOffset(10,88); list.Size=UDim2.new(1,-20,1,-98); list.ScrollBarThickness=2; list.AutomaticCanvasSize=Enum.AutomaticSize.Y; list.Parent=configEditor
+        local ll=Instance.new("UIListLayout"); ll.Padding=UDim.new(0,5); ll.Parent=list
+        local function refresh()
+            for _,x in ipairs(list:GetChildren()) do if not x:IsA("UIListLayout") then x:Destroy() end end
+            for _,n in ipairs(guilibrary:ListConfigs()) do
+                local row=Instance.new("TextButton"); row.Size=UDim2.new(1,0,0,62); row.BackgroundColor3=C.Background; row.BorderSizePixel=0; row.Text=""; row.AutoButtonColor=false; row.Parent=list; corner(row,7); stroke(row,C.Outline,.12)
+                local nm=label(row,n,12,C.Text); nm.Position=UDim2.fromOffset(10,5); nm.Size=UDim2.new(1,-20,0,20)
+                local dt,au=configDate(guilibrary.ConfigRoot.."/"..n..".json")
+                local meta=label(row,"от "..tostring(au).."   •   "..tostring(dt),10,C.Muted); meta.Position=UDim2.fromOffset(10,29); meta.Size=UDim2.new(1,-20,0,18)
+                local ok=label(row,"✓",14,C.Accent1); ok.AnchorPoint=Vector2.new(1,.5); ok.Position=UDim2.new(1,-9,.5,0); ok.Size=UDim2.fromOffset(24,24); ok.TextXAlignment=Enum.TextXAlignment.Center
+                row.MouseButton1Click:Connect(function() guilibrary:LoadConfig(n) end)
+                row.MouseButton2Click:Connect(function()
+                    local p=Instance.new("Frame"); p.Size=UDim2.fromOffset(120,70); p.Position=UDim2.fromOffset(mouse.X-configEditor.AbsolutePosition.X,mouse.Y-configEditor.AbsolutePosition.Y); p.BackgroundColor3=C.Background; p.ZIndex=900; p.Parent=configEditor; corner(p,6); stroke(p,C.Outline,0)
+                    local l=Instance.new("TextButton"); l.Size=UDim2.new(1,0,0,32); l.BackgroundTransparency=1; l.Text="Загрузить"; l.TextColor3=C.Text; l.Font=Enum.Font.Gotham; l.TextSize=11; l.Parent=p
+                    local d=Instance.new("TextButton"); d.Size=UDim2.new(1,0,0,32); d.Position=UDim2.fromOffset(0,34); d.BackgroundTransparency=1; d.Text="Удалить"; d.TextColor3=C.Text; d.Font=Enum.Font.Gotham; d.TextSize=11; d.Parent=p
+                    l.MouseButton1Click:Connect(function() guilibrary:LoadConfig(n); p:Destroy() end)
+                    d.MouseButton1Click:Connect(function() guilibrary:DeleteConfig(n); p:Destroy(); refresh() end)
+                end)
+            end
+        end
+        create.MouseButton1Click:Connect(function()
+            local n=tostring(input.Text or ""):gsub("^%s+",""):gsub("%s+$","")
+            if n~="" then guilibrary:CreateConfig(n); input.Text=""; refresh() end
+        end)
+        refresh()
+        return configEditor
+    end
+
+    function guilibrary:OpenThemeEditor() return createThemeEditor() end
+    function guilibrary:OpenConfigEditor() return createConfigEditor() end
+
+    -- Interface is also available as a real function in Visuals; Universal.lua wires it.
+    guilibrary.InterfaceState={Logo=false,Blur=false,BlurStrength=8,BackgroundColor=C.Background,ThemeEditor=createThemeEditor,ConfigEditor=createConfigEditor}
+
+    local blurEffect
+    function guilibrary:SetInterfaceBlur(enabled,strength)
+        enabled=enabled==true
+        guilibrary.InterfaceState.Blur=enabled
+        guilibrary.InterfaceState.BlurStrength=tonumber(strength) or guilibrary.InterfaceState.BlurStrength or 8
+        if blurEffect then blurEffect:Destroy(); blurEffect=nil end
+        if enabled then
+            -- Roblox's post-process blur is the reliable runtime shader path available to Lua.
+            blurEffect=Instance.new("BlurEffect")
+            blurEffect.Name="NursultanInterfaceBlur"
+            blurEffect.Size=math.clamp(guilibrary.InterfaceState.BlurStrength,0,56)
+            blurEffect.Parent=Lighting
+        end
+    end
+
+
+    -- Menu toggle, default OFF.
+    guilibrary.GuiKeybind=guilibrary.GuiKeybind or "RightShift"
+    guilibrary.Toggled=false
+    function guilibrary:Toggle(state)
+        if state==nil then state=not guilibrary.Toggled end
+        guilibrary.Toggled=state==true
+        menu.Visible=guilibrary.Toggled
+        if not guilibrary.Toggled then
+            if themeEditor then themeEditor.Visible=false end
+            -- Config editor intentionally stays independent in the bottom-right.
+        end
+        if guilibrary.Toggled and not currentTab then
+            for n in pairs(tabStates) do currentTab=n; break end
+        end
+        if guilibrary.Toggled and currentTab then showTab(currentTab) end
+    end
+
+    connections[#connections+1]=userInputService.InputBegan:Connect(function(input,processed)
+        if processed then return end
+        if input.UserInputType==Enum.UserInputType.Keyboard and input.KeyCode.Name==guilibrary.GuiKeybind then guilibrary:Toggle() end
+    end)
+
+    search:GetPropertyChangedSignal("Text"):Connect(function()
+        local q=search.Text:lower()
+        for _,r in ipairs(moduleRows) do
+            local match=q=="" or r.Name:lower():find(q,1,true)
+            if r.TabName==currentTab then r.Root.Visible=match end
+        end
+    end)
+
+    -- Custom HUD. It is off at startup and is controlled by Interface -> Логотип.
+    hud=Instance.new("Frame")
+    hud.Name="NursultanHUD"
+    hud.Position=UDim2.fromOffset(8,8)
+    hud.Size=UDim2.fromOffset(250,40)
+    hud.BackgroundColor3=C.Background
+    hud.BackgroundTransparency=.10
+    hud.BorderSizePixel=0
+    hud.Visible=false
+    hud.ZIndex=1000
+    hud.Parent=screen
+    corner(hud,7); stroke(hud,C.Outline,.05)
+    hudIcon=Instance.new("ImageLabel")
+    hudIcon.BackgroundTransparency=1
+    hudIcon.Position=UDim2.fromOffset(5,5)
+    hudIcon.Size=UDim2.fromOffset(33,30)
+    hudIcon.Image="rbxassetid://106084104602244"
+    hudIcon.ImageColor3=C.Accent1
+    hudIcon.ScaleType=Enum.ScaleType.Fit
+    hudIcon.Parent=hud
+    hudText=label(hud,"Default",12,C.Text)
+    hudText.Position=UDim2.fromOffset(46,3); hudText.Size=UDim2.fromOffset(195,18)
+    hudSub=label(hud,"Nursultan",10,C.Muted)
+    hudSub.Position=UDim2.fromOffset(46,20); hudSub.Size=UDim2.fromOffset(195,15)
+
+    function guilibrary:SetInterfaceLogo(enabled)
+        guilibrary.InterfaceState.Logo=enabled==true
+        hud.Visible=enabled==true
+    end
+    function guilibrary:SetInterfaceBackground(color)
+        if typeof(color)=="Color3" then C.Background=color; menu.BackgroundColor3=color; hud.BackgroundColor3=color; guilibrary.InterfaceState.BackgroundColor=color end
+    end
+
+    -- Theme palette hook for external callers.
+    NeverLose.ThemePalette=NeverLose.ThemePalette or {}
+    NeverLose.ThemePalette.Icon1=C.Accent1
+    NeverLose.ThemePalette.Icon2=C.Accent2
+    NeverLose.IconSettings=NeverLose.IconSettings or {Enabled=true,Mode="Double",Color1=C.Accent1,Color2=C.Accent2,Speed=.65}
+
+    guilibrary.NightixMenu={Version=4,Window=legacyWindow,NeverLose=NeverLose,Menu=menu,Themes=themes}
     return guilibrary
 end

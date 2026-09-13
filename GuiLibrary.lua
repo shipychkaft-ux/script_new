@@ -67,14 +67,14 @@ local guilibrary = {
 -- // todo here: make better names for colors instead of color1, 2.../primary color, secondary..
 local guipallet = {
     ThemeMode = "Default",
-    Color1 = Color3.fromRGB(30, 30, 52),
-    Color2 = Color3.fromRGB(30, 30, 52),
-    Color3 = Color3.fromRGB(45, 38, 72),
-    Color4 = Color3.fromRGB(41, 35, 67),
+    Color1 = Color3.fromRGB(14, 14, 23),
+    Color2 = Color3.fromRGB(47, 48, 64),
+    Color3 = Color3.fromRGB(66, 68, 66),
+    Color4 = Color3.fromRGB(49, 51, 64),
     Color5 = Color3.fromRGB(20, 20, 20),
     Color6 = Color3.fromRGB(200, 200, 200),
     ToggleColor = Color3.fromRGB(0, 0, 0),
-    ToggleColor2 = Color3.fromRGB(52, 235, 58),
+    ToggleColor2 = Color3.fromRGB(41, 35, 67),
     TextColor = Color3.fromRGB(255, 255, 255),
     PlaceholderColor = Color3.fromRGB(220, 220, 220),
     PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
@@ -337,7 +337,7 @@ local function collectOption(optionData)
 end
 
 function guilibrary:BuildConfigData()
-    local data = {Version = 2, Tabs = {}, Toggles = {}}
+    local data = {Version = 3, Meta = {Author = (LocalPlayer and LocalPlayer.Name) or "Nursultan", CreatedAt = os.date("%d.%m.%Y %H:%M")}, Tabs = {}, Toggles = {}}
 
     for tabKey, tabData in next, guilibrary.ObjectsToSave.Tabs do
         local container = tabData.API and tabData.API.Container
@@ -359,6 +359,7 @@ function guilibrary:BuildConfigData()
                 Name = toggleData.Name,
                 Enabled = toggleData.API.Enabled == true,
                 Keybind = toggleData.API.Keybind or "None",
+                BindMode = toggleData.API.BindMode or "Toggle",
                 Options = {}
             }
             for optionKey, optionData in next, (toggleData.Options or {}) do
@@ -379,8 +380,13 @@ function guilibrary:SaveConfig(name)
     local path = configPath(name)
     if not path then return false, "Invalid config name" end
 
+    local configData = guilibrary:BuildConfigData()
+    configData.Meta = configData.Meta or {}
+    configData.Meta.Author = (LocalPlayer and LocalPlayer.Name) or "Nursultan"
+    configData.Meta.CreatedAt = os.date("%d.%m.%Y %H:%M")
+
     local ok, err = pcall(function()
-        writefile(path, httpService:JSONEncode(guilibrary:BuildConfigData()))
+        writefile(path, httpService:JSONEncode(configData))
     end)
     if not ok then return false, tostring(err) end
 
@@ -468,6 +474,9 @@ function guilibrary:LoadConfig(name)
             end
             if savedToggle.API.UpdateKeybind and toggleData.Keybind then
                 savedToggle.API:UpdateKeybind(false, toggleData.Keybind)
+            end
+            if toggleData.BindMode and savedToggle.API then
+                savedToggle.API.BindMode = toggleData.BindMode == "Hold" and "Hold" or "Toggle"
             end
         end
     end

@@ -201,7 +201,7 @@ local Tabs = {
     }),
     Render = GuiLibrary:CreateTab({
         Name = "Visuals",
-        Color = Color3.fromRGB(197, 132, 211), --59, 170, 222
+        Color = Color3.fromRGB(59, 170, 222), --59, 170, 222
         TabIcon = "RenderTabIcon.png"
     }),
     Utility = GuiLibrary:CreateTab({
@@ -212,11 +212,6 @@ local Tabs = {
     Settings = GuiLibrary:CreateOptionsTab({
         Name = "Settings",
         Color = Color3.fromRGB(240, 157, 62), --240, 157, 62
-        TabIcon = "MiscTabIcon.png"
-    }),
-    Confings = GuiLibrary:CreateOptionsTab({
-        Name = "Confings",
-        Color = Color3.fromRGB(255, 255, 255), --255, 255, 255
         TabIcon = "MiscTabIcon.png"
     }),
     Friends = GuiLibrary:CreateOptionsTab({
@@ -249,28 +244,6 @@ local Tabs = {
 }
 Mana.Tabs = Tabs
 
--- Interface is the single HUD controller and starts disabled.
-do
-    local state={Enabled=false,Logo=false,Blur=false,BlurStrength=1,Background=Color3.fromRGB(30,30,52)}
-    local interface=Tabs.Render:CreateToggle({Name="Interface",HoverText="Настройки HUD и интерфейса.",Default=false,Callback=function(v)
-        state.Enabled=v==true
-        local wm=shared.NightixWatermark
-        if wm and wm.SetRender then wm:SetRender(state.Enabled and state.Logo) end
-    end})
-    local function refresh()
-        local nl=GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-        if nl then nl.EnabledBlur=state.Blur==true; nl.BlurStrength=math.clamp(tonumber(state.BlurStrength) or 1,0,1) end
-        local wm=shared.NightixWatermark
-        if wm and wm.SetShaderVisual then wm:SetShaderVisual(state.Enabled and state.Logo) end
-        if wm and wm.SetRender then wm:SetRender(state.Enabled and state.Logo) end
-    end
-    interface:CreateToggle({Name="Логотип",Default=false,Callback=function(v) state.Logo=v==true; refresh() end})
-    interface:CreateToggle({Name="Размытие",Default=false,Callback=function(v) state.Blur=v==true; refresh() end})
-    interface:CreateSlider({Name="Сила размытия",Min=0,Max=1,Default=1,Round=2,Function=function(v) state.BlurStrength=v; refresh() end})
-    interface:CreateColorSlider({Name="Цвет фона",Default=state.Background,Function=function(v) state.Background=v end})
-    for _,name in ipairs({"Броня","Счётчик тотемов","Координаты","Скорость","Пинг"}) do interface:CreateToggle({Name=name,Default=false,Callback=function() end}) end
-end
-
 if GuiLibrary.Device == "Mobile" then
     SliderScaleValue = 0.5
 end
@@ -286,226 +259,7 @@ Mana.TextList = textList
 Tabs.TextList = textList.tab
 ]]
 
--- // Settings tab
-runFunction(function()
-    local volume = {Value = 1}
-
-    Tabs.Settings:CreateDivider("UI")
-
-    Tabs.Settings:CreateToggle({
-        Name = "Notifications",
-        Default = true,
-        Callback = function(v)
-            GuiLibrary.Notifications = v
-        end
-    })
-
-    local sounds = Tabs.Settings:CreateToggle({
-        Name = "Sounds",
-        Default = true,
-        Callback = function(v)
-            GuiLibrary.Sounds = v
-            if volume.MainObject then volume.MainObject.Visible = v end
-        end
-    })
-
-    volume = Tabs.Settings:CreateSlider({
-        Name = "Volume",
-        Function = function(v) GuiLibrary.SoundVolume = v end,
-        Min = 0, Max = 1, Default = 1, Round = 2
-    })
-
-    Tabs.Settings:CreateSlider({
-        Name = "UI scale",
-        Function = function(v)
-            GuiLibrary.Scale = v
-            GuiLibrary.NightixScale = v
-            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
-                GuiLibrary.NightixMenu:SetNightixScale(v)
-            elseif GuiLibrary.UIScale then
-                GuiLibrary.UIScale.Scale = v
-            end
-        end,
-        Min = 0.5, Max = 2, Default = tonumber(GuiLibrary.NightixScale or GuiLibrary.Scale or 1) or 1, Round = 2
-    })
-
-    Tabs.Settings:CreateButton({
-        Name = "Сбросить UI scale",
-        Function = function()
-            local defaultScale = 1
-            GuiLibrary.Scale = defaultScale
-            GuiLibrary.NightixScale = defaultScale
-            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
-                GuiLibrary.NightixMenu:SetNightixScale(defaultScale)
-            elseif GuiLibrary.UIScale then
-                GuiLibrary.UIScale.Scale = defaultScale
-            end
-        end
-    })
-
-    -- Icon is a real function. All appearance controls live inside its option window.
-    local iconFunction = Tabs.Settings:CreateToggle({
-        Name = "Icon",
-        Default = true,
-        Callback = function(v)
-            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl then
-                nl.IconSettings = nl.IconSettings or {}
-                nl.IconSettings.Enabled = v
-            end
-        end
-    })
-
-    local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-    if nl then
-        nl.IconSettings = nl.IconSettings or {}
-        nl.IconSettings.Enabled = true
-        nl.IconSettings.Mode = nl.IconSettings.Mode or "Double"
-        nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(197, 132, 211)
-        nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(95, 63, 121)
-        nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
-    end
-
-    local iconColor2, iconSpeed
-    local iconMode = iconFunction:CreateDropdown({
-        Name = "Режим",
-        List = {"Одиночный", "Двойной"},
-        Default = "Двойной",
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if not nl2 then return end
-            nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
-            if nl2.IconSettings.Mode == "Single" and not nl2.IconSettings.SingleInitialized then
-                nl2.IconSettings.Color1 = Color3.fromRGB(255, 255, 255)
-                nl2.IconSettings.SingleInitialized = true
-            end
-            local double = nl2.IconSettings.Mode == "Double"
-            if iconColor2 and iconColor2.Container then iconColor2.Container.Visible = double end
-            if iconSpeed and iconSpeed.Container then iconSpeed.Container.Visible = double end
-        end
-    })
-
-    local iconColor1 = iconFunction:CreateColorSlider({
-        Name = "Первый цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(197, 132, 211),
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Color1 = v end
-        end
-    })
-
-    iconColor2 = iconFunction:CreateColorSlider({
-        Name = "Второй цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(95, 63, 121),
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Color2 = v end
-        end
-    })
-
-    iconSpeed = iconFunction:CreateSlider({
-        Name = "Скорость переливания",
-        Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.65, Round = 2,
-        Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-            if nl2 then nl2.IconSettings.Speed = v end
-        end
-    })
-
-    local function applyTheme(v)
-        local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
-        local palette = GuiLibrary.GuiPallet
-        if not nl2 or not palette then return end
-
-        -- Presets are actions, not a persistent "theme selection". Clicking a
-        -- preset immediately writes the complete client palette and refreshes
-        -- already-created UI objects. A custom theme can therefore be replaced
-        -- instantly without changing any separate theme state.
-        local themes = {
-            ["Nursultan 1.21.11"] = {
-                Color1 = Color3.fromRGB(30, 30, 52),
-                Color2 = Color3.fromRGB(30, 30, 52),
-                Color3 = Color3.fromRGB(45, 38, 72),
-                Color4 = Color3.fromRGB(41, 35, 67),
-                Color5 = Color3.fromRGB(20, 20, 20),
-                Color6 = Color3.fromRGB(200, 200, 200),
-                ToggleColor = Color3.fromRGB(0, 0, 0),
-                ToggleColor2 = Color3.fromRGB(95, 63, 121),
-                TextColor = Color3.fromRGB(255, 255, 255),
-                PlaceholderColor = Color3.fromRGB(220, 220, 220),
-                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
-                InfoColor = Color3.fromRGB(180, 180, 180),
-                WarningColor = Color3.fromRGB(198, 205, 64),
-                ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(197, 132, 211),
-                Icon2 = Color3.fromRGB(95, 63, 121),
-            },
-            ["Nursultan 1.16.5"] = {
-                Color1 = Color3.fromRGB(30, 30, 52),
-                Color2 = Color3.fromRGB(30, 30, 52),
-                Color3 = Color3.fromRGB(45, 38, 72),
-                Color4 = Color3.fromRGB(41, 35, 67),
-                Color5 = Color3.fromRGB(20, 20, 20),
-                Color6 = Color3.fromRGB(200, 200, 200),
-                ToggleColor = Color3.fromRGB(0, 0, 0),
-                ToggleColor2 = Color3.fromRGB(94, 74, 103),
-                TextColor = Color3.fromRGB(255, 255, 255),
-                PlaceholderColor = Color3.fromRGB(220, 220, 220),
-                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
-                InfoColor = Color3.fromRGB(180, 180, 180),
-                WarningColor = Color3.fromRGB(198, 205, 64),
-                ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(207, 156, 211),
-                Icon2 = Color3.fromRGB(94, 74, 103),
-            },
-        }
-        local theme = themes[v]
-        if not theme then return end
-
-        -- Presets are text/client-icon themes only. Never repaint menu or
-        -- button backgrounds when switching between presets.
-        palette.ThemeMode = "Preset"
-
-        nl2.IconSettings = nl2.IconSettings or {}
-        nl2._LastThemePalette = nl2.ThemePalette
-        nl2.ThemePalette = theme
-        nl2.IconSettings.Mode = "Double"
-        nl2.IconSettings.Color1 = theme.Icon1
-        nl2.IconSettings.Color2 = theme.Icon2
-        nl2.IconSettings.Speed = 0.65
-        -- Update the visible controls too; changing the preset must not leave
-        -- stale picker swatches from the previous theme.
-        pcall(function() iconColor1:SetValue(theme.Icon1) end)
-        pcall(function() iconColor2:SetValue(theme.Icon2) end)
-        pcall(function() iconSpeed:SetValue(0.65) end)
-        pcall(function() iconMode:Select("Двойной") end)
-        if nl2.RefreshNightixTheme then
-            nl2:RefreshNightixTheme()
-        end
-    end
-
-    -- Presets are buttons: pressing one applies the palette immediately.
-    iconFunction:CreateButton({
-        Name = "Nursultan 1.21.11",
-        Callback = function() applyTheme("Nursultan 1.21.11") end
-    })
-    iconFunction:CreateButton({
-        Name = "Nursultan 1.16.5",
-        Callback = function() applyTheme("Nursultan 1.16.5") end
-    })
-
-    -- The function itself starts with the default client theme.
-    iconMode:Select("Двойной")
-    if iconColor2.Container then iconColor2.Container.Visible = true end
-    if iconSpeed.Container then iconSpeed.Container.Visible = true end
-end)
-
--- Confings tab
-runFunction(function()
-    Tabs.Confings:CreateConfigManager({
-        Name = "Configs",
-    })
-end)
+-- Settings are now exposed through Interface and the rebuilt Nursultan menu.
 
 -- Friends tab
 runFunction(function()
