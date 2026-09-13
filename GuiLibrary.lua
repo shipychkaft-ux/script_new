@@ -67,14 +67,14 @@ local guilibrary = {
 -- // todo here: make better names for colors instead of color1, 2.../primary color, secondary..
 local guipallet = {
     ThemeMode = "Default",
-    Color1 = Color3.fromRGB(14, 14, 23),
-    Color2 = Color3.fromRGB(47, 48, 64),
-    Color3 = Color3.fromRGB(66, 68, 66),
-    Color4 = Color3.fromRGB(49, 51, 64),
-    Color5 = Color3.fromRGB(20, 20, 20),
-    Color6 = Color3.fromRGB(200, 200, 200),
-    ToggleColor = Color3.fromRGB(0, 0, 0),
-    ToggleColor2 = Color3.fromRGB(52, 235, 58),
+    Color1 = Color3.fromRGB(30, 30, 52),
+    Color2 = Color3.fromRGB(30, 30, 52),
+    Color3 = Color3.fromRGB(41, 35, 67),
+    Color4 = Color3.fromRGB(45, 38, 72),
+    Color5 = Color3.fromRGB(20, 20, 34),
+    Color6 = Color3.fromRGB(200, 200, 210),
+    ToggleColor = Color3.fromRGB(20, 20, 34),
+    ToggleColor2 = Color3.fromRGB(197, 132, 211),
     TextColor = Color3.fromRGB(255, 255, 255),
     PlaceholderColor = Color3.fromRGB(220, 220, 220),
     PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
@@ -337,7 +337,7 @@ local function collectOption(optionData)
 end
 
 function guilibrary:BuildConfigData()
-    local data = {Version = 3, CreatedBy = LocalPlayer.DisplayName or LocalPlayer.Name or "Unknown", CreatedAt = os.date("%d.%m.%Y %H:%M"), Tabs = {}, Toggles = {}}
+    local data = {Version = 2, Tabs = {}, Toggles = {}}
 
     for tabKey, tabData in next, guilibrary.ObjectsToSave.Tabs do
         local container = tabData.API and tabData.API.Container
@@ -378,22 +378,24 @@ function guilibrary:SaveConfig(name)
 
     local path = configPath(name)
     if not path then return false, "Invalid config name" end
-    local oldMeta = {}
-    if isfile(path) then
-        pcall(function()
-            local old = httpService:JSONDecode(readfile(path))
-            if type(old) == "table" then
-                oldMeta.CreatedBy = old.CreatedBy
-                oldMeta.CreatedAt = old.CreatedAt
-            end
-        end)
-    end
-    local payload = guilibrary:BuildConfigData()
-    payload.CreatedBy = oldMeta.CreatedBy or payload.CreatedBy
-    payload.CreatedAt = oldMeta.CreatedAt or payload.CreatedAt
 
     local ok, err = pcall(function()
-        writefile(path, httpService:JSONEncode(payload))
+        local data = guilibrary:BuildConfigData()
+        local createdBy, createdAt
+        if isfile(path) then
+            pcall(function()
+                local old = httpService:JSONDecode(readfile(path))
+                if old and old.Meta then
+                    createdBy = old.Meta.CreatedBy
+                    createdAt = old.Meta.CreatedAt
+                end
+            end)
+        end
+        data.Meta = {
+            CreatedBy = createdBy or (game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer.Name) or "Unknown",
+            CreatedAt = createdAt or os.date("%d.%m.%Y %H:%M")
+        }
+        writefile(path, httpService:JSONEncode(data))
     end)
     if not ok then return false, tostring(err) end
 
@@ -502,6 +504,14 @@ function guilibrary:LoadConfig(name)
     return true
 end
 
+function guilibrary:GetConfigMetadata(name)
+    local path = configPath(name)
+    if not path or not isfile(path) then return nil end
+    local ok, data = pcall(function() return httpService:JSONDecode(readfile(path)) end)
+    if not ok or type(data) ~= "table" then return nil end
+    return data.Meta
+end
+
 function guilibrary:ListConfigs()
     local result = {}
     local ok, files = pcall(listfiles, guilibrary.ConfigRoot)
@@ -526,7 +536,6 @@ function guilibrary:DeleteConfig(name)
     if delfile then
         local ok, err = pcall(delfile, path)
         if not ok then return false, tostring(err) end
-        if isfile(path) then return false, "Config could not be deleted" end
     else
         return false, "delfile is unavailable"
     end
@@ -556,15 +565,6 @@ function guilibrary:RenameConfig(oldName, newName)
         guilibrary.CurrentConfig = newName
     end
     return true
-end
-
-function guilibrary:GetConfigMeta(name)
-    name = sanitizeConfigName(name)
-    local path = configPath(name)
-    if not path or not isfile(path) then return nil end
-    local ok, data = pcall(function() return httpService:JSONDecode(readfile(path)) end)
-    if not ok or type(data) ~= "table" then return nil end
-    return {CreatedBy = data.CreatedBy or "Unknown", CreatedAt = data.CreatedAt or "—"}
 end
 
 function guilibrary:CreateConfig(name)
