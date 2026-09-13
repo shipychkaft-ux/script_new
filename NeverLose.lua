@@ -224,15 +224,15 @@ NeverLose.IconColor = Color3.fromRGB(255, 255, 255);
 NeverLose.IconSettings = {
 	Enabled = true,
 	Mode = "Double",
-	Color1 = Color3.fromRGB(216, 148, 245),
-	Color2 = Color3.fromRGB(123, 131, 243),
+	Color1 = Color3.fromRGB(197, 132, 211),
+	Color2 = Color3.fromRGB(95, 63, 121),
 	Speed = 0.65,
 };
 
 -- Nightix theme state and refresh hook.
 NeverLose.ThemePalette = NeverLose.ThemePalette or {
-    Color1 = Color3.fromRGB(14, 14, 23), Color2 = Color3.fromRGB(47, 48, 64),
-    Color3 = Color3.fromRGB(66, 68, 66), Color4 = Color3.fromRGB(49, 51, 64),
+    Color1 = Color3.fromRGB(30, 30, 52), Color2 = Color3.fromRGB(30, 30, 52),
+    Color3 = Color3.fromRGB(45, 38, 72), Color4 = Color3.fromRGB(41, 35, 67),
     Color5 = Color3.fromRGB(20, 20, 20), Color6 = Color3.fromRGB(200, 200, 200),
     ToggleColor = Color3.fromRGB(0, 0, 0), ToggleColor2 = Color3.fromRGB(123, 131, 243),
     TextColor = Color3.fromRGB(255, 255, 255), PlaceholderColor = Color3.fromRGB(220, 220, 220),
@@ -1096,7 +1096,8 @@ NeverLose.ProcessParams = LPH_NO_VIRTUALIZE(function(self , Params , Fixed)
 	return k;
 end);
 
-NeverLose.EnabledBlur = true;
+NeverLose.EnabledBlur = false;
+NeverLose.BlurStrength = 1;
 NeverLose.BlurModuleParent = workspace.CurrentCamera;
 
 NeverLose.GetCalculatePosition = LPH_NO_VIRTUALIZE(function(planePos, planeNormal, rayOrigin, rayDirection)
@@ -1137,7 +1138,7 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 	DepthOfField.FarIntensity = 0;
 	DepthOfField.FocusDistance = 0;
 	DepthOfField.InFocusRadius = 1000;
-	DepthOfField.NearIntensity = 1;
+	DepthOfField.NearIntensity = math.clamp(tonumber(NeverLose.BlurStrength) or 1, 0, 1);
 	DepthOfField.Name = NeverLose.RandomString();
 
 	Part.Name = NeverLose.RandomString();
@@ -1150,7 +1151,7 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 		if IsWindowActive and not NeverLose.Global3DRenderMode then
 
 			NeverLose.PlayAnimate(DepthOfField,TweenInfo.new(0.1),{
-				NearIntensity = 1
+				NearIntensity = math.clamp(tonumber(NeverLose.BlurStrength) or 1, 0, 1)
 			})
 
 			NeverLose.PlayAnimate(Part,TweenInfo.new(0.1),{
@@ -1176,7 +1177,9 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 
 		if IsWindowActive then
 			local corner0 = Frame.AbsolutePosition;
-			local corner1 = corner0 + Frame.AbsoluteSize;
+			local frameSize = Frame.AbsoluteSize;
+			if frameSize.X <= 0 or frameSize.Y <= 0 then return end
+			local corner1 = corner0 + frameSize;
 
 			local ray0 = CurrentCamera.ScreenPointToRay(CurrentCamera,corner0.X, corner0.Y, 1);
 			local ray1 = CurrentCamera.ScreenPointToRay(CurrentCamera,corner1.X, corner1.Y, 1);

@@ -201,7 +201,7 @@ local Tabs = {
     }),
     Render = GuiLibrary:CreateTab({
         Name = "Visuals",
-        Color = Color3.fromRGB(59, 170, 222), --59, 170, 222
+        Color = Color3.fromRGB(197, 132, 211), --59, 170, 222
         TabIcon = "RenderTabIcon.png"
     }),
     Utility = GuiLibrary:CreateTab({
@@ -248,6 +248,28 @@ local Tabs = {
     ]]
 }
 Mana.Tabs = Tabs
+
+-- Interface is the single HUD controller and starts disabled.
+do
+    local state={Enabled=false,Logo=false,Blur=false,BlurStrength=1,Background=Color3.fromRGB(30,30,52)}
+    local interface=Tabs.Render:CreateToggle({Name="Interface",HoverText="Настройки HUD и интерфейса.",Default=false,Callback=function(v)
+        state.Enabled=v==true
+        local wm=shared.NightixWatermark
+        if wm and wm.SetRender then wm:SetRender(state.Enabled and state.Logo) end
+    end})
+    local function refresh()
+        local nl=GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+        if nl then nl.EnabledBlur=state.Blur==true; nl.BlurStrength=math.clamp(tonumber(state.BlurStrength) or 1,0,1) end
+        local wm=shared.NightixWatermark
+        if wm and wm.SetShaderVisual then wm:SetShaderVisual(state.Enabled and state.Logo) end
+        if wm and wm.SetRender then wm:SetRender(state.Enabled and state.Logo) end
+    end
+    interface:CreateToggle({Name="Логотип",Default=false,Callback=function(v) state.Logo=v==true; refresh() end})
+    interface:CreateToggle({Name="Размытие",Default=false,Callback=function(v) state.Blur=v==true; refresh() end})
+    interface:CreateSlider({Name="Сила размытия",Min=0,Max=1,Default=1,Round=2,Function=function(v) state.BlurStrength=v; refresh() end})
+    interface:CreateColorSlider({Name="Цвет фона",Default=state.Background,Function=function(v) state.Background=v end})
+    for _,name in ipairs({"Броня","Счётчик тотемов","Координаты","Скорость","Пинг"}) do interface:CreateToggle({Name=name,Default=false,Callback=function() end}) end
+end
 
 if GuiLibrary.Device == "Mobile" then
     SliderScaleValue = 0.5
@@ -339,8 +361,8 @@ runFunction(function()
         nl.IconSettings = nl.IconSettings or {}
         nl.IconSettings.Enabled = true
         nl.IconSettings.Mode = nl.IconSettings.Mode or "Double"
-        nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(216, 148, 245)
-        nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(123, 131, 243)
+        nl.IconSettings.Color1 = nl.IconSettings.Color1 or Color3.fromRGB(197, 132, 211)
+        nl.IconSettings.Color2 = nl.IconSettings.Color2 or Color3.fromRGB(95, 63, 121)
         nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
     end
 
@@ -365,7 +387,7 @@ runFunction(function()
 
     local iconColor1 = iconFunction:CreateColorSlider({
         Name = "Первый цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
+        Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(197, 132, 211),
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
             if nl2 then nl2.IconSettings.Color1 = v end
@@ -374,7 +396,7 @@ runFunction(function()
 
     iconColor2 = iconFunction:CreateColorSlider({
         Name = "Второй цвет",
-        Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
+        Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(95, 63, 121),
         Function = function(v)
             local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
             if nl2 then nl2.IconSettings.Color2 = v end
@@ -401,28 +423,28 @@ runFunction(function()
         -- instantly without changing any separate theme state.
         local themes = {
             ["Nursultan 1.21.11"] = {
-                Color1 = Color3.fromRGB(14, 14, 23),
-                Color2 = Color3.fromRGB(47, 48, 64),
-                Color3 = Color3.fromRGB(66, 68, 66),
-                Color4 = Color3.fromRGB(49, 51, 64),
+                Color1 = Color3.fromRGB(30, 30, 52),
+                Color2 = Color3.fromRGB(30, 30, 52),
+                Color3 = Color3.fromRGB(45, 38, 72),
+                Color4 = Color3.fromRGB(41, 35, 67),
                 Color5 = Color3.fromRGB(20, 20, 20),
                 Color6 = Color3.fromRGB(200, 200, 200),
                 ToggleColor = Color3.fromRGB(0, 0, 0),
-                ToggleColor2 = Color3.fromRGB(123, 131, 243),
+                ToggleColor2 = Color3.fromRGB(95, 63, 121),
                 TextColor = Color3.fromRGB(255, 255, 255),
                 PlaceholderColor = Color3.fromRGB(220, 220, 220),
                 PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
                 InfoColor = Color3.fromRGB(180, 180, 180),
                 WarningColor = Color3.fromRGB(198, 205, 64),
                 ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(216, 148, 245),
-                Icon2 = Color3.fromRGB(123, 131, 243),
+                Icon1 = Color3.fromRGB(197, 132, 211),
+                Icon2 = Color3.fromRGB(95, 63, 121),
             },
             ["Nursultan 1.16.5"] = {
-                Color1 = Color3.fromRGB(14, 14, 23),
-                Color2 = Color3.fromRGB(47, 48, 64),
-                Color3 = Color3.fromRGB(66, 68, 66),
-                Color4 = Color3.fromRGB(49, 51, 64),
+                Color1 = Color3.fromRGB(30, 30, 52),
+                Color2 = Color3.fromRGB(30, 30, 52),
+                Color3 = Color3.fromRGB(45, 38, 72),
+                Color4 = Color3.fromRGB(41, 35, 67),
                 Color5 = Color3.fromRGB(20, 20, 20),
                 Color6 = Color3.fromRGB(200, 200, 200),
                 ToggleColor = Color3.fromRGB(0, 0, 0),

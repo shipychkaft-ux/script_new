@@ -4370,24 +4370,11 @@ runFunction(function()
     })
 end)
 
+-- HUD is controlled exclusively by Interface in MainScript.
 runFunction(function()
-    local hud = {Enabled = false}
-    hud = Tabs.Render:CreateToggle({
-        Name = "HUD",
-        HoverText = "Включает HUD Nightix с ватермарком.",
-        Default = false,
-        Callback = function(enabled)
-            hud.Enabled = enabled
-            loadShaderDefinition("liquidglass_rect")
-            local watermark = shared.NightixWatermark
-            if watermark and watermark.SetShaderVisual then
-                watermark:SetShaderVisual(enabled)
-            end
-            if watermark and watermark.SetRender then
-                watermark:SetRender(enabled)
-            end
-        end
-    })
+    local watermark=shared.NightixWatermark
+    if watermark and watermark.SetRender then watermark:SetRender(false) end
+    if watermark and watermark.SetShaderVisual then watermark:SetShaderVisual(false) end
 end)
 
 runFunction(function()

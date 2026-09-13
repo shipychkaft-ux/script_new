@@ -67,10 +67,10 @@ local guilibrary = {
 -- // todo here: make better names for colors instead of color1, 2.../primary color, secondary..
 local guipallet = {
     ThemeMode = "Default",
-    Color1 = Color3.fromRGB(14, 14, 23),
-    Color2 = Color3.fromRGB(47, 48, 64),
-    Color3 = Color3.fromRGB(66, 68, 66),
-    Color4 = Color3.fromRGB(49, 51, 64),
+    Color1 = Color3.fromRGB(30, 30, 52),
+    Color2 = Color3.fromRGB(30, 30, 52),
+    Color3 = Color3.fromRGB(45, 38, 72),
+    Color4 = Color3.fromRGB(41, 35, 67),
     Color5 = Color3.fromRGB(20, 20, 20),
     Color6 = Color3.fromRGB(200, 200, 200),
     ToggleColor = Color3.fromRGB(0, 0, 0),

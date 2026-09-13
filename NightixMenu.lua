@@ -20,8 +20,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
         Logo = "rbxassetid://106084104602244",
-        Name = "Nightix",
-        Content = "Nightix",
+        Name = "Nursultan",
+        Content = "Nursultan",
         Size = NeverLose.Scales.Default,
         ConfigFolder = "NightixConfigs",
         EnableConfig = false,
@@ -37,8 +37,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- load notification
     local Notification = NeverLose:CreateNotification()
     Notification.new({
-        Title = "Nightix",
-        Content = "Nightix loaded",
+        Title = "Nursultan",
+        Content = "Nursultan loaded",
         Duration = 4,
     })
 
