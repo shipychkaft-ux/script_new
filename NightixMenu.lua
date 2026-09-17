@@ -22,17 +22,33 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         Logo = "rbxassetid://106084104602244",
         Name = "Nightix",
         Content = "Nightix",
-        Size = NeverLose.Scales.Default,
+        Size = UDim2.fromOffset(1280, 650),
+        MultiColumn = true,
         ConfigFolder = "NightixConfigs",
         EnableConfig = false,
         Enable3DRenderer = false,
-        MultiColumn = true,
         Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
     })
 
     -- watermark
     local Watermark = window:Watermark()
     shared.NightixWatermark = Watermark
+    local wmLogo = Watermark:AddBlock("rbxassetid://106084104602244", "Release")
+    local wmUser = Watermark:AddBlock("rbxassetid://118066261212798", localPlayer.DisplayName or localPlayer.Name or "User")
+    local wmPing = Watermark:AddBlock("rbxassetid://123183227014022", "0 Ping")
+    Watermark:SetRender(false)
+    task.spawn(function()
+        while shared.NightixWatermark == Watermark and Watermark ~= nil do
+            local ping = 0
+            pcall(function()
+                local stats = game:GetService("Stats")
+                local item = stats.Network and stats.Network.ServerStatsItem and stats.Network.ServerStatsItem["Data Ping"]
+                ping = math.floor(tonumber(item and item:GetValue()) or 0)
+            end)
+            if wmPing and wmPing.SetText then wmPing:SetText(tostring(ping) .. " Ping") end
+            task.wait(0.5)
+        end
+    end)
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
@@ -83,10 +99,11 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- menu scale, adjustable through UserSettings
     local function scaleSize(scale)
         scale = tonumber(scale) or 1
-        return UDim2.fromOffset(math.floor(1420 * scale), math.floor(520 * scale))
+        return UDim2.fromOffset(math.floor(640 * scale), math.floor(480 * scale))
     end
     local menuScaleValue = savedNightixScale
     local menuScale = scaleSize(menuScaleValue)
+    local function clampValue(v, min, max) return math.max(min, math.min(max, v)) end
 
     function guilibrary:SetNightixScale(scale)
         menuScaleValue = clampValue(tonumber(scale) or 1, 0.5, 2)
@@ -101,10 +118,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- ------------------------------------------------------------------
     -- helpers
     -- ------------------------------------------------------------------
-    local function clampValue(v, min, max)
-        return math.max(min, math.min(max, v))
-    end
-
     local function roundValue(v, round)
         round = round or 0
         return math.floor(v * (10 ^ round) + 0.5) / (10 ^ round)
@@ -360,6 +373,12 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         lib:SetValue(def)
         callback(def)
 
+        -- Visual-module colors are controlled by Theme Editor. Interface keeps
+        -- its own HUD background color as requested.
+        if tabName == "Visuals" and toggleName and toggleName ~= "Interface" then
+            api.Container.Visible = false
+        end
+
         return registerOption(toggleName, tabName, name, api, "ColorSlider")
     end
 
@@ -551,29 +570,18 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             end,
         })
 
-        local function applyModuleRowState(enabled)
-            local p = NeverLose.ThemePalette or {}
-            label.Root.BackgroundColor3 = enabled and (p.ActiveFunction or Color3.fromRGB(41,35,67)) or (p.FunctionBackground or Color3.fromRGB(30,30,52))
-            label.Root:SetAttribute("NightixThemeRole", enabled and "ActiveFunction" or "Function")
-            label.Root.BackgroundTransparency = 0.02
-        end
-        applyModuleRowState(ToggleTable.Enabled)
-
         local toggleLib = label:AddToggle({
             Default = ToggleTable.Enabled,
             Callback = function(v)
-                applyModuleRowState(v)
                 if ToggleTable.Enabled ~= v then
                     ToggleTable:Toggle(false, v)
                 end
             end,
         })
 
-        local optionWindow = label:AddOption({Icon=1, AlwaysVisible=argstable.OptionsAlwaysVisible == true}) -- gear: module options
+        local optionWindow = label:AddOption(1) -- gear: module options
         table.insert(optionWindows, optionWindow)
-        NeverLose:AddSignal(label.Root.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton2 then optionWindow.Signal:SetValue(true) end
-        end))
+        ToggleTable = ToggleTable
 
         local function reapplyModuleOptions()
             for _, optionData in next, ToggleTable.Options do
@@ -654,6 +662,14 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             end
         end
 
+        function ToggleTable:OpenOptions()
+            optionWindow.Signal:SetValue(true)
+        end
+        function ToggleTable:CloseOptions()
+            optionWindow.Signal:SetValue(false)
+        end
+        ToggleTable.OptionWindow = optionWindow
+
         function ToggleTable:CreateSlider(argstable)
             return createSlider(optionWindow, argstable, toggleName, nil)
         end
@@ -718,7 +734,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Movement = "mouse-scrollwheel",
             Render = "paint-brush",
             Visuals = "paint-brush",
-            Utility = "rbxassetid://89294237251926",
+            Player = "person",
+            Miscellaneous = "three-dots-horizontal",
+            Utility = "person",
             Settings = "gear",
             Confings = "three-dots-horizontal",
             Friends = "person",
@@ -820,9 +838,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                         item.stroke.Transparency = active and 0 or 0.7
                     end
                     if item.glow then item.glow:Render(active) end
-                    if item.label then
-                        item.label.Text = (active and "●  " or "○  ") .. item.name
-                    end
+                    if item.label then item.label.Text = item.name end
+                    local mark = item.root and item.root:FindFirstChild("ConfigCheck")
+                    if mark then mark.TextTransparency = active and 0 or 0.45 end
                 end
             end
 
@@ -884,58 +902,59 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 for _, configName in ipairs(configs) do
                     local row = section:AddLabel(configName)
                     local root = row.Root
-                    root.Size = UDim2.new(1, 0, 0, 56)
+                    root.Size = UDim2.new(1, 0, 0, 58)
+                    local cardCorner = Instance.new("UICorner")
+                    cardCorner.CornerRadius = UDim.new(0, 6)
+                    cardCorner.Parent = root
                     local stroke = Instance.new("UIStroke")
                     stroke.Color = Color3.fromRGB(255,255,255)
                     stroke.Thickness = 1
-                    stroke.Transparency = 0.7
+                    stroke.Transparency = 0.78
                     stroke.Parent = root
                     local glow = NeverLose:CreateShadow(root, true, 0.75)
                     local entry = {name=configName, root=root, label=nil, stroke=stroke, glow=glow}
                     entry.label = root:FindFirstChildOfClass("TextLabel")
                     if entry.label then
                         entry.label.Position = UDim2.fromOffset(10, 5)
-                        entry.label.Size = UDim2.new(1, -20, 0, 18)
+                        entry.label.Size = UDim2.new(1, -22, 0, 18)
                         entry.label.TextSize = 13
-                        entry.label.TextXAlignment = Enum.TextXAlignment.Left
+                        entry.label.Text = configName
                     end
-                    local meta = guilibrary.GetConfigMetadata and guilibrary:GetConfigMetadata(configName) or nil
+                    local meta = guilibrary.GetConfigMeta and guilibrary:GetConfigMeta(configName) or nil
                     local creator = Instance.new("TextLabel")
                     creator.Name = "ConfigCreator"
                     creator.Parent = root
                     creator.BackgroundTransparency = 1
-                    creator.Position = UDim2.new(0, 10, 0, 27)
-                    creator.Size = UDim2.new(1, -20, 0, 13)
-                    creator.ZIndex = root.ZIndex + 2
-                    creator.Font = Enum.Font.GothamMedium
-                    creator.Text = "от " .. tostring(meta and meta.CreatedBy or "Unknown")
-                    creator.TextColor3 = Color3.fromRGB(170,170,180)
-                    creator.TextSize = 9
+                    creator.Position = UDim2.fromOffset(10, 23)
+                    creator.Size = UDim2.new(1, -42, 0, 14)
+                    creator.Font = Enum.Font.Gotham
+                    creator.TextSize = 10
+                    creator.TextColor3 = Color3.fromRGB(185,185,195)
                     creator.TextXAlignment = Enum.TextXAlignment.Left
+                    creator.Text = "от " .. tostring(meta and meta.CreatedBy or "Unknown")
                     local date = Instance.new("TextLabel")
                     date.Name = "ConfigDate"
                     date.Parent = root
                     date.BackgroundTransparency = 1
-                    date.Position = UDim2.new(0, 10, 0, 40)
-                    date.Size = UDim2.new(1, -35, 0, 12)
-                    date.ZIndex = root.ZIndex + 2
-                    date.Font = Enum.Font.GothamMedium
-                    date.Text = tostring(meta and meta.CreatedAt or "--.--.---- --:--")
-                    date.TextColor3 = Color3.fromRGB(145,145,155)
-                    date.TextSize = 9
+                    date.Position = UDim2.fromOffset(10, 40)
+                    date.Size = UDim2.new(1, -42, 0, 14)
+                    date.Font = Enum.Font.Gotham
+                    date.TextSize = 10
+                    date.TextColor3 = Color3.fromRGB(150,150,160)
                     date.TextXAlignment = Enum.TextXAlignment.Left
+                    date.Text = tostring(meta and meta.CreatedAt or "—")
                     local check = Instance.new("TextLabel")
                     check.Name = "ConfigCheck"
                     check.Parent = root
                     check.BackgroundTransparency = 1
-                    check.Position = UDim2.new(1, -25, 0, 37)
-                    check.Size = UDim2.fromOffset(18, 18)
-                    check.ZIndex = root.ZIndex + 3
+                    check.AnchorPoint = Vector2.new(1, 0.5)
+                    check.Position = UDim2.new(1, -8, 0.5, 0)
+                    check.Size = UDim2.fromOffset(20, 20)
                     check.Font = Enum.Font.GothamBold
+                    check.TextSize = 14
                     check.Text = "✓"
                     check.TextColor3 = Color3.fromRGB(255,255,255)
-                    check.TextSize = 14
-                    check.TextXAlignment = Enum.TextXAlignment.Center
+                    check.TextTransparency = 0.45
                     table.insert(rows, entry)
                     NeverLose:CreateInput(root, function()
                         -- Selecting a config never loads it. Loading is explicit via the Load button.
@@ -949,12 +968,12 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 Name = "Add",
                 Icon = "circle-plus",
                 Callback = function()
-                    local name = tostring(nameInput.Value or ""):gsub("^%s+", ""):gsub("%s+$", "")
+                    local name = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
                     if name == "" then notify("Enter a config name"); return end
                     local ok, err = guilibrary:CreateConfig(name)
                     if ok then
                         selected = name
-                        nameInput:Set("")
+                        nameInput:SetValue("")
                         manager:Refresh()
                         notify("Created " .. name)
                     else
@@ -1172,7 +1191,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     end
 
     guilibrary.NightixMenu = {
-        Version = "1.0.10",
+        Version = 2,
         Window = window,
         NeverLose = NeverLose,
     }
