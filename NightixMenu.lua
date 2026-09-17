@@ -20,24 +20,24 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
         Logo = "rbxassetid://106084104602244",
-        Name = "Default",
-        Content = "Default",
+        Name = "Nightix",
+        Content = "Nightix",
         Size = NeverLose.Scales.Default,
         ConfigFolder = "NightixConfigs",
         EnableConfig = false,
         Enable3DRenderer = false,
+        MultiColumn = true,
         Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
     })
 
     -- watermark
     local Watermark = window:Watermark()
     shared.NightixWatermark = Watermark
-    Watermark:AddBlock("rbxassetid://106084104602244", "Default | UID: " .. tostring(localPlayer.UserId))
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
     Notification.new({
-        Title = "Default",
+        Title = "Nightix",
         Content = "Nightix loaded",
         Duration = 4,
     })
@@ -49,8 +49,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     guilibrary.UIScale = { Scale = savedNightixScale }
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
-    -- Keep the interface/HUD independent from menu visibility.
-    NeverLose.InterfaceSettings = NeverLose.InterfaceSettings or {HUD=false, Blur=false, BlurStrength=12, BackgroundColor=Color3.fromRGB(30,30,52)}
     local previousMouseBehavior
     local previousMouseIconEnabled
     local previousCameraMinZoomDistance
@@ -67,7 +65,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local color = enabled and "#64EB7D" or "#FF5F69"
         local Notification = NeverLose:CreateNotification()
         Notification.new({
-            Title = "Default",
+            Title = "Nightix",
             Content = tostring(name) .. " <font color=\"" .. color .. "\">" .. status .. "</font>",
             Duration = 2,
         })
@@ -85,7 +83,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- menu scale, adjustable through UserSettings
     local function scaleSize(scale)
         scale = tonumber(scale) or 1
-        return UDim2.fromOffset(math.floor(640 * scale), math.floor(480 * scale))
+        return UDim2.fromOffset(math.floor(1420 * scale), math.floor(520 * scale))
     end
     local menuScaleValue = savedNightixScale
     local menuScale = scaleSize(menuScaleValue)
@@ -132,7 +130,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             error("[NightixMenu]: unknown tab '" .. tostring(tabname) .. "'")
         end
         if not st.section then
-            st.section = st.tab:AddSection({ Name = "", Position = "Auto" })
+            st.section = st.tab:AddSection({ Name = "Modules", Position = "Auto" })
         end
         return st.section
     end
@@ -548,28 +546,34 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local keybindLib = label:AddKeybind({
             Default = ToggleTable.Keybind,
             Blacklist = { RightShift = true, Insert = true },
-            Callback = function(v) ToggleTable.Keybind = v end,
+            Callback = function(v)
+                ToggleTable.Keybind = v
+            end,
         })
+
+        local function applyModuleRowState(enabled)
+            local p = NeverLose.ThemePalette or {}
+            label.Root.BackgroundColor3 = enabled and (p.ActiveFunction or Color3.fromRGB(41,35,67)) or (p.FunctionBackground or Color3.fromRGB(30,30,52))
+            label.Root:SetAttribute("NightixThemeRole", enabled and "ActiveFunction" or "Function")
+            label.Root.BackgroundTransparency = 0.02
+        end
+        applyModuleRowState(ToggleTable.Enabled)
 
         local toggleLib = label:AddToggle({
             Default = ToggleTable.Enabled,
             Callback = function(v)
-                if ToggleTable.Enabled ~= v then ToggleTable:Toggle(true, v) end
+                applyModuleRowState(v)
+                if ToggleTable.Enabled ~= v then
+                    ToggleTable:Toggle(false, v)
+                end
             end,
         })
 
-        -- The old tiny toggle/keybind controls are hidden. The whole function
-        -- row is now the toggle target; the three-dots control remains visible.
-        toggleLib.Root:SetAttribute("NightixHiddenModuleControl", true)
-        keybindLib.Root:SetAttribute("NightixHiddenModuleControl", true)
-        toggleLib.Root.Visible = false
-        keybindLib.Root.Visible = false
-
-        local optionWindow = label:AddOption(3) -- three dots
+        local optionWindow = label:AddOption({Icon=1, AlwaysVisible=argstable.OptionsAlwaysVisible == true}) -- gear: module options
         table.insert(optionWindows, optionWindow)
-        label.Root:SetAttribute("NightixEnabled", ToggleTable.Enabled == true)
-        label.Root.BackgroundColor3 = ToggleTable.Enabled and NeverLose.ThemeColors.Active or NeverLose.ThemeColors.Background
-        local bindMode = "Toggle"
+        NeverLose:AddSignal(label.Root.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton2 then optionWindow.Signal:SetValue(true) end
+        end))
 
         local function reapplyModuleOptions()
             for _, optionData in next, ToggleTable.Options do
@@ -591,8 +595,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
             ToggleTable.Enabled = Bool
             ToggleTable.Value = Bool
-            label.Root:SetAttribute("NightixEnabled", Bool)
-            label.Root.BackgroundColor3 = Bool and NeverLose.ThemeColors.Active or NeverLose.ThemeColors.Background
             toggleLib:SetValue(Bool)
 
             -- Explicit state changes (config loading/restarts) still need the
@@ -616,8 +618,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             if ToggleTable.Enabled == target then return end
             ToggleTable.Enabled = target
             ToggleTable.Value = target
-            label.Root:SetAttribute("NightixEnabled", target)
-            label.Root.BackgroundColor3 = target and NeverLose.ThemeColors.Active or NeverLose.ThemeColors.Background
             toggleLib:SetValue(target)
             if ToggleTable.Callback then
                 ToggleTable.Callback(target)
@@ -682,62 +682,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             return createTextList(getSection(tabName), argstable, toggleName, nil)
         end
 
-        -- Click the function itself to toggle. RMB opens its inline options;
-        -- MMB opens the compact bind dialog.
-        local rowHit = Instance.new("ImageButton")
-        rowHit.Name = "FunctionHitbox"
-        rowHit.Parent = label.Root
-        rowHit.Position = UDim2.fromOffset(0, 0)
-        rowHit.Size = UDim2.new(1, -34, 1, 0)
-        rowHit.BackgroundTransparency = 1
-        rowHit.BorderSizePixel = 0
-        rowHit.ImageTransparency = 1
-        rowHit.ZIndex = label.Root.ZIndex + 11
-
-        rowHit.MouseButton1Click:Connect(function() ToggleTable:Toggle(false) end)
-        rowHit.MouseButton2Click:Connect(function() optionWindow.Signal:SetValue(not optionWindow.Signal:GetValue()) end)
-
-        local function openBindPopup()
-            local existing = NeverLose.ScreenGui:FindFirstChild("BindPopup_" .. toggleName)
-            if existing then existing:Destroy(); return end
-            local popup = Instance.new("Frame", NeverLose.ScreenGui)
-            popup.Name = "BindPopup_" .. toggleName
-            popup.Position = UDim2.fromOffset(label.Root.AbsolutePosition.X + label.Root.AbsoluteSize.X - 190, label.Root.AbsolutePosition.Y + label.Root.AbsoluteSize.Y + 4)
-            popup.Size = UDim2.fromOffset(180, 96)
-            popup.BackgroundColor3 = NeverLose.ThemeColors.Background
-            popup.BorderSizePixel = 0
-            popup.ZIndex = 600
-            local pc=Instance.new("UICorner",popup); pc.CornerRadius=UDim.new(0,6)
-            local ps=Instance.new("UIStroke",popup); ps.Color=NeverLose.ThemeColors.Outline; ps.Transparency=0.1
-            local field=Instance.new("TextButton",popup)
-            field.Position=UDim2.fromOffset(8,8); field.Size=UDim2.new(1,-40,0,26); field.BackgroundColor3=NeverLose.ThemeColors.Active; field.BorderSizePixel=0; field.Text=NeverLose:KeyCodeToStr(ToggleTable.Keybind); field.TextColor3=NeverLose.ThemeColors.Text; field.TextSize=12; field.ZIndex=601
-            local fc=Instance.new("UICorner",field); fc.CornerRadius=UDim.new(0,4)
-            local del=Instance.new("TextButton",popup); del.Position=UDim2.new(1,-29,0,8); del.Size=UDim2.fromOffset(21,26); del.BackgroundTransparency=1; del.Text="×"; del.TextColor3=NeverLose.ThemeColors.Text; del.TextSize=16; del.ZIndex=601
-            local hold=Instance.new("TextButton",popup); hold.Position=UDim2.fromOffset(8,42); hold.Size=UDim2.fromOffset(78,24); hold.BackgroundColor3=NeverLose.ThemeColors.Active; hold.BorderSizePixel=0; hold.Text="Hold"; hold.TextColor3=NeverLose.ThemeColors.Text; hold.TextSize=11; hold.ZIndex=601
-            local toggle=Instance.new("TextButton",popup); toggle.Position=UDim2.fromOffset(94,42); toggle.Size=UDim2.fromOffset(78,24); toggle.BackgroundColor3=NeverLose.ThemeColors.Active; toggle.BorderSizePixel=0; toggle.Text="Toggle"; toggle.TextColor3=NeverLose.ThemeColors.Text; toggle.TextSize=11; toggle.ZIndex=601
-            local hint=Instance.new("TextLabel",popup); hint.Position=UDim2.fromOffset(8,70); hint.Size=UDim2.new(1,-16,0,18); hint.BackgroundTransparency=1; hint.Text="Средняя кнопка мыши — бинды"; hint.TextColor3=Color3.fromRGB(175,175,190); hint.TextSize=9; hint.ZIndex=601
-            local binding=false; local bindConn
-            local function stopBind() if bindConn then bindConn:Disconnect(); bindConn=nil end; binding=false end
-            field.MouseButton1Click:Connect(function()
-                if binding then return end
-                binding=true; field.Text="Нажмите клавишу..."
-                bindConn=userInputService.InputBegan:Connect(function(input)
-                    local value=nil
-                    if input.KeyCode ~= Enum.KeyCode.Unknown then value=input.KeyCode.Name
-                    elseif input.UserInputType==Enum.UserInputType.MouseButton1 then value="M1B"
-                    elseif input.UserInputType==Enum.UserInputType.MouseButton2 then value="M2B"
-                    elseif input.UserInputType==Enum.UserInputType.MouseButton3 then value="M3B" end
-                    if value then ToggleTable:UpdateKeybind(false,value); field.Text=value; stopBind() end
-                end)
-            end)
-            del.MouseButton1Click:Connect(function() stopBind(); ToggleTable:UpdateKeybind(true); field.Text="None" end)
-            hold.MouseButton1Click:Connect(function() bindMode="Hold" end)
-            toggle.MouseButton1Click:Connect(function() bindMode="Toggle" end)
-        end
-        local middle=Instance.new("ImageButton")
-        middle.Parent=label.Root; middle.Position=UDim2.new(1,-34,0,0); middle.Size=UDim2.fromOffset(34, label.Root.AbsoluteSize.Y); middle.BackgroundTransparency=1; middle.ImageTransparency=1; middle.ZIndex=label.Root.ZIndex+12
-        middle.MouseButton3Click:Connect(openBindPopup)
-
         table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
 
@@ -748,22 +692,11 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 or (keybind == "M3B" or keybind == "MouseButton3") and input.UserInputType == Enum.UserInputType.MouseButton3
 
             if pressed then
-                if bindMode == "Hold" then
-                    ToggleTable:SetEnabled(true, true)
-                else
-                    ToggleTable:Toggle(false)
-                end
+                -- A keybind is a normal toggle. ReToggle was restarting the
+                -- module instead, which made a bound AttackAura immediately
+                -- return to the wrong state and appear impossible to disable.
+                ToggleTable:Toggle(false)
             end
-        end))
-
-        table.insert(connections, userInputService.InputEnded:Connect(function(input)
-            if bindMode ~= "Hold" then return end
-            local keybind = ToggleTable.Keybind
-            local released = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode.Name == keybind
-                or (keybind == "M1B") and input.UserInputType == Enum.UserInputType.MouseButton1
-                or (keybind == "M2B") and input.UserInputType == Enum.UserInputType.MouseButton2
-                or (keybind == "M3B") and input.UserInputType == Enum.UserInputType.MouseButton3
-            if released then ToggleTable:SetEnabled(false, true) end
         end))
 
         ObjectsToSave.Toggles[toggleName] = {
@@ -787,6 +720,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
             Visuals = "paint-brush",
             Utility = "rbxassetid://89294237251926",
             Settings = "gear",
+            Confings = "three-dots-horizontal",
             Friends = "person",
         }
 
@@ -862,7 +796,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
             local function notify(text)
                 local notification = NeverLose:CreateNotification()
-                notification.new({Title = "Default", Content = tostring(text), Duration = 2.5})
+                notification.new({Title = "Confings", Content = tostring(text), Duration = 2.5})
             end
 
             local function clearRows()
@@ -950,6 +884,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 for _, configName in ipairs(configs) do
                     local row = section:AddLabel(configName)
                     local root = row.Root
+                    root.Size = UDim2.new(1, 0, 0, 56)
                     local stroke = Instance.new("UIStroke")
                     stroke.Color = Color3.fromRGB(255,255,255)
                     stroke.Thickness = 1
@@ -957,8 +892,50 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                     stroke.Parent = root
                     local glow = NeverLose:CreateShadow(root, true, 0.75)
                     local entry = {name=configName, root=root, label=nil, stroke=stroke, glow=glow}
-                    -- AddLabel does not expose its internal TextLabel, so use the first TextLabel child.
                     entry.label = root:FindFirstChildOfClass("TextLabel")
+                    if entry.label then
+                        entry.label.Position = UDim2.fromOffset(10, 5)
+                        entry.label.Size = UDim2.new(1, -20, 0, 18)
+                        entry.label.TextSize = 13
+                        entry.label.TextXAlignment = Enum.TextXAlignment.Left
+                    end
+                    local meta = guilibrary.GetConfigMetadata and guilibrary:GetConfigMetadata(configName) or nil
+                    local creator = Instance.new("TextLabel")
+                    creator.Name = "ConfigCreator"
+                    creator.Parent = root
+                    creator.BackgroundTransparency = 1
+                    creator.Position = UDim2.new(0, 10, 0, 27)
+                    creator.Size = UDim2.new(1, -20, 0, 13)
+                    creator.ZIndex = root.ZIndex + 2
+                    creator.Font = Enum.Font.GothamMedium
+                    creator.Text = "от " .. tostring(meta and meta.CreatedBy or "Unknown")
+                    creator.TextColor3 = Color3.fromRGB(170,170,180)
+                    creator.TextSize = 9
+                    creator.TextXAlignment = Enum.TextXAlignment.Left
+                    local date = Instance.new("TextLabel")
+                    date.Name = "ConfigDate"
+                    date.Parent = root
+                    date.BackgroundTransparency = 1
+                    date.Position = UDim2.new(0, 10, 0, 40)
+                    date.Size = UDim2.new(1, -35, 0, 12)
+                    date.ZIndex = root.ZIndex + 2
+                    date.Font = Enum.Font.GothamMedium
+                    date.Text = tostring(meta and meta.CreatedAt or "--.--.---- --:--")
+                    date.TextColor3 = Color3.fromRGB(145,145,155)
+                    date.TextSize = 9
+                    date.TextXAlignment = Enum.TextXAlignment.Left
+                    local check = Instance.new("TextLabel")
+                    check.Name = "ConfigCheck"
+                    check.Parent = root
+                    check.BackgroundTransparency = 1
+                    check.Position = UDim2.new(1, -25, 0, 37)
+                    check.Size = UDim2.fromOffset(18, 18)
+                    check.ZIndex = root.ZIndex + 3
+                    check.Font = Enum.Font.GothamBold
+                    check.Text = "✓"
+                    check.TextColor3 = Color3.fromRGB(255,255,255)
+                    check.TextSize = 14
+                    check.TextXAlignment = Enum.TextXAlignment.Center
                     table.insert(rows, entry)
                     NeverLose:CreateInput(root, function()
                         -- Selecting a config never loads it. Loading is explicit via the Load button.
@@ -972,12 +949,12 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
                 Name = "Add",
                 Icon = "circle-plus",
                 Callback = function()
-                    local name = tostring(nameInput:GetValue() or ""):gsub("^%s+", ""):gsub("%s+$", "")
+                    local name = tostring(nameInput.Value or ""):gsub("^%s+", ""):gsub("%s+$", "")
                     if name == "" then notify("Enter a config name"); return end
                     local ok, err = guilibrary:CreateConfig(name)
                     if ok then
                         selected = name
-                        nameInput:SetValue("")
+                        nameInput:Set("")
                         manager:Refresh()
                         notify("Created " .. name)
                     else
@@ -1194,259 +1171,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         return createOptionsTab(argstable)
     end
 
-    -- ------------------------------------------------------------------
-    -- Interface/HUD helpers. These are additive; the original NeverLose
-    -- window, tabs and module API remain untouched.
-    -- ------------------------------------------------------------------
-    local Lighting = game:GetService("Lighting")
-    NeverLose.InterfaceSettings = NeverLose.InterfaceSettings or {
-        HUD = false, Blur = false, BlurStrength = 12,
-        BackgroundColor = Color3.fromRGB(30,30,52)
-    }
-    local interfaceBlur
-
-    local function ensureInterfaceBlur()
-        if not interfaceBlur then
-            interfaceBlur = Instance.new("BlurEffect")
-            interfaceBlur.Name = "DefaultInterfaceBlur"
-            interfaceBlur.Enabled = false
-            interfaceBlur.Parent = Lighting
-        end
-        return interfaceBlur
-    end
-
-    function NeverLose:SetBlurStrength(v)
-        local n = math.clamp(tonumber(v) or 12, 0, 56)
-        NeverLose.InterfaceSettings.BlurStrength = n
-        if interfaceBlur then interfaceBlur.Size = n end
-    end
-
-    function NeverLose:SetBlurEnabled(v)
-        NeverLose.InterfaceSettings.Blur = v == true
-        local b = ensureInterfaceBlur()
-        b.Size = tonumber(NeverLose.InterfaceSettings.BlurStrength) or 12
-        b.Enabled = NeverLose.InterfaceSettings.Blur == true
-    end
-
-    function NeverLose:SetHUDBackgroundColor(v)
-        if typeof(v) ~= "Color3" then return end
-        NeverLose.InterfaceSettings.BackgroundColor = v
-        local wm = NeverLose.__WatermarkCache
-        if wm and wm.Root then wm.Root.BackgroundColor3 = v end
-    end
-
-    function NeverLose:SetHUDEnabled(v)
-        NeverLose.InterfaceSettings.HUD = v == true
-        local wm = NeverLose.__WatermarkCache
-        if wm and wm.SetRender then wm:SetRender(v == true) end
-    end
-
-    function NeverLose:SetInterfaceEnabled(v)
-        NeverLose.InterfaceSettings.InterfaceOpen = v == true
-    end
-
-    local function makePopup(name, position, size)
-        local f = Instance.new("Frame")
-        f.Name = name
-        f.Parent = NeverLose.ScreenGui
-        f.Position = position
-        f.Size = size
-        f.BackgroundColor3 = NeverLose.ThemeColors.Background
-        f.BackgroundTransparency = 0.04
-        f.BorderSizePixel = 0
-        f.ZIndex = 500
-        f.Visible = false
-        local c = Instance.new("UICorner", f)
-        c.CornerRadius = UDim.new(0, 7)
-        local st = Instance.new("UIStroke", f)
-        st.Color = NeverLose.ThemeColors.Outline
-        st.Transparency = 0.1
-        return f
-    end
-
-    local themePopup = makePopup("DefaultThemeEditor", UDim2.fromOffset(18, 100), UDim2.fromOffset(260, 330))
-    local configPopup = makePopup("DefaultConfigEditor", UDim2.new(1,-300,1,-360), UDim2.fromOffset(280,330))
-    NeverLose.ThemePopup = themePopup
-    NeverLose.ConfigPopup = configPopup
-
-    local function addPopupTitle(parent, text)
-        local t = Instance.new("TextLabel", parent)
-        t.BackgroundTransparency = 1
-        t.Position = UDim2.fromOffset(14, 10)
-        t.Size = UDim2.new(1,-28,0,22)
-        t.Font = Enum.Font.GothamBold
-        t.TextSize = 16
-        t.TextColor3 = NeverLose.ThemeColors.Text
-        t.TextXAlignment = Enum.TextXAlignment.Left
-        t.Text = text
-        t.ZIndex = 501
-        return t
-    end
-    addPopupTitle(themePopup, "Редактор тем")
-    addPopupTitle(configPopup, "Редактор конфигов")
-
-    -- Theme editor: one default swatch at first; each created theme adds one.
-    local themeNameBox = Instance.new("TextBox", themePopup)
-    themeNameBox.Position = UDim2.fromOffset(14,42)
-    themeNameBox.Size = UDim2.new(1,-94,0,28)
-    themeNameBox.BackgroundColor3 = NeverLose.ThemeColors.Background
-    themeNameBox.BorderSizePixel = 0
-    themeNameBox.TextColor3 = NeverLose.ThemeColors.Text
-    themeNameBox.PlaceholderText = "Название темы"
-    themeNameBox.Text = "Default"
-    themeNameBox.ClearTextOnFocus = false
-    themeNameBox.Font = Enum.Font.Gotham
-    themeNameBox.TextSize = 12
-    themeNameBox.ZIndex = 501
-    local themeCreate = Instance.new("TextButton", themePopup)
-    themeCreate.Position = UDim2.new(1,-78,0,42)
-    themeCreate.Size = UDim2.fromOffset(64,28)
-    themeCreate.BackgroundColor3 = NeverLose.ThemeColors.Active
-    themeCreate.BorderSizePixel = 0
-    themeCreate.TextColor3 = NeverLose.ThemeColors.Text
-    themeCreate.Text = "Создать"
-    themeCreate.Font = Enum.Font.GothamMedium
-    themeCreate.TextSize = 11
-    themeCreate.ZIndex = 501
-    local tc=Instance.new("UICorner",themeCreate); tc.CornerRadius=UDim.new(0,5)
-
-    local themeList = Instance.new("Frame", themePopup)
-    themeList.Position = UDim2.fromOffset(14,84)
-    themeList.Size = UDim2.new(1,-28,0,42)
-    themeList.BackgroundTransparency = 1
-    themeList.ZIndex = 501
-    local themeLayout=Instance.new("UIListLayout",themeList)
-    themeLayout.FillDirection=Enum.FillDirection.Horizontal
-    themeLayout.Padding=UDim.new(0,8)
-    themeLayout.VerticalAlignment=Enum.VerticalAlignment.Center
-
-    local themes={
-        Default={Background=Color3.fromRGB(30,30,52),Active=Color3.fromRGB(41,35,67),Outline=Color3.fromRGB(45,38,72),Accent=Color3.fromRGB(197,132,211),AccentDark=Color3.fromRGB(95,63,121),Text=Color3.fromRGB(255,255,255)}
-    }
-    local currentTheme="Default"
-    local syncThemeEditors
-    local function applyTheme(theme)
-        NeverLose.ThemeColors=theme
-        NeverLose.MainColor=theme.Background
-        for _,o in ipairs(NeverLose.ScreenGui:GetDescendants()) do
-            if o:IsA("Frame") and o:GetAttribute("NightixOptionRow") then
-                local enabled=o:GetAttribute("NightixEnabled") == true
-                o.BackgroundColor3=enabled and theme.Active or theme.Background
-                o.BackgroundTransparency=0
-            elseif o:IsA("TextLabel") and o:GetAttribute("NightixOptionLabel") then
-                o.TextColor3=theme.Text
-            elseif o:IsA("UIStroke") and o:GetAttribute("NightixThemeStroke") then
-                o.Color=theme.Outline
-            end
-        end
-        local wm=NeverLose.__WatermarkCache
-        if wm and wm.Root then wm.Root.BackgroundColor3=theme.Background:Lerp(Color3.new(0,0,0),0.18) end
-        if NeverLose.RefreshNightixTheme then pcall(function() NeverLose:RefreshNightixTheme() end) end
-    end
-    local function addThemeChip(themeName, theme)
-        local b=Instance.new("TextButton",themeList)
-        b.Name="Theme_"..themeName
-        b.Size=UDim2.fromOffset(34,34)
-        b.Text=""
-        b.BackgroundColor3=theme.Accent
-        b.BorderSizePixel=0
-        b.ZIndex=502
-        local c=Instance.new("UICorner",b); c.CornerRadius=UDim.new(1,0)
-        b.MouseButton1Click:Connect(function() currentTheme=themeName; applyTheme(theme); syncThemeEditors() end)
-    end
-    addThemeChip("Default",themes.Default)
-
-    local function addThemeColorEditor(y, title, key)
-        local label=Instance.new("TextLabel",themePopup)
-        label.Position=UDim2.fromOffset(14,y); label.Size=UDim2.new(1,-110,0,24); label.BackgroundTransparency=1
-        label.Text=title; label.TextColor3=NeverLose.ThemeColors.Text; label.Font=Enum.Font.GothamMedium; label.TextSize=11; label.TextXAlignment=Enum.TextXAlignment.Left; label.ZIndex=501
-        local box=Instance.new("TextBox",themePopup)
-        box.Position=UDim2.new(1,-94,0,y); box.Size=UDim2.fromOffset(80,24); box.BackgroundColor3=NeverLose.ThemeColors.Active; box.BorderSizePixel=0; box.TextColor3=NeverLose.ThemeColors.Text; box.TextSize=10; box.Font=Enum.Font.Gotham; box.ClearTextOnFocus=false; box.ZIndex=501
-        local c=Instance.new("UICorner",box); c.CornerRadius=UDim.new(0,4)
-        local function sync()
-            local t=themes[currentTheme] or themes.Default
-            local v=t[key]
-            local r=math.floor(v.R*255+0.5); local g=math.floor(v.G*255+0.5); local b=math.floor(v.B*255+0.5)
-            box.Text=string.format("%d,%d,%d",r,g,b)
-        end
-        box.FocusLost:Connect(function()
-            local r,g,b=tostring(box.Text):match("^(%d+)%s*,%s*(%d+)%s*,%s*(%d+)$")
-            r,g,b=tonumber(r),tonumber(g),tonumber(b)
-            if r and g and b and r<=255 and g<=255 and b<=255 then
-                themes[currentTheme][key]=Color3.fromRGB(r,g,b); applyTheme(themes[currentTheme])
-            end
-            sync()
-        end)
-        return sync
-    end
-    local syncBg=addThemeColorEditor(136,"Фон", "Background")
-    local syncActive=addThemeColorEditor(166,"Активные функции", "Active")
-    local syncOutline=addThemeColorEditor(196,"Обводка", "Outline")
-    local syncAccent=addThemeColorEditor(226,"Визуальные функции", "Accent")
-    local syncDark=addThemeColorEditor(256,"Тёмный оттенок", "AccentDark")
-    syncThemeEditors=function() syncBg(); syncActive(); syncOutline(); syncAccent(); syncDark() end
-    syncThemeEditors()
-
-    themeCreate.MouseButton1Click:Connect(function()
-        local n=tostring(themeNameBox.Text or ""):gsub("^%s+",""):gsub("%s+$","")
-        if n=="" or themes[n] then return end
-        themes[n]={Background=Color3.fromRGB(30,30,52),Active=Color3.fromRGB(41,35,67),Outline=Color3.fromRGB(45,38,72),Accent=Color3.fromRGB(197,132,211),AccentDark=Color3.fromRGB(95,63,121),Text=Color3.fromRGB(255,255,255)}
-        addThemeChip(n,themes[n])
-        currentTheme=n
-        applyTheme(themes[n])
-        syncThemeEditors()
-    end)
-
-    -- Config editor: name + Create, cards with author/date/check and RMB menu.
-    local cfgInput=Instance.new("TextBox",configPopup)
-    cfgInput.Position=UDim2.fromOffset(14,42); cfgInput.Size=UDim2.new(1,-94,0,28)
-    cfgInput.BackgroundColor3=NeverLose.ThemeColors.Background; cfgInput.BorderSizePixel=0
-    cfgInput.TextColor3=NeverLose.ThemeColors.Text; cfgInput.PlaceholderText="Название"; cfgInput.ClearTextOnFocus=false; cfgInput.ZIndex=501
-    local cfgCreate=Instance.new("TextButton",configPopup)
-    cfgCreate.Position=UDim2.new(1,-78,0,42); cfgCreate.Size=UDim2.fromOffset(64,28); cfgCreate.BackgroundColor3=NeverLose.ThemeColors.Active; cfgCreate.BorderSizePixel=0; cfgCreate.TextColor3=NeverLose.ThemeColors.Text; cfgCreate.Text="Создать"; cfgCreate.ZIndex=501
-    local cc=Instance.new("UICorner",cfgCreate); cc.CornerRadius=UDim.new(0,5)
-    local cfgList=Instance.new("ScrollingFrame",configPopup)
-    cfgList.Position=UDim2.fromOffset(14,80); cfgList.Size=UDim2.new(1,-28,1,-94); cfgList.BackgroundTransparency=1; cfgList.BorderSizePixel=0; cfgList.ScrollBarThickness=2; cfgList.ZIndex=501
-    local cfgLayout=Instance.new("UIListLayout",cfgList); cfgLayout.Padding=UDim.new(0,6)
-
-    local function refreshConfigEditor()
-        for _,c in ipairs(cfgList:GetChildren()) do if c:IsA("Frame") then c:Destroy() end end
-        for _,n in ipairs(guilibrary:ListConfigs()) do
-            local row=Instance.new("Frame",cfgList); row.Size=UDim2.new(1,-4,0,62); row.BackgroundColor3=NeverLose.ThemeColors.Active; row.BorderSizePixel=0; row.ZIndex=502
-            local rc=Instance.new("UICorner",row); rc.CornerRadius=UDim.new(0,5)
-            local title=Instance.new("TextLabel",row); title.BackgroundTransparency=1; title.Position=UDim2.fromOffset(10,6); title.Size=UDim2.new(1,-42,0,17); title.Text=n; title.TextColor3=NeverLose.ThemeColors.Text; title.Font=Enum.Font.GothamMedium; title.TextSize=12; title.TextXAlignment=Enum.TextXAlignment.Left; title.ZIndex=503
-            local author="Default"; local created=os.date("%d.%m.%Y %H:%M")
-            pcall(function()
-                local raw=readfile("Nightix/Configs/"..n..".json")
-                local data=httpService:JSONDecode(raw)
-                author=tostring(data.Author or "Default")
-                created=tostring(data.CreatedAtText or created)
-            end)
-            local meta=Instance.new("TextLabel",row); meta.BackgroundTransparency=1; meta.Position=UDim2.fromOffset(10,25); meta.Size=UDim2.new(1,-42,0,14); meta.Text="от "..author.."  •  "..created; meta.TextColor3=Color3.fromRGB(190,190,205); meta.Font=Enum.Font.Gotham; meta.TextSize=10; meta.TextXAlignment=Enum.TextXAlignment.Left; meta.ZIndex=503
-            local ok=Instance.new("TextLabel",row); ok.BackgroundTransparency=1; ok.Position=UDim2.new(1,-30,0,8); ok.Size=UDim2.fromOffset(20,20); ok.Text="✓"; ok.TextColor3=NeverLose.ThemeColors.Accent; ok.TextSize=16; ok.ZIndex=503
-            local hit=Instance.new("ImageButton",row); hit.Size=UDim2.fromScale(1,1); hit.BackgroundTransparency=1; hit.ImageTransparency=1; hit.ZIndex=504
-            hit.MouseButton2Click:Connect(function()
-                local menu=Instance.new("Frame",NeverLose.ScreenGui); menu.Position=UDim2.fromOffset(row.AbsolutePosition.X,row.AbsolutePosition.Y-50); menu.Size=UDim2.fromOffset(150,44); menu.BackgroundColor3=NeverLose.ThemeColors.Background; menu.BorderSizePixel=0; menu.ZIndex=700
-                local mc=Instance.new("UICorner",menu); mc.CornerRadius=UDim.new(0,5)
-                local load=Instance.new("TextButton",menu); load.Size=UDim2.new(.5,0,1,0); load.BackgroundTransparency=1; load.Text="Загрузить"; load.TextColor3=NeverLose.ThemeColors.Text; load.ZIndex=701
-                local del=Instance.new("TextButton",menu); del.Position=UDim2.new(.5,0,0,0); del.Size=UDim2.new(.5,0,1,0); del.BackgroundTransparency=1; del.Text="Удалить"; del.TextColor3=NeverLose.ThemeColors.Text; del.ZIndex=701
-                load.MouseButton1Click:Connect(function() guilibrary:LoadConfig(n); menu:Destroy() end)
-                del.MouseButton1Click:Connect(function() guilibrary:DeleteConfig(n); menu:Destroy(); refreshConfigEditor() end)
-            end)
-        end
-    end
-    cfgCreate.MouseButton1Click:Connect(function()
-        local n=tostring(cfgInput.Text or ""):gsub("^%s+",""):gsub("%s+$","")
-        if n~="" then guilibrary:CreateConfig(n); cfgInput.Text=""; refreshConfigEditor() end
-    end)
-    refreshConfigEditor()
-
-    function NeverLose:OpenThemeEditor() themePopup.Visible=true; configPopup.Visible=false end
-    function NeverLose:OpenConfigEditor() configPopup.Visible=true; themePopup.Visible=false; refreshConfigEditor() end
-    function NeverLose:CloseInterfaceWindows() themePopup.Visible=false; configPopup.Visible=false end
-
     guilibrary.NightixMenu = {
-        Version = 3,
+        Version = "1.0.10",
         Window = window,
         NeverLose = NeverLose,
     }

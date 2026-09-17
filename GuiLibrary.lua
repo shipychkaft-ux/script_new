@@ -67,14 +67,14 @@ local guilibrary = {
 -- // todo here: make better names for colors instead of color1, 2.../primary color, secondary..
 local guipallet = {
     ThemeMode = "Default",
-    Color1 = Color3.fromRGB(14, 14, 23),
-    Color2 = Color3.fromRGB(47, 48, 64),
-    Color3 = Color3.fromRGB(66, 68, 66),
-    Color4 = Color3.fromRGB(49, 51, 64),
-    Color5 = Color3.fromRGB(20, 20, 20),
-    Color6 = Color3.fromRGB(200, 200, 200),
-    ToggleColor = Color3.fromRGB(0, 0, 0),
-    ToggleColor2 = Color3.fromRGB(52, 235, 58),
+    Color1 = Color3.fromRGB(30, 30, 52),
+    Color2 = Color3.fromRGB(30, 30, 52),
+    Color3 = Color3.fromRGB(41, 35, 67),
+    Color4 = Color3.fromRGB(45, 38, 72),
+    Color5 = Color3.fromRGB(20, 20, 34),
+    Color6 = Color3.fromRGB(200, 200, 210),
+    ToggleColor = Color3.fromRGB(20, 20, 34),
+    ToggleColor2 = Color3.fromRGB(197, 132, 211),
     TextColor = Color3.fromRGB(255, 255, 255),
     PlaceholderColor = Color3.fromRGB(220, 220, 220),
     PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
@@ -337,7 +337,7 @@ local function collectOption(optionData)
 end
 
 function guilibrary:BuildConfigData()
-    local data = {Version = 3, CreatedAt = os.time(), CreatedAtText = os.date("%d.%m.%Y %H:%M"), Author = (LocalPlayer and LocalPlayer.Name) or "Default", Tabs = {}, Toggles = {}}
+    local data = {Version = 2, Tabs = {}, Toggles = {}}
 
     for tabKey, tabData in next, guilibrary.ObjectsToSave.Tabs do
         local container = tabData.API and tabData.API.Container
@@ -381,16 +381,20 @@ function guilibrary:SaveConfig(name)
 
     local ok, err = pcall(function()
         local data = guilibrary:BuildConfigData()
-        -- Creation metadata is immutable when a config is saved again.
+        local createdBy, createdAt
         if isfile(path) then
-            local oldRaw = readfile(path)
-            local oldData = httpService:JSONDecode(oldRaw)
-            if type(oldData) == "table" then
-                data.CreatedAt = oldData.CreatedAt or data.CreatedAt
-                data.CreatedAtText = oldData.CreatedAtText or data.CreatedAtText
-                data.Author = oldData.Author or data.Author
-            end
+            pcall(function()
+                local old = httpService:JSONDecode(readfile(path))
+                if old and old.Meta then
+                    createdBy = old.Meta.CreatedBy
+                    createdAt = old.Meta.CreatedAt
+                end
+            end)
         end
+        data.Meta = {
+            CreatedBy = createdBy or (game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer.Name) or "Unknown",
+            CreatedAt = createdAt or os.date("%d.%m.%Y %H:%M")
+        }
         writefile(path, httpService:JSONEncode(data))
     end)
     if not ok then return false, tostring(err) end
@@ -498,6 +502,14 @@ function guilibrary:LoadConfig(name)
     guilibrary.CurrentConfig = name
     guilibrary.ConfigLoaded = true
     return true
+end
+
+function guilibrary:GetConfigMetadata(name)
+    local path = configPath(name)
+    if not path or not isfile(path) then return nil end
+    local ok, data = pcall(function() return httpService:JSONDecode(readfile(path)) end)
+    if not ok or type(data) ~= "table" then return nil end
+    return data.Meta
 end
 
 function guilibrary:ListConfigs()
