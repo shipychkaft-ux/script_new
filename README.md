@@ -1,6 +1,6 @@
 # Nightix — Roblox Client
 
-**Version: 1.0.11**
+**Version: 1.0.8**
 
 Nightix is a Roblox Lua client with a Nightix-style ClickGUI.
 

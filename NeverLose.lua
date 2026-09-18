@@ -165,11 +165,22 @@ local Players: Players = cloneref(game:GetService('Players'));
 local HttpService: HttpService = cloneref(game:GetService('HttpService'));
 local LocalPlayer: Player = Players.LocalPlayer;
 local RealCoreGui = cloneref(game:GetService('CoreGui'));
-local PlayerGui = cloneref(LocalPlayer:WaitForChild('PlayerGui'));
--- Keep Nightix UI out of CoreGui. Some RobloxGui/CoreGui internal scripts watch
--- CoreGui descendants and can error when executor-generated UI containers are inserted.
 local function getSafeGuiParent()
-	return PlayerGui
+	local candidates = {}
+	if gethui then
+		local ok, candidate = pcall(gethui)
+		if ok then table.insert(candidates, candidate) end
+	end
+	if get_hidden_gui then
+		local ok, candidate = pcall(get_hidden_gui)
+		if ok then table.insert(candidates, candidate) end
+	end
+	for _, candidate in ipairs(candidates) do
+		if typeof(candidate) == 'Instance' and (candidate:IsA('PlayerGui') or candidate.ClassName == 'CoreGui') then
+			return candidate
+		end
+	end
+	return RealCoreGui or cloneref(LocalPlayer.PlayerGui)
 end
 local CoreGui: PlayerGui = getSafeGuiParent();
 local Mouse: Mouse = LocalPlayer:GetMouse();
@@ -188,7 +199,7 @@ NeverLose.RandomString = LPH_NO_VIRTUALIZE(function()
 	return string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4))..string.rep(string.char(math.random(1,7)),math.random(1,4));
 end);
 
-pcall(ProtectGui, GlobalWindow);
+ProtectGui(GlobalWindow);
 
 GlobalWindow.Name = NeverLose.RandomString();
 GlobalWindow.IgnoreGuiInset = true;
@@ -196,8 +207,8 @@ GlobalWindow.ZIndexBehavior = Enum.ZIndexBehavior.Global;
 GlobalWindow.ResetOnSpawn = false;
 -- Never parent our ScreenGui to executor-created Frames such as CoreGui.UI.
 -- Roblox's internal Locales/CoreGui scripts expect their own UI hierarchy to remain untouched.
-if typeof(CoreGui) ~= 'Instance' or not CoreGui:IsA('PlayerGui') then
-	CoreGui = PlayerGui
+if typeof(CoreGui) ~= 'Instance' or not (CoreGui:IsA('CoreGui') or CoreGui:IsA('PlayerGui')) then
+	CoreGui = RealCoreGui or cloneref(LocalPlayer.PlayerGui)
 end
 GlobalWindow.Parent = CoreGui;
 
@@ -213,38 +224,20 @@ NeverLose.IconColor = Color3.fromRGB(255, 255, 255);
 NeverLose.IconSettings = {
 	Enabled = true,
 	Mode = "Double",
-	Color1 = Color3.fromRGB(197, 132, 211),
-	Color2 = Color3.fromRGB(95, 63, 121),
+	Color1 = Color3.fromRGB(216, 148, 245),
+	Color2 = Color3.fromRGB(123, 131, 243),
 	Speed = 0.65,
 };
 
--- Visual-module theme is independent from the optional Icon toggle.
--- Disabling Icon only disables theme tinting/animation of icon images;
--- module text, sliders, toggles and HUD continue using this theme.
-NeverLose.HUDBackgroundColor = NeverLose.HUDBackgroundColor or Color3.fromRGB(30,30,52)
-
-NeverLose.VisualTheme = NeverLose.VisualTheme or {
-    Mode = "Double",
-    Color1 = Color3.fromRGB(197, 132, 211),
-    Color2 = Color3.fromRGB(95, 63, 121),
-    Speed = 0.65,
-}
-
 -- Nightix theme state and refresh hook.
 NeverLose.ThemePalette = NeverLose.ThemePalette or {
-    Color1 = Color3.fromRGB(30, 30, 52), Color2 = Color3.fromRGB(30, 30, 52),
+    Color1 = Color3.fromRGB(14, 14, 23), Color2 = Color3.fromRGB(47, 48, 64),
     Color3 = Color3.fromRGB(66, 68, 66), Color4 = Color3.fromRGB(49, 51, 64),
     Color5 = Color3.fromRGB(20, 20, 20), Color6 = Color3.fromRGB(200, 200, 200),
-    ToggleColor = Color3.fromRGB(0, 0, 0), ToggleColor2 = Color3.fromRGB(41, 35, 67),
+    ToggleColor = Color3.fromRGB(0, 0, 0), ToggleColor2 = Color3.fromRGB(123, 131, 243),
     TextColor = Color3.fromRGB(255, 255, 255), PlaceholderColor = Color3.fromRGB(220, 220, 220),
     PlaceholderColor2 = Color3.fromRGB(200, 200, 200), InfoColor = Color3.fromRGB(180, 180, 180),
-    WarningColor = Color3.fromRGB(198, 205, 64), ErrorColor = Color3.fromRGB(205, 64, 78),
-    MenuBackground = Color3.fromRGB(30, 30, 52),
-    ButtonBackground = Color3.fromRGB(30, 30, 52),
-    ActiveBackground = Color3.fromRGB(41, 35, 67),
-    ControlStroke = Color3.fromRGB(45, 38, 72),
-    VisualColor1 = Color3.fromRGB(197, 132, 211),
-    VisualColor2 = Color3.fromRGB(95, 63, 121)
+    WarningColor = Color3.fromRGB(198, 205, 64), ErrorColor = Color3.fromRGB(205, 64, 78)
 }
 local function sameColor(a,b)
     return typeof(a)=="Color3" and typeof(b)=="Color3"
@@ -252,66 +245,51 @@ local function sameColor(a,b)
 end
 function NeverLose:RefreshNightixTheme()
     local p = self.ThemePalette or {}
-    local visual = self.VisualTheme or {}
-    local c1 = visual.Color1 or (self.IconSettings and self.IconSettings.Color1) or p.Icon1 or Color3.fromRGB(197, 132, 211)
-    local c2 = visual.Color2 or (self.IconSettings and self.IconSettings.Color2) or p.Icon2 or Color3.fromRGB(95, 63, 121)
     local iconEnabled = not (self.IconSettings and self.IconSettings.Enabled == false)
-    local iconC1 = iconEnabled and c1 or Color3.fromRGB(255,255,255)
+    local c1 = iconEnabled and ((self.IconSettings and self.IconSettings.Color1) or p.Icon1 or Color3.fromRGB(216, 148, 245)) or Color3.fromRGB(255,255,255)
+    local c2 = iconEnabled and ((self.IconSettings and self.IconSettings.Color2) or p.Icon2 or Color3.fromRGB(123, 131, 243)) or Color3.fromRGB(255,255,255)
     self.MainColor = Color3.fromRGB(8, 8, 13)
-    self.IconColor = iconC1
+    self.IconColor = c1
     -- Theme presets intentionally do not recolor menu/button backgrounds.
     -- Accent is kept for legacy modules, while visual controls use IconSettings.
     self.AccentColor = c1
-    self.ThemePalette.VisualColor1 = c1
-    self.ThemePalette.VisualColor2 = c2
-    self.ThemePalette.VisualMode = visual.Mode or "Double"
-    self.ThemePalette.VisualSpeed = tonumber(visual.Speed) or 0.65
     if not self.ScreenGui then return end
-    local palette = self.ThemePalette or {}
     for _,o in ipairs(self.ScreenGui:GetDescendants()) do
         if o:IsA("ImageLabel") and o.Name == "NightixThemeIcon" then
-            o.ImageColor3 = iconC1
+            o.ImageColor3 = c1
         elseif (o:IsA("TextLabel") or o:IsA("TextButton") or o:IsA("TextBox")) and o:GetAttribute("NightixThemeAccentText") then
             o.TextColor3 = c1
-        end
-        local role = o:GetAttribute("NightixThemeRole")
-        if role == "MenuBackground" or role == "SectionBackground" or role == "OptionRow" or role == "ButtonRow" or role == "HUDBackground" then
-            if role == "HUDBackground" then
-                o.BackgroundColor3 = self.HUDBackgroundColor or palette.MenuBackground or Color3.fromRGB(30,30,52)
-            else
-                o.BackgroundColor3 = palette.MenuBackground or Color3.fromRGB(30,30,52)
-            end
-            if role == "OptionRow" or role == "ButtonRow" then o.BackgroundTransparency = 0.12 end
-        elseif role == "ToggleTrack" then
-            -- Respect the module's enabled state while avoiding old theme colors.
-            local active = o:GetAttribute("NightixToggleActive") == true
-            o.BackgroundColor3 = active and (palette.ActiveBackground or Color3.fromRGB(41,35,67)) or (palette.MenuBackground or Color3.fromRGB(30,30,52))
-        elseif o:IsA("UIStroke") and o.Parent then
-            o.Color = palette.ControlStroke or Color3.fromRGB(45,38,72)
-        elseif o:IsA("ScrollingFrame") then
-            if o.ScrollBarThickness and o.ScrollBarThickness > 0 then o.ScrollBarImageColor3 = palette.ActiveBackground or Color3.fromRGB(41,35,67) end
         end
     end
 end
 
 function NeverLose:GetNightixGradient(phase, muted)
-    local cfg = self.VisualTheme or {}
-    local c1 = cfg.Color1 or Color3.fromRGB(197,132,211)
+    local cfg = self.IconSettings or {}
+    if cfg.Enabled == false then
+        return ColorSequence.new(Color3.fromRGB(255,255,255))
+    end
+    local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
     local c2 = cfg.Color2 or c1
+
+    -- Single mode is a true single-color theme. Never allow Color2 from the
+    -- previous double-mode setup to leak into tabs, toggles, sliders or icons.
     if cfg.Mode == "Single" then
-        if muted then c1 = c1:Lerp(Color3.new(0,0,0), 0.45) end
+        if muted then
+            c1 = c1:Lerp(Color3.new(0,0,0), 0.45)
+        end
         return ColorSequence.new(c1)
     end
+
     if muted then
         c1 = c1:Lerp(Color3.new(0,0,0), 0.45)
         c2 = c2:Lerp(Color3.new(0,0,0), 0.45)
     end
     phase = phase or 0
     local keys = {}
-    for i=0,16 do
-        local x=i/16
-        local mix=(1-math.cos((x+phase)*math.pi*2))*0.5
-        keys[#keys+1]=ColorSequenceKeypoint.new(x,c1:Lerp(c2,mix))
+    for i = 0, 16 do
+        local x = i / 16
+        local mix = (1 - math.cos((x + phase) * math.pi * 2)) * 0.5
+        keys[#keys + 1] = ColorSequenceKeypoint.new(x, c1:Lerp(c2, mix))
     end
     return ColorSequence.new(keys)
 end
@@ -1118,7 +1096,7 @@ NeverLose.ProcessParams = LPH_NO_VIRTUALIZE(function(self , Params , Fixed)
 	return k;
 end);
 
-NeverLose.EnabledBlur = false;
+NeverLose.EnabledBlur = true;
 NeverLose.BlurModuleParent = workspace.CurrentCamera;
 
 NeverLose.GetCalculatePosition = LPH_NO_VIRTUALIZE(function(planePos, planeNormal, rayOrigin, rayDirection)
@@ -1133,8 +1111,8 @@ NeverLose.GetCalculatePosition = LPH_NO_VIRTUALIZE(function(planePos, planeNorma
 	return rayOrigin + (a * rayDirection);
 end);
 
-NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal, forceEnabled, blurStrength)
-	if not NeverLose.EnabledBlur and not forceEnabled then
+NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
+	if not NeverLose.EnabledBlur then
 		return NeverLose:AddSignal(Instance.new('BindableEvent').Event:Connect(function() return "nl"; end));	
 	end;
 
@@ -1159,7 +1137,7 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal, f
 	DepthOfField.FarIntensity = 0;
 	DepthOfField.FocusDistance = 0;
 	DepthOfField.InFocusRadius = 1000;
-	DepthOfField.NearIntensity = tonumber(blurStrength) and math.clamp(tonumber(blurStrength),0,1) or 1;
+	DepthOfField.NearIntensity = 1;
 	DepthOfField.Name = NeverLose.RandomString();
 
 	Part.Name = NeverLose.RandomString();
@@ -1245,7 +1223,7 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal, f
 
 	Frame.Destroying:Connect(disconnect);
 
-	return disconnect;
+	return rbxsignal;
 end);
 
 local EmptyFunction = function() end;
@@ -1389,8 +1367,8 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-	UIStroke.Transparency = 0.35
-	UIStroke.Color = Color3.fromRGB(45, 38, 72)
+	UIStroke.Transparency = 0.650
+	UIStroke.Color = Color3.fromRGB(45, 48, 58)
 	UIStroke.Parent = OptionHandler
 
 	local UpdateOptionWindowEvent = Instance.new("BindableEvent")
@@ -1500,7 +1478,7 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 			})
 
 			NeverLose.PlayAnimate(UIStroke , SlowyTween , {
-				Transparency = 1
+				Transparency = 0.650
 			})
 
 			shadow:Render(true);
@@ -1976,8 +1954,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		Toggle.Name = NeverLose.RandomString();
 		Toggle.Parent = Handler
-		Toggle.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
-        Toggle:SetAttribute("NightixThemeRole", "ToggleTrack")
+		Toggle.BackgroundColor3 = Color3.fromRGB(10, 13, 21)
 		Toggle.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Toggle.BorderSizePixel = 0
 		Toggle.ClipsDescendants = true
@@ -2014,35 +1991,54 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 		};
 
 		ToggleLib.SetUI = LPH_NO_VIRTUALIZE(function(value)
-            Toggle:SetAttribute("NightixToggleActive", value == true)
-            ToggleGradient.Enabled = false
-            CircleGradient.Enabled = false
-            local activeColor = NeverLose.ThemePalette and NeverLose.ThemePalette.ActiveBackground or Color3.fromRGB(41,35,67)
-            local inactiveColor = NeverLose.ThemePalette and NeverLose.ThemePalette.ButtonBackground or Color3.fromRGB(30,30,52)
-            local row = Handler.Parent
-            if row and row:IsA("Frame") then
-                row.BackgroundColor3 = value and activeColor or inactiveColor
-                row.BackgroundTransparency = 0.05
-            end
-            NeverLose.PlayAnimate(Toggle,SlowyTween,{
-                BackgroundColor3 = value and activeColor or inactiveColor,
-                BackgroundTransparency = 0
-            })
-            NeverLose.PlayAnimate(Circle,ToggleCircleTween,{
-                BackgroundColor3 = Color3.fromRGB(255,255,255),
-                BackgroundTransparency = value and 0 or 0.5,
-                Position = value and UDim2.new(0.7,0,0.5,0) or UDim2.new(0.3,0,0.5,0)
-            })
+			if value then
+				Toggle.BackgroundTransparency = 0
+				ToggleGradient.Enabled = true
+				CircleGradient.Enabled = true
+                ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, true)
+                CircleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
+
+				NeverLose.PlayAnimate(Circle,ToggleCircleTween,{
+					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+					BackgroundTransparency = 0,
+					Position = UDim2.new(0.7, 0, 0.5, 0)
+				})
+			else
+				ToggleGradient.Enabled = true
+				CircleGradient.Enabled = false
+				ToggleGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, true)
+				NeverLose.PlayAnimate(Toggle,SlowyTween,{
+					BackgroundTransparency = 0
+				})
+
+				NeverLose.PlayAnimate(Circle,ToggleCircleTween,{
+					BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+					BackgroundTransparency = 0.500,
+					Position = UDim2.new(0.300000012, 0, 0.5, 0)
+				})
+			end;
 		end);
 
+		task.spawn(function()
+			while Toggle and Toggle.Parent do
+				if ToggleGradient.Enabled then
+					local phase = (os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1
+					ToggleGradient.Color = NeverLose:GetNightixGradient(phase, true)
+					if CircleGradient.Enabled then
+						CircleGradient.Color = NeverLose:GetNightixGradient(phase, false)
+					end
+				end
+				task.wait(0.033)
+			end
+		end)
 
 		ToggleLib.SetVisible = LPH_NO_VIRTUALIZE(function(value)
 			if value then
 				ToggleLib.SetUI(Config.Default);
 			else
 				NeverLose.PlayAnimate(Toggle,SlowyTween,{
-					BackgroundTransparency = 0,
-					BackgroundColor3 = Color3.fromRGB(30, 30, 52)
+					BackgroundTransparency = 1,
+					BackgroundColor3 = Color3.fromRGB(10, 13, 21)
 				})
 
 				NeverLose.PlayAnimate(Circle,ToggleCircleTween,{
@@ -2231,7 +2227,7 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 		task.spawn(function()
 			while Slider and Slider.Parent do
-				SliderGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber((NeverLose.VisualTheme or {}).Speed) or 0.65)) % 1, false)
+				SliderGradient.Color = NeverLose:GetNightixGradient((os.clock() * (tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65)) % 1, false)
 				task.wait(0.033)
 			end
 		end)
@@ -2500,12 +2496,6 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 				end
 			end)
 		end));
-
-        NeverLose:AddSignal(Option.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton2 then
-                Window.Signal:SetValue(true)
-            end
-        end))
 
 		NeverLose:AddSignal(bthg.MouseEnter:Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(Option , SlowyTween , {
@@ -3596,7 +3586,7 @@ function NeverLose:CreateToolTips(Container: Frame , Name: string , Content: str
 			})
 
 			NeverLose.PlayAnimate(UIStroke , SlowyTween , {
-				Transparency = 1
+				Transparency = 0.650
 			})
 
 			NeverLose.PlayAnimate(TooltipName , SlowyTween , {
@@ -3669,9 +3659,8 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		local UICorner = Instance.new("UICorner")
 
 		BasedFrame.Name = NeverLose.RandomString();
-        BasedFrame:SetAttribute("NightixThemeRole", "OptionRow")
 		BasedFrame.Parent = Frame
-		BasedFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
+		BasedFrame.BackgroundColor3 = Color3.fromRGB(25, 27, 33)
 		BasedFrame.BackgroundTransparency = 1.000
 		BasedFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		BasedFrame.BorderSizePixel = 0
@@ -3724,12 +3713,12 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 
 		UIListLayout.Parent = BasedHandler
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
-		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 		UIListLayout.Padding = UDim.new(0, 5)
 
-		UICorner.CornerRadius = UDim.new(0, 5)
+		UICorner.CornerRadius = UDim.new(0, 10)
 		UICorner.Parent = BasedFrame
 
 		local UpdateWarp = LPH_NO_VIRTUALIZE(function()
@@ -3774,7 +3763,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		handle.SetRender = LPH_NO_VIRTUALIZE(function(value)
 			if value then
 				NeverLose.PlayAnimate(BasedFrame , SlowyTween , {
-					BackgroundTransparency = 0.05
+					BackgroundTransparency = 1
 				});
 
 				NeverLose.PlayAnimate(BasedLabel , SlowyTween , {
@@ -3871,9 +3860,8 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		NeverLose:AddQuery(ButtonFrame , Config.Name);
 
 		ButtonFrame.Name = NeverLose.RandomString();
-        ButtonFrame:SetAttribute("NightixThemeRole", "ButtonRow")
 		ButtonFrame.Parent = Frame
-		ButtonFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
+		ButtonFrame.BackgroundColor3 = Color3.fromRGB(25, 27, 33)
 		ButtonFrame.BackgroundTransparency = 1.000
 		ButtonFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		ButtonFrame.BorderSizePixel = 0
@@ -3907,7 +3895,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 		LineFrame.Size = UDim2.new(1, -20, 0, 1)
 		LineFrame.ZIndex = LayerIndex + 11
 
-		UICorner.CornerRadius = UDim.new(0, 5)
+		UICorner.CornerRadius = UDim.new(0, 10)
 		UICorner.Parent = ButtonFrame
 
 		Icon.Name = NeverLose.RandomString();
@@ -3949,7 +3937,7 @@ function NeverLose:RegisiterItem(Frame: Frame , Signel)
 
 		NeverLose:AddSignal(bth.MouseLeave:Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(ButtonFrame , SlowyTween , {
-				BackgroundTransparency = 0.05
+				BackgroundTransparency = 1
 			});
 		end)))
 
@@ -4145,7 +4133,6 @@ function NeverLose:CreateWindow(Config)
 		ConfigFolder = "NeverLoseConfigs",
 		EnableConfig = true,
 		Enable3DRenderer = false,
-        MultiColumn = false,
 		Keybind = "Insert"
 	});
 
@@ -4160,8 +4147,7 @@ function NeverLose:CreateWindow(Config)
 		Tabs = {},
 		CurrentTab = 1,
 		Keybind = Config.Keybind,
-		Enable3DRenderer = Config.Enable3DRenderer,
-        MultiColumn = Config.MultiColumn == true
+		Enable3DRenderer = Config.Enable3DRenderer
 	};
 
 	NeverLose.GlobalLogo = Window.Logo;
@@ -4207,11 +4193,10 @@ function NeverLose:CreateWindow(Config)
 	local TabContainer = Instance.new("Frame")
 
 	WindowFrame.Name = NeverLose.RandomString();
-    WindowFrame:SetAttribute("NightixThemeRole", "MenuBackground")
 	WindowFrame.Parent = NeverLose.ScreenGui;
 	WindowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-	WindowFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
-	WindowFrame.BackgroundTransparency = 0.12
+	WindowFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+	WindowFrame.BackgroundTransparency = 0.055
 	WindowFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	WindowFrame.BorderSizePixel = 0
 	WindowFrame.ClipsDescendants = true
@@ -4219,7 +4204,7 @@ function NeverLose:CreateWindow(Config)
 	WindowFrame.Size = Window.Size
 	WindowFrame.Active = true;
 
-	if not NeverLose.EnabledBlur and not forceEnabled then
+	if not NeverLose.EnabledBlur then
 		WindowFrame.BackgroundTransparency = 0.0255
 	end;
 
@@ -4255,7 +4240,7 @@ function NeverLose:CreateWindow(Config)
 	Window.SetRender = LPH_NO_VIRTUALIZE(function(self , value)
 		if value then
 			NeverLose.PlayAnimate(WindowFrame , SlowyTween , {
-				BackgroundTransparency = 0.12,
+				BackgroundTransparency = (NeverLose.EnabledBlur and 0.055) or 0.0255,
 				Size = Window.Size
 			})
 
@@ -4296,11 +4281,11 @@ function NeverLose:CreateWindow(Config)
 			})
 
 			NeverLose.PlayAnimate(RightMenuFrame , SlowyTween , {
-				BackgroundTransparency = 0.12
+				BackgroundTransparency = 0.600
 			})
 
 			NeverLose.PlayAnimate(UIStroke , SlowyTween , {
-				Transparency = 1
+				Transparency = 0.650
 			})
 
 			NeverLose.PlayAnimate(LineFrame_3 , SlowyTween , {
@@ -4552,7 +4537,7 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.Size = UDim2.new(0, 200, 0, 15)
 	WindowContent.ZIndex = 7
 	WindowContent.Font = Enum.Font.GothamBold
-	WindowContent.Text = "Nightix v.1.0.11"
+	WindowContent.Text = "Nightix v.1.0.5"
 	WindowContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowContent.TextSize = 9.000
 	WindowContent.TextTransparency = 0.650
@@ -4689,10 +4674,9 @@ function NeverLose:CreateWindow(Config)
 	end)))
 
 	RightMenuFrame.Name = NeverLose.RandomString();
-    RightMenuFrame:SetAttribute("NightixThemeRole", "MenuBackground")
 	RightMenuFrame.Parent = WindowFrame
-	RightMenuFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
-	RightMenuFrame.BackgroundTransparency = 0.12
+	RightMenuFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+	RightMenuFrame.BackgroundTransparency = 0.600
 	RightMenuFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	RightMenuFrame.BorderSizePixel = 0
 	RightMenuFrame.ClipsDescendants = true
@@ -4700,8 +4684,8 @@ function NeverLose:CreateWindow(Config)
 	RightMenuFrame.Size = UDim2.new(1, -176, 1, 0)
 	RightMenuFrame.ZIndex = 8
 
-	UIStroke.Transparency = 1
-	UIStroke.Color = Color3.fromRGB(45, 38, 72)
+	UIStroke.Transparency = 0.650
+	UIStroke.Color = Color3.fromRGB(45, 48, 58)
 	UIStroke.Parent = RightMenuFrame
 
 	UICorner_4.CornerRadius = UDim.new(0, 13)
@@ -4863,12 +4847,6 @@ function NeverLose:CreateWindow(Config)
 	TabContainer.Position = UDim2.new(0, 0, 0, 50)
 	TabContainer.Size = UDim2.new(1, 0, 1, -50)
 	TabContainer.ZIndex = 5
-    if Window.MultiColumn then
-        LeftMenuFrame.Visible = false
-        RightHeader.Visible = false
-        TabContainer.Position = UDim2.new(0, 0, 0, 0)
-        TabContainer.Size = UDim2.new(1, 0, 1, 0)
-    end
 
 	do
 		Window.Searching = false;
@@ -5186,8 +5164,8 @@ function NeverLose:CreateWindow(Config)
         TabTextGradient.Enabled = false
         task.spawn(function()
             while TabButton and TabButton.Parent do
-                local active = Window.MultiColumn and true or (Window.Tabs[Window.CurrentTab] == Tab)
-                local speed = tonumber((NeverLose.VisualTheme or {}).Speed) or 0.65
+                local active = Window.Tabs[Window.CurrentTab] == Tab
+                local speed = tonumber(NeverLose.IconSettings and NeverLose.IconSettings.Speed) or 0.65
                 local phase = (os.clock() * speed) % 1
                 local gradient = active and NeverLose:GetNightixGradient(phase, false) or NeverLose:GetNightixGradient(phase, true)
                 TabIconGradient.Color = gradient
@@ -5223,34 +5201,6 @@ function NeverLose:CreateWindow(Config)
 		TabFrame.Size = UDim2.new(1, 0, 1, 0)
 		TabFrame.Visible = true;
 
-        if Window.MultiColumn then
-            local multiIndex = #Window.Tabs + 1
-            local gap = 8
-            local title = Instance.new("TextLabel")
-            title.Name = "NightixPaneTitle"
-            title.Parent = TabFrame
-            title.BackgroundTransparency = 1
-            title.Position = UDim2.fromOffset(8, 4)
-            title.Size = UDim2.new(1, -16, 0, 24)
-            title.ZIndex = 20
-            title.Font = Enum.Font.GothamMedium
-            title.Text = Config.Name
-            title.TextColor3 = Color3.fromRGB(255,255,255)
-            title.TextSize = 18
-            title.TextXAlignment = Enum.TextXAlignment.Center
-            local paneCorner = Instance.new("UICorner")
-            paneCorner.CornerRadius = UDim.new(0, 6)
-            paneCorner.Parent = TabFrame
-            local paneStroke = Instance.new("UIStroke")
-            paneStroke.Color = Color3.fromRGB(45,38,72)
-            paneStroke.Transparency = 0.55
-            paneStroke.Parent = TabFrame
-            TabFrame.BackgroundColor3 = Color3.fromRGB(30,30,52)
-            TabFrame.BackgroundTransparency = 0.10
-            TabFrame.Position = UDim2.new((multiIndex-1)/5, gap/2, 0, 0)
-            TabFrame.Size = UDim2.new(1/5, -gap, 1, 0)
-            TabButton.Visible = false
-        end
 		LeftScroll.Name = NeverLose.RandomString();
 		LeftScroll.Parent = TabFrame
 		LeftScroll.Active = true
@@ -5262,14 +5212,7 @@ function NeverLose:CreateWindow(Config)
 		LeftScroll.ClipsDescendants = false
 		LeftScroll.Position = UDim2.new(0.25, 0, 0.5, 0)
 		LeftScroll.Size = UDim2.new(0.5, 0, 1, -5)
-		LeftScroll.ScrollBarThickness = 2
-        LeftScroll.ScrollBarImageTransparency = 0.2
-        LeftScroll.ScrollBarImageColor3 = Color3.fromRGB(41, 35, 67)
-        if Window.MultiColumn then
-            LeftScroll.AnchorPoint = Vector2.new(0.5,0)
-            LeftScroll.Position = UDim2.fromOffset(0, 30)
-            LeftScroll.Size = UDim2.new(1, -8, 1, -34)
-        end
+		LeftScroll.ScrollBarThickness = 0
 
 		UIListLayout.Parent = LeftScroll
 		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
@@ -5291,10 +5234,7 @@ function NeverLose:CreateWindow(Config)
 		RightScroll.ClipsDescendants = false
 		RightScroll.Position = UDim2.new(0.75, 0, 0.5, 0)
 		RightScroll.Size = UDim2.new(0.5, 0, 1, -5)
-		RightScroll.ScrollBarThickness = 2
-        RightScroll.ScrollBarImageTransparency = 0.2
-        RightScroll.ScrollBarImageColor3 = Color3.fromRGB(41, 35, 67)
-        if Window.MultiColumn then RightScroll.Visible = false end
+		RightScroll.ScrollBarThickness = 0
 
 		UIListLayout_2.Parent = RightScroll
 		UIListLayout_2.SortOrder = Enum.SortOrder.LayoutOrder
@@ -5381,10 +5321,6 @@ function NeverLose:CreateWindow(Config)
 
 		table.insert(Window.Tabs,Tab);
 
-        if Window.MultiColumn then
-            Tab.Signal:SetValue(true)
-        end
-
 		if Window.Tabs[Window.CurrentTab] == Tab then
 			Tab.SetValue(true)
 		else
@@ -5428,9 +5364,7 @@ function NeverLose:CreateWindow(Config)
 
 		Window.Signal:Connect(LPH_NO_VIRTUALIZE(function(value)
 			if value then
-                if Window.MultiColumn then
-                    Tab.SetValue(true)
-                elseif Window.Tabs[Window.CurrentTab] == Tab then
+				if Window.Tabs[Window.CurrentTab] == Tab then
 					Tab.SetValue(true)
 				else
 					Tab.SetValue(false);
@@ -5493,10 +5427,9 @@ function NeverLose:CreateWindow(Config)
 			SectionLabel.TextXAlignment = Enum.TextXAlignment.Left
 
 			SectionHandler.Name = NeverLose.RandomString();
-            SectionHandler:SetAttribute("NightixThemeRole", "SectionBackground")
 			SectionHandler.Parent = SectionFrame
 			SectionHandler.AnchorPoint = Vector2.new(0.5, 0)
-			SectionHandler.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
+			SectionHandler.BackgroundColor3 = Color3.fromRGB(20, 22, 27)
 			SectionHandler.BackgroundTransparency = 0.500
 			SectionHandler.BorderColor3 = Color3.fromRGB(0, 0, 0)
 			SectionHandler.BorderSizePixel = 0
@@ -5509,7 +5442,7 @@ function NeverLose:CreateWindow(Config)
 			UIStroke.Color = Color3.fromRGB(45, 48, 58)
 			UIStroke.Parent = SectionHandler
 
-			UICorner.CornerRadius = UDim.new(0, 6)
+			UICorner.CornerRadius = UDim.new(0, 10)
 			UICorner.Parent = SectionHandler
 
 			UIListLayout.Parent = SectionHandler
@@ -6401,8 +6334,8 @@ function NeverLose:CreateWindow(Config)
 		Watermark.Name = NeverLose.RandomString();
 		Watermark.Parent = NeverLose.ScreenGui
 		Watermark.AnchorPoint = Vector2.new(1, 0)
-		Watermark.BackgroundColor3 = Color3.fromRGB(30, 30, 52)
-		Watermark.BackgroundTransparency = 1
+		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+		Watermark.BackgroundTransparency = 0
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
@@ -6418,7 +6351,6 @@ function NeverLose:CreateWindow(Config)
 		UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Right
 		UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-	UIListLayout.Padding = UDim.new(0, 4)
 
 		local WatermarkShaderGradient = Instance.new("UIGradient")
 		WatermarkShaderGradient.Name = "NightixLiquidGlassGradient"
@@ -6433,13 +6365,10 @@ function NeverLose:CreateWindow(Config)
 		WatermarkShaderGradient.Parent = Watermark
 
 		local shaderVisualEnabled = false
-        local watermarkBlurEnabled = false
-        local watermarkBlurConnection
-        local hudGlassByFrame = {}
 		local shaderVisualConnection
 		local function updateWatermarkShaderVisual()
-			local cfg = NeverLose.VisualTheme or {}
-			local c1 = cfg.Color1 or Color3.fromRGB(197,132,211)
+			local cfg = NeverLose.IconSettings or {}
+			local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
 			local c2 = (cfg.Mode == "Single") and c1 or (cfg.Color2 or c1)
 			WatermarkShaderGradient.Color = ColorSequence.new({
 				ColorSequenceKeypoint.new(0, c1),
@@ -6456,32 +6385,13 @@ function NeverLose:CreateWindow(Config)
 			if shaderVisualEnabled then
 				shaderVisualConnection = RunService.RenderStepped:Connect(function()
 					if not Watermark.Parent then return end
-					local cfg = NeverLose.VisualTheme or {}
+					local cfg = NeverLose.IconSettings or {}
 					local speed = tonumber(cfg.Speed) or 0.65
 					WatermarkShaderGradient.Offset = Vector2.new(math.sin(os.clock()*speed*0.7)*0.5, 0)
 					updateWatermarkShaderVisual()
 				end)
 			end
 		end
-
-        function Watermark_lb:SetBlur(value, strength)
-            watermarkBlurEnabled = value == true
-            local amount = math.clamp((tonumber(strength) or 6) / 12, 0, 1)
-            for frame, overlay in pairs(hudGlassByFrame or {}) do
-                if overlay and overlay.Parent then
-                    overlay.BackgroundTransparency = watermarkBlurEnabled and (0.64 - amount * 0.36) or 1
-                end
-            end
-        end
-        function Watermark_lb:SetBackgroundColor(color)
-            if typeof(color) ~= "Color3" then return end
-            NeverLose.HUDBackgroundColor = color
-            for _, block in ipairs(Watermark:GetChildren()) do
-                if block:IsA("Frame") and block:GetAttribute("NightixThemeRole") == "HUDBackground" then
-                    block.BackgroundColor3 = color
-                end
-            end
-        end
 
 		-- Draggable watermark. Position is kept in viewport offsets.
 		local draggingWatermark, dragStart, watermarkStart
@@ -6535,22 +6445,20 @@ function NeverLose:CreateWindow(Config)
 		Watermark_lb.Renders = {};
 		Watermark_lb.Status = false;
 		WatermarkSignal:SetValue(false)
-		NeverLose.WatermarkBlurEnabled = false
+		if NeverLose.EnabledBlur then
+			NeverLose:CreateBlurModule(Watermark, WatermarkSignal)
+		end
 
 		function Watermark_lb:SetRender(value)
-			Watermark_lb.Status = value == true
-			WatermarkSignal:SetValue(Watermark_lb.Status)
-            Watermark.Visible = Watermark_lb.Status
-            for _, child in ipairs(Watermark:GetChildren()) do
-                if child:IsA("Frame") and child ~= Watermark then
-                    child.Visible = Watermark_lb.Status
-                end
-            end
-            if Watermark_lb.Status then
-                for i,v in next, Watermark_lb.Renders do pcall(v,true); end
-            else
-                for i,v in next, Watermark_lb.Renders do pcall(v,false); end
-            end
+			Watermark_lb.Status = value;
+			WatermarkSignal:SetValue(value)
+			if value then
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0})
+				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
+			else
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 1})
+				for i,v in next , Watermark_lb.Renders do pcall(v,false); end;
+			end
 		end;
 
 		function Watermark_lb:AddBlock(IconStr , Name)
@@ -6565,42 +6473,16 @@ function NeverLose:CreateWindow(Config)
 			local ReleaseGradient = Instance.new("UIGradient")
 
 			Frame.Parent = Watermark
-			Frame.BackgroundColor3 = Color3.fromRGB(30,30,52)
-			Frame.BackgroundTransparency = 0.12
+			Frame.BackgroundTransparency = 1
 			Frame.BorderSizePixel = 0
 			Frame.Size = UDim2.fromOffset(100, 36)
-			Frame.ZIndex = 16
-			local blockCorner = Instance.new("UICorner")
-			blockCorner.CornerRadius = UDim.new(0, 7)
-			blockCorner.Parent = Frame
-			local blockStroke = Instance.new("UIStroke")
-			blockStroke.Color = Color3.fromRGB(45,38,72)
-			blockStroke.Transparency = 0.25
-			blockStroke.Parent = Frame
 
-            local hudGlass = Instance.new("Frame")
-            hudGlass.Name = "HUDGlassBlur"
-            hudGlass.Parent = Frame
-            hudGlass.BackgroundColor3 = Color3.fromRGB(255,255,255)
-            hudGlass.BackgroundTransparency = 1
-            hudGlass.BorderSizePixel = 0
-            hudGlass.Size = UDim2.fromScale(1,1)
-            hudGlass.ZIndex = 16
-            hudGlass.Active = false
-            local glassCorner = Instance.new("UICorner")
-            glassCorner.CornerRadius = UDim.new(0,7)
-            glassCorner.Parent = hudGlass
-            local glassGradient = Instance.new("UIGradient")
-            glassGradient.Rotation = 90
-            glassGradient.Color = NeverLose.GetNightixGradient and NeverLose:GetNightixGradient(0,false) or ColorSequence.new(Color3.fromRGB(197,132,211))
-            glassGradient.Parent = hudGlass
-            hudGlassByFrame[Frame] = hudGlass
 
 			Icon.Parent = Frame
 			Icon.BackgroundTransparency = 1
 			Icon.Position = UDim2.new(0, 3, 0.5, 0)
 			Icon.AnchorPoint = Vector2.new(0, 0.5)
-			Icon.Size = UDim2.fromOffset(29, 29)
+			Icon.Size = UDim2.fromOffset(22, 22)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
 			Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
@@ -6667,10 +6549,11 @@ function NeverLose:CreateWindow(Config)
 			UID.TextXAlignment = Enum.TextXAlignment.Left
 
 			local function getWatermarkColors(phase)
-				local cfg = NeverLose.VisualTheme or {}
-				if cfg.Mode == "Single" then return ColorSequence.new(cfg.Color1 or Color3.fromRGB(197,132,211)) end
-				local c1 = cfg.Color1 or Color3.fromRGB(197,132,211)
-				local c2 = cfg.Color2 or c1
+				local cfg = NeverLose.IconSettings or {}
+				if cfg.Enabled == false then return ColorSequence.new(Color3.fromRGB(255,255,255)) end
+				if cfg.Mode == "Single" then return ColorSequence.new(cfg.Color1 or Color3.fromRGB(255,255,255)) end
+				local c1 = cfg.Color1 or Color3.fromRGB(216,148,245)
+				local c2 = cfg.Color2 or Color3.fromRGB(123,131,243)
 				phase = phase or 0
 				local keys = {}
 				-- Periodic color field: phase 0 and 1 are identical, so there is
@@ -6698,10 +6581,14 @@ function NeverLose:CreateWindow(Config)
 					ReleaseGradient.Enabled = enabled and not single
 					IconGradient.Offset = Vector2.zero
 					ReleaseGradient.Offset = Vector2.zero
-					local theme = NeverLose.VisualTheme or {}
-					local themeColor = theme.Color1 or Color3.fromRGB(197,132,211)
-					Icon.ImageColor3 = iconEnabled and themeColor or Color3.fromRGB(255,255,255)
-					Content.TextColor3 = Color3.fromRGB(255,255,255)
+					if single and enabled then
+						local c1 = cfg.Color1 or Color3.fromRGB(255,255,255)
+						Icon.ImageColor3 = c1
+						Content.TextColor3 = c1
+					else
+						Icon.ImageColor3 = Color3.fromRGB(255,255,255)
+						Content.TextColor3 = Color3.fromRGB(255,255,255)
+					end
 					UID.TextColor3 = Color3.fromRGB(255,255,255)
 					task.wait(0.033)
 				end
@@ -7057,7 +6944,7 @@ function NeverLose:CreateLogger()
 			Shadow:Render(true);
 
 			NeverLose.PlayAnimate(UIStroke , SlowyTween , {
-				Transparency = 1
+				Transparency = 0.650
 			});
 
 			NeverLose.PlayAnimate(LogContent , SlowyTween , {

@@ -167,12 +167,11 @@ local tweens = {
 }
 guilibrary.Tweens = tweens
 
-local PlayerGui = LocalPlayer and LocalPlayer:FindFirstChildOfClass("PlayerGui") or game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "Nightix"
 ScreenGui.DisplayOrder = 999
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() ScreenGui.OnTopOfCoreBlur = true end)
+ScreenGui.OnTopOfCoreBlur = true -- so if you even get kicked or banned you'll still see gui :)
 local ClickGui = Instance.new("Frame", ScreenGui)
 ClickGui.Name = "ClickGui"
 local notificationsGui = Instance.new("Folder", ScreenGui)
@@ -338,7 +337,7 @@ local function collectOption(optionData)
 end
 
 function guilibrary:BuildConfigData()
-    local data = {Version = 3, CreatedBy = LocalPlayer.DisplayName or LocalPlayer.Name or "Unknown", CreatedAt = os.date("%d.%m.%Y %H:%M"), Tabs = {}, Toggles = {}}
+    local data = {Version = 2, Tabs = {}, Toggles = {}}
 
     for tabKey, tabData in next, guilibrary.ObjectsToSave.Tabs do
         local container = tabData.API and tabData.API.Container
@@ -379,22 +378,9 @@ function guilibrary:SaveConfig(name)
 
     local path = configPath(name)
     if not path then return false, "Invalid config name" end
-    local oldMeta = {}
-    if isfile(path) then
-        pcall(function()
-            local old = httpService:JSONDecode(readfile(path))
-            if type(old) == "table" then
-                oldMeta.CreatedBy = old.CreatedBy
-                oldMeta.CreatedAt = old.CreatedAt
-            end
-        end)
-    end
-    local payload = guilibrary:BuildConfigData()
-    payload.CreatedBy = oldMeta.CreatedBy or payload.CreatedBy
-    payload.CreatedAt = oldMeta.CreatedAt or payload.CreatedAt
 
     local ok, err = pcall(function()
-        writefile(path, httpService:JSONEncode(payload))
+        writefile(path, httpService:JSONEncode(guilibrary:BuildConfigData()))
     end)
     if not ok then return false, tostring(err) end
 
@@ -527,7 +513,6 @@ function guilibrary:DeleteConfig(name)
     if delfile then
         local ok, err = pcall(delfile, path)
         if not ok then return false, tostring(err) end
-        if isfile(path) then return false, "Config could not be deleted" end
     else
         return false, "delfile is unavailable"
     end
@@ -557,15 +542,6 @@ function guilibrary:RenameConfig(oldName, newName)
         guilibrary.CurrentConfig = newName
     end
     return true
-end
-
-function guilibrary:GetConfigMeta(name)
-    name = sanitizeConfigName(name)
-    local path = configPath(name)
-    if not path or not isfile(path) then return nil end
-    local ok, data = pcall(function() return httpService:JSONDecode(readfile(path)) end)
-    if not ok or type(data) ~= "table" then return nil end
-    return {CreatedBy = data.CreatedBy or "Unknown", CreatedAt = data.CreatedAt or "—"}
 end
 
 function guilibrary:CreateConfig(name)
