@@ -1830,12 +1830,13 @@ end)
 
 -- Target ESP: synchronized strictly with AttackAura.
 runFunction(function()
-    local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(123,131,243)}; local circleVariant={Value="1"}
+    local targetESP={Enabled=false}; local mode={Value="Ромб"}; local diamond={Value="1"}; local size={Value=150}; local speed={Value=180}; local alpha={Value=0.2}; local color={Value=Color3.fromRGB(204,67,76)}; local circleVariant={Value="1"}
     local target; local billboard; local img
-    local circlePart; local circleSurfaceTop; local circleSurfaceBottom; local circleImageTop; local circleImageBottom
+    local circleParts={}; local circleImages={}
+    local circleCount=40
     local circleSize={Value=2.0}
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
-    local circleTextures={ ["1"]="107258187506657", ["3"]="127001857631043" }
+    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603" }
 
     local function clearDiamond()
         if billboard then pcall(function() billboard:Destroy() end) end
@@ -1843,47 +1844,51 @@ runFunction(function()
     end
 
     local function clearCircle()
-        if circlePart then pcall(function() circlePart:Destroy() end) end
-        circlePart=nil; circleSurfaceTop=nil; circleSurfaceBottom=nil; circleImageTop=nil; circleImageBottom=nil
+        for _, part in ipairs(circleParts) do pcall(function() part:Destroy() end) end
+        table.clear(circleParts)
+        table.clear(circleImages)
     end
 
-    local function createCircleSurface(face)
-        local surface=Instance.new("SurfaceGui")
-        surface.Name="CircleTexture3D_"..tostring(face)
-        surface.Face=face
-        surface.AlwaysOnTop=true
-        surface.LightInfluence=0
-        surface.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
-        surface.PixelsPerStud=256
-        surface.CanvasSize=Vector2.new(512,512)
-        surface.Parent=circlePart
-
-        local image=Instance.new("ImageLabel")
-        image.Name="CircleTexture"
-        image.AnchorPoint=Vector2.new(.5,.5)
-        image.Position=UDim2.fromScale(.5,.5)
-        image.Size=UDim2.fromScale(1,1)
-        image.BackgroundTransparency=1
-        image.ScaleType=Enum.ScaleType.Fit
-        image.Parent=surface
-        return surface,image
+    local function createCirclePart(index)
+        local part=Instance.new("Part")
+        part.Name="NightixTargetESPCircle3D_"..index
+        part.Anchored=true
+        part.CanCollide=false
+        part.CanTouch=false
+        part.CanQuery=false
+        part.CastShadow=false
+        part.Transparency=1
+        part.Material=Enum.Material.SmoothPlastic
+        part.Parent=workspace
+        local images={}
+        for _, face in ipairs({Enum.NormalId.Top, Enum.NormalId.Bottom}) do
+            local surface=Instance.new("SurfaceGui")
+            surface.Name="CircleTexture3D_"..tostring(face)
+            surface.Face=face
+            surface.AlwaysOnTop=true
+            surface.LightInfluence=0
+            surface.SizingMode=Enum.SurfaceGuiSizingMode.PixelsPerStud
+            surface.PixelsPerStud=256
+            surface.CanvasSize=Vector2.new(512,512)
+            surface.Parent=part
+            local image=Instance.new("ImageLabel")
+            image.Name="CircleTexture"
+            image.AnchorPoint=Vector2.new(.5,.5)
+            image.Position=UDim2.fromScale(.5,.5)
+            image.Size=UDim2.fromScale(1,1)
+            image.BackgroundTransparency=1
+            image.ScaleType=Enum.ScaleType.Fit
+            image.Parent=surface
+            table.insert(images,image)
+        end
+        table.insert(circleParts,part)
+        table.insert(circleImages,images)
     end
 
     local function ensureCircle()
-        if circlePart and circlePart.Parent then return end
-        circlePart=Instance.new("Part")
-        circlePart.Name="NightixTargetESPCircle3D"
-        circlePart.Anchored=true
-        circlePart.CanCollide=false
-        circlePart.CanTouch=false
-        circlePart.CanQuery=false
-        circlePart.CastShadow=false
-        circlePart.Transparency=1
-        circlePart.Material=Enum.Material.SmoothPlastic
-        circlePart.Parent=workspace
-        -- Two-sided rendering: the same 3D texture is visible from above and below.
-        circleSurfaceTop,circleImageTop=createCircleSurface(Enum.NormalId.Top)
-        circleSurfaceBottom,circleImageBottom=createCircleSurface(Enum.NormalId.Bottom)
+        if #circleParts == circleCount then return end
+        clearCircle()
+        for i=1,circleCount do createCirclePart(i) end
     end
 
     local function updateCircle(t)
@@ -1900,19 +1905,23 @@ runFunction(function()
         local bottomY=center.Y-boxSize.Y*0.5
         local headTop=head and (head.Position.Y+head.Size.Y*0.5) or (center.Y+boxSize.Y*0.5)
         local headRadius=head and math.max(head.Size.X,head.Size.Z)*0.62 or math.max(boxSize.X,boxSize.Z)*0.7
-        local diameter=math.max(2.0,headRadius*2*math.max(0.25,circleSize.Value))
+        local diameter=math.max(0.5,headRadius*2*math.max(0.25,circleSize.Value))
 
-        -- Smooth endless head -> feet -> head motion.
+        -- Cosine easing removes the sharp direction change at the endpoints.
         local phase=(t*math.max(0,speed.Value)*0.003)%2
-        local progress=phase<=1 and phase or 2-phase
+        local linear=phase <= 1 and phase or 2-phase
+        local progress=(1-math.cos(linear*math.pi))*0.5
         local y=headTop+(bottomY-headTop)*progress
-
-        circlePart.Size=Vector3.new(diameter,0.04,diameter)
-        circlePart.CFrame=CFrame.new(root.Position.X,y,root.Position.Z)
         local texture="rbxassetid://"..(circleTextures[circleVariant.Value] or circleTextures["1"])
-        local transparency=math.clamp(alpha.Value,0,1)
-        for _,image in ipairs({circleImageTop,circleImageBottom}) do
-            if image then
+        local baseTransparency=math.clamp(alpha.Value,0,1)
+        for i,part in ipairs(circleParts) do
+            local trailOffset=(i-1)*0.012
+            local trailProgress=math.clamp(progress-trailOffset,0,1)
+            local trailY=headTop+(bottomY-headTop)*trailProgress
+            part.Size=Vector3.new(diameter,0.04,diameter)
+            part.CFrame=CFrame.new(root.Position.X,trailY,root.Position.Z)
+            local transparency=math.clamp(baseTransparency + ((i-1)/(circleCount-1))*0.75,0,1)
+            for _,image in ipairs(circleImages[i] or {}) do
                 image.Image=texture
                 image.ImageColor3=color.Value
                 image.ImageTransparency=transparency
@@ -1950,7 +1959,7 @@ runFunction(function()
     speed=targetESP:CreateSlider({Name="Скорость",Min=0,Max=720,Default=180,Round=0,Function=function(v) speed.Value=v end})
     alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
     color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
-    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","3"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
+    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
     circleSize=targetESP:CreateSlider({Name="Размер круга",Min=0.5,Max=4,Default=2,Round=2,Function=function(v) circleSize.Value=v end})
     vis(diamond,true); vis(size,true); vis(circleVariant,false); vis(circleSize,false)
 end)
@@ -2384,7 +2393,7 @@ runFunction(function()
     style=particles:CreateDropdown({Name="Стиль",List={"Snowflake","Genshin","Star"},Default="Snowflake",Function=function(v) style.Value=v; configure() end})
 end)
 
--- Nightix NameTags (Catlavan base, compact layout)
+-- Nightix NameTags: text donation, nickname and dynamically sized health.
 runFunction(function()
     local nameTags = {Enabled = false}
     local showHP = {Value = true}
@@ -2392,31 +2401,42 @@ runFunction(function()
     local folder = Instance.new("Folder")
     folder.Name = "NightixNameTags"
     folder.Parent = CoreGui
-
-    local PLAYER_TAG_TEXTURES = {
-        "140236044026269","127002800309506","134843752675046","71302292878701","88585651545459",
-        "110867334154262","80606954169385","79287164231461","91052874400723","85717131337525",
-        "87340940587655","129833510107130","116834158567096","108060614998853","78374975451119",
-        "105061794643167","131480990813454","91525598231558","112984845954589","101737357191924",
-        "97788308066161","134585969653987","78572257955779","128754918157182","113180841063297","100270436810905"
-    }
-    local playerTags = {}
+    local red = Color3.fromRGB(204, 67, 76)
+    local gray = Color3.fromRGB(155, 155, 160)
+    local white = Color3.fromRGB(255, 255, 255)
+    local donations = {"ИГРОК","HERO","TITAN","OVERLORD","MAGISTER","IMPERATOR","DRAGON","RABBIT","BUNNY","DHELPER","HYDRA","PEGAS","BULL","VAMPIRE","DRACULA","HELPER","MODER","ST.MODER","GL.MODER","ML.ADMIN","ADMIN","YT","OWNER"}
+    local playerDonations = {}
 
     local function clear(plr)
         local key = typeof(plr) == "string" and plr or plr.Name
         if guis[key] then pcall(function() guis[key]:Destroy() end); guis[key] = nil end
     end
 
+    local function addText(parent, name, textSize, color, width)
+        local label = Instance.new("TextLabel")
+        label.Name = name
+        label.BackgroundTransparency = 1
+        label.Size = UDim2.fromOffset(width or 0, 22)
+        label.Font = guifont or Enum.Font.GothamMedium
+        label.TextSize = textSize
+        label.TextColor3 = color
+        label.TextStrokeTransparency = 1
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.TextYAlignment = Enum.TextYAlignment.Center
+        label.Parent = parent
+        return label
+    end
+
     local function make(plr)
         clear(plr)
         if not isAlive(plr, true) then return end
-        if not playerTags[plr] then playerTags[plr] = PLAYER_TAG_TEXTURES[math.random(1, #PLAYER_TAG_TEXTURES)] end
-
+        if not playerDonations[plr] then playerDonations[plr] = donations[math.random(1, #donations)] end
+        local donation = playerDonations[plr]
         local g = Instance.new("BillboardGui")
         g.Name = "NameTag_" .. plr.Name
         g.Adornee = plr.Character:FindFirstChild("Head")
         g.AlwaysOnTop = true
-        g.Size = UDim2.fromOffset(185, 22)
+        g.Size = UDim2.fromOffset(160, 22)
         g.StudsOffset = Vector3.new(0, 3.2, 0)
         g.ResetOnSpawn = false
         g.Parent = folder
@@ -2425,12 +2445,9 @@ runFunction(function()
         f.Name = "TagFrame"
         f.Size = UDim2.fromScale(1, 1)
         f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        f.BackgroundTransparency = 0.25
+        f.BackgroundTransparency = 0.75
         f.BorderSizePixel = 0
         f.Parent = g
-        local corner = Instance.new("UICorner")
-        corner.CornerRadius = UDim.new(0, 5)
-        corner.Parent = f
 
         local layout = Instance.new("UIListLayout")
         layout.FillDirection = Enum.FillDirection.Horizontal
@@ -2439,52 +2456,23 @@ runFunction(function()
         layout.Padding = UDim.new(0, 3)
         layout.Parent = f
 
-        local tag = Instance.new("ImageLabel")
-        tag.Name = "TagTexture"
-        tag.LayoutOrder = 0
-        tag.BackgroundTransparency = 1
-        tag.Size = UDim2.fromOffset(52, 16)
-        tag.Image = "rbxassetid://" .. playerTags[plr]
-        tag.ScaleType = Enum.ScaleType.Fit
-        tag.ResampleMode = Enum.ResamplerMode.Pixelated
-        tag.Parent = f
-
-        local n = Instance.new("TextLabel")
-        n.Name = "Nickname"
-        n.LayoutOrder = 1
-        n.BackgroundTransparency = 1
-        n.Size = UDim2.fromOffset(0, 20)
-        n.AutomaticSize = Enum.AutomaticSize.X
-        n.Font = guifont or Enum.Font.GothamMedium
-        n.TextSize = 14
-        n.TextColor3 = Color3.fromRGB(255,255,255)
-        n.TextStrokeTransparency = 1
-        n.TextXAlignment = Enum.TextXAlignment.Left
-        n.Parent = f
-
-        local hpIcon = Instance.new("ImageLabel")
-        hpIcon.Name = "HealthIcon"
-        hpIcon.LayoutOrder = 2
-        hpIcon.BackgroundTransparency = 1
-        hpIcon.Size = UDim2.fromOffset(11,11)
-        hpIcon.Image = "rbxassetid://99142118523333"
-        hpIcon.ImageColor3 = Color3.fromRGB(255,255,255)
-        hpIcon.ScaleType = Enum.ScaleType.Fit
-        hpIcon.Parent = f
-
-        local hp = Instance.new("TextLabel")
-        hp.Name = "Health"
-        hp.LayoutOrder = 3
-        hp.BackgroundTransparency = 1
-        hp.Size = UDim2.fromOffset(0, 20)
+        local left = addText(f, "LeftBracket", 14, gray, 8)
+        left.Text = "|"
+        local dot = addText(f, "DonationDot", 8, red, 9)
+        dot.Text = "●"
+        local rank = addText(f, "Donation", 14, donation == "OWNER" and red or white, 0)
+        rank.AutomaticSize = Enum.AutomaticSize.X
+        rank.Text = donation
+        local nick = addText(f, "Nickname", 14, gray, 0)
+        nick.AutomaticSize = Enum.AutomaticSize.X
+        local hpLeft = addText(f, "HealthLeft", 14, gray, 8)
+        hpLeft.Text = "["
+        local hp = addText(f, "Health", 14, gray, 0)
         hp.AutomaticSize = Enum.AutomaticSize.X
-        hp.Font = guifont or Enum.Font.GothamMedium
-        hp.TextSize = 14
-        hp.TextColor3 = Color3.fromRGB(255,255,255)
-        hp.TextStrokeTransparency = 1
-        hp.TextXAlignment = Enum.TextXAlignment.Left
-        hp.Parent = f
-
+        local hpRight = addText(f, "HealthRight", 14, gray, 8)
+        hpRight.Text = "]"
+        local right = addText(f, "RightBracket", 14, gray, 8)
+        right.Text = "|"
         guis[plr.Name] = g
         return g
     end
@@ -2495,27 +2483,39 @@ runFunction(function()
         if not g then return end
         g.Adornee = plr.Character:FindFirstChild("Head")
         local f = g:FindFirstChild("TagFrame")
-        local n = f and f:FindFirstChild("Nickname")
+        local nick = f and f:FindFirstChild("Nickname")
         local hp = f and f:FindFirstChild("Health")
-        local icon = f and f:FindFirstChild("HealthIcon")
         local h = getHumanoid(plr)
-        if not n or not hp or not icon or not h then return end
-        n.Text = plr.Name
-        hp.Text = tostring(math.floor(h.Health))
+        if not nick or not hp or not h then return end
+        nick.Text = plr.Name
+        hp.Text = showHP.Value and tostring(math.floor(h.Health)) or ""
+        local rank = f:FindFirstChild("Donation")
+        local hpLeft = f:FindFirstChild("HealthLeft")
+        local hpRight = f:FindFirstChild("HealthRight")
         hp.Visible = showHP.Value
-        icon.Visible = showHP.Value
-        g.Size = UDim2.fromOffset(185, showHP.Value and 22 or 20)
-        g.StudsOffset = Vector3.new(0, showHP.Value and 3.05 or 2.95, 0)
+        hpLeft.Visible = showHP.Value
+        hpRight.Visible = showHP.Value
+        local rankWidth = TextService:GetTextSize(rank.Text, rank.TextSize, rank.Font, Vector2.new(1000, 22)).X
+        local nickWidth = TextService:GetTextSize(nick.Text, nick.TextSize, nick.Font, Vector2.new(1000, 22)).X
+        local hpWidth = showHP.Value and TextService:GetTextSize(hp.Text, hp.TextSize, hp.Font, Vector2.new(1000, 22)).X or 0
+        rank.Size = UDim2.fromOffset(rankWidth + 1, 22)
+        nick.Size = UDim2.fromOffset(nickWidth + 1, 22)
+        hp.Size = UDim2.fromOffset(hpWidth + 1, 22)
+        local total = 8 + 9 + rankWidth + nickWidth + 8 + 8 + 21
+        if showHP.Value then total = total + 8 + hpWidth + 8 end
+        f.Size = UDim2.fromOffset(total, 22)
+        g.Size = UDim2.fromOffset(total, 22)
+        g.StudsOffset = Vector3.new(0, 3.2, 0)
     end
 
     local conns = {}
     nameTags = Tabs.Render:CreateToggle({
         Name = "NameTags",
-        HoverText = "Компактный тег из Catlavan без дистанции.",
+        HoverText = "Показывает донат, ник и здоровье без ассетов.",
         Callback = function(on)
             if on then
                 for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then make(p) end end
-                table.insert(conns, Players.PlayerRemoving:Connect(function(p) clear(p); playerTags[p] = nil end))
+                table.insert(conns, Players.PlayerRemoving:Connect(function(p) clear(p); playerDonations[p] = nil end))
                 RunLoops:BindToRenderStep("NameTags", function()
                     for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then update(p) end end
                 end)
