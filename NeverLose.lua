@@ -6331,15 +6331,15 @@ function NeverLose:CreateWindow(Config)
 		Watermark.Parent = NeverLose.ScreenGui
 		Watermark.AnchorPoint = Vector2.new(1, 0)
 		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
-		Watermark.BackgroundTransparency = 0.25
+		Watermark.BackgroundTransparency = 0.2
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
 		Watermark.Position = UDim2.new(1, -10, 0, 10)
-		Watermark.Size = UDim2.new(0, 120, 0, 38.4)
+		Watermark.Size = UDim2.new(0, 120, 0, 24.96)
 		Watermark.ZIndex = 16
 
-		UICorner.CornerRadius = UDim.new(0, 3.375)
+		UICorner.CornerRadius = UDim.new(0, 4.55625)
 		UICorner.Parent = Watermark
 
 		UIListLayout.Parent = Watermark
@@ -6392,7 +6392,7 @@ function NeverLose:CreateWindow(Config)
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(Watermark , SlowyTween , {
-				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 38.4)
+				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 24.96)
 			})
 		end));
 
@@ -6408,7 +6408,7 @@ function NeverLose:CreateWindow(Config)
 			Watermark_lb.Status = value;
 			WatermarkSignal:SetValue(value)
 			if value then
-				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.25})
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.2})
 				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
 			else
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 1})
@@ -6430,7 +6430,7 @@ function NeverLose:CreateWindow(Config)
 			Frame.Parent = Watermark
 			Frame.BackgroundTransparency = 1
 			Frame.BorderSizePixel = 0
-			Frame.Size = UDim2.fromOffset(100, 38.4)
+			Frame.Size = UDim2.fromOffset(100, 24.96)
 
 
 			Icon.Parent = Frame

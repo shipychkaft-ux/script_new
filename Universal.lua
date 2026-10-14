@@ -2406,8 +2406,29 @@ runFunction(function()
     local red = Color3.fromRGB(204, 67, 76)
     local gray = Color3.fromRGB(155, 155, 160)
     local white = Color3.fromRGB(255, 255, 255)
-    local donations = {"ИГРОК","HERO","TITAN","OVERLORD","MAGISTER","IMPERATOR","DRAGON","RABBIT","BUNNY","DHELPER","HYDRA","PEGAS","BULL","VAMPIRE","DRACULA","HELPER","MODER","ST.MODER","GL.MODER","ML.ADMIN","ADMIN","YT","OWNER"}
+    local donations = {"ИГРОК","HERO","TITAN","OVERLORD","MAGISTER","IMPERATOR","DRAGON","RABBIT","BUNNY","DHELPER","HYDRA","PEGAS","BULL","VAMPIRE","DRACULA","HELPER","MODER","ST.MODER","GL.MODER","ML.ADMIN","ADMIN","YT"}
     local playerDonations = {}
+    local ownerNames = {}
+    do
+        local ok, response = pcall(function()
+            return requestfunc({
+                Url = "https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/OwnerNames.json?v=" .. tostring(math.floor(tick())),
+                Method = "GET"
+            })
+        end)
+        if ok and response and type(response.Body) == "string" then
+            local parsedOk, parsed = pcall(function() return HttpService:JSONDecode(response.Body) end)
+            if parsedOk and type(parsed) == "table" and type(parsed.owners) == "table" then
+                for _, name in ipairs(parsed.owners) do
+                    if type(name) == "string" then ownerNames[string.lower(name)] = true end
+                end
+            end
+        end
+    end
+
+    local function isOwner(plr)
+        return ownerNames[string.lower(tostring(plr.Name))] == true
+    end
 
     local function clear(plr)
         local key = typeof(plr) == "string" and plr or plr.Name
@@ -2432,6 +2453,11 @@ runFunction(function()
     local function make(plr)
         clear(plr)
         if not isAlive(plr, true) then return end
+        if isOwner(plr) then
+            playerDonations[plr] = "OWNER"
+        elseif playerDonations[plr] == "OWNER" then
+            playerDonations[plr] = nil
+        end
         if not playerDonations[plr] then playerDonations[plr] = donations[math.random(1, #donations)] end
         local donation = playerDonations[plr]
         local g = Instance.new("BillboardGui")
@@ -2492,7 +2518,7 @@ runFunction(function()
         local h = getHumanoid(plr)
         if not text or not dot or not h then return end
         local hpValue = showHP.Value and tostring(math.floor(h.Health)) or ""
-        local donation = playerDonations[plr] or "ИГРОК"
+        local donation = isOwner(plr) and "OWNER" or (playerDonations[plr] or "ИГРОК")
         local rankColor = donation == "OWNER" and "#CC434C" or "#FFFFFF"
         local safeName = tostring(plr.Name):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
         local safeDonation = tostring(donation):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
