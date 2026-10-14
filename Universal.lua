@@ -2451,11 +2451,24 @@ runFunction(function()
         f.BorderSizePixel = 0
         f.Parent = g
 
-        -- One RichText label only: 🔴 DONATION Nick [HP]. No pipes or child labels.
+        -- Separate circle and text so the circle stays in place while the text can move independently.
+        local dot = Instance.new("TextLabel")
+        dot.Name = "NameTagDot"
+        dot.BackgroundTransparency = 1
+        dot.Size = UDim2.fromOffset(0, 22)
+        dot.Font = guifont or Enum.Font.GothamMedium
+        dot.TextSize = 25
+        dot.Text = "● "
+        dot.TextColor3 = red
+        dot.TextStrokeTransparency = 1
+        dot.TextXAlignment = Enum.TextXAlignment.Left
+        dot.TextYAlignment = Enum.TextYAlignment.Center
+        dot.Parent = f
+
         local text = Instance.new("TextLabel")
         text.Name = "NameTagText"
         text.BackgroundTransparency = 1
-        text.Size = UDim2.fromScale(1, 1)
+        text.Size = UDim2.fromOffset(0, 22)
         text.Font = guifont or Enum.Font.GothamMedium
         text.TextSize = 14
         text.TextColor3 = white
@@ -2475,20 +2488,22 @@ runFunction(function()
         g.Adornee = plr.Character:FindFirstChild("Head")
         local f = g:FindFirstChild("TagFrame")
         local text = f and f:FindFirstChild("NameTagText")
+        local dot = f and f:FindFirstChild("NameTagDot")
         local h = getHumanoid(plr)
-        if not text or not h then return end
+        if not text or not dot or not h then return end
         local hpValue = showHP.Value and tostring(math.floor(h.Health)) or ""
         local donation = playerDonations[plr] or "ИГРОК"
         local rankColor = donation == "OWNER" and "#CC434C" or "#FFFFFF"
         local safeName = tostring(plr.Name):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
         local safeDonation = tostring(donation):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
-        local plainText = "● " .. tostring(donation) .. " " .. tostring(plr.Name) .. (showHP.Value and (" [" .. hpValue .. "]") or "")
-        text.Text = string.format("<font color='#CC434C' size='25'>●</font> <font color='%s'>%s</font> <font color='#9B9BA0'>%s</font>%s", rankColor, safeDonation, safeName, showHP.Value and (" <font color='#9B9BA0'>[</font><font color='#CC434C'>" .. hpValue .. "</font><font color='#9B9BA0'>]</font>") or "")
+        local plainText = tostring(donation) .. " " .. tostring(plr.Name) .. (showHP.Value and (" [" .. hpValue .. "]") or "")
+        text.Text = string.format("<font color='%s'>%s</font> <font color='#9B9BA0'>%s</font>%s", rankColor, safeDonation, safeName, showHP.Value and (" <font color='#9B9BA0'>[</font><font color='#CC434C'>" .. hpValue .. "</font><font color='#9B9BA0'>]</font>") or "")
+        local dotWidth = TextService:GetTextSize(dot.Text, dot.TextSize, dot.Font, Vector2.new(1000, 22)).X
         local bounds = TextService:GetTextSize(plainText, text.TextSize, text.Font, Vector2.new(1000, 22))
-        local sidePadding = math.max(2, math.ceil(bounds.X * 0.1))
-        local tagWidth = math.ceil(bounds.X + sidePadding * 2 + 4)
-        text.Position = UDim2.fromOffset(sidePadding, -1)
-        text.Size = UDim2.new(1, -sidePadding, 1, 0)
+        local sidePadding = math.max(2, math.ceil(bounds.X * 0.05))
+        local tagWidth = math.ceil(dotWidth + bounds.X + sidePadding * 2 + 4)
+        text.Position = UDim2.fromOffset(dotWidth + sidePadding, -1.5)
+        text.Size = UDim2.new(1, -(dotWidth + sidePadding), 1, 0)
         f.Size = UDim2.fromOffset(tagWidth, 22)
         g.Size = UDim2.fromOffset(tagWidth, 22)
         g.StudsOffset = Vector3.new(0, 3.2, 0)
