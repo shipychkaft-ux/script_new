@@ -2457,7 +2457,7 @@ runFunction(function()
         dot.BackgroundTransparency = 1
         dot.Size = UDim2.fromOffset(0, 22)
         dot.Font = guifont or Enum.Font.GothamMedium
-        dot.TextSize = 25
+        dot.TextSize = 28
         dot.Text = "● "
         dot.TextColor3 = red
         dot.TextStrokeTransparency = 1
@@ -2503,7 +2503,7 @@ runFunction(function()
         local sidePadding = math.max(1, math.ceil(bounds.X * 0.025))
         local dotGap = math.max(1, math.ceil(sidePadding * 0.5))
         dot.Size = UDim2.fromOffset(dotWidth, 22)
-        dot.Position = UDim2.fromOffset(sidePadding, 0)
+        dot.Position = UDim2.fromOffset(sidePadding + 2, -2)
         local textX = sidePadding + dotWidth + dotGap
         local tagWidth = math.ceil(textX + bounds.X + sidePadding + 4)
         text.Position = UDim2.fromOffset(textX, -1.5)
