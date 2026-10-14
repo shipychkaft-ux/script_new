@@ -2528,7 +2528,7 @@ runFunction(function()
         local bounds = TextService:GetTextSize(plainText, text.TextSize, text.Font, Vector2.new(1000, 22))
         local sidePadding = math.max(1, math.ceil(bounds.X * 0.025))
         local rightPadding = math.max(2, math.ceil(bounds.X * 0.1))
-        local dotGap = math.max(1, math.ceil(sidePadding * 0.5))
+        local dotGap = math.max(1, math.ceil(sidePadding * 0.25))
         dot.TextSize = 27
         dotWidth = TextService:GetTextSize(dot.Text, dot.TextSize, dot.Font, Vector2.new(1000, 22)).X
         dot.Size = UDim2.fromOffset(dotWidth, 22)

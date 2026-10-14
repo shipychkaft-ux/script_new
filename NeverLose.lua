@@ -6336,10 +6336,10 @@ function NeverLose:CreateWindow(Config)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
 		Watermark.Position = UDim2.new(1, -10, 0, 10)
-		Watermark.Size = UDim2.new(0, 120, 0, 24.96)
+		Watermark.Size = UDim2.new(0, 120, 0, 27.456)
 		Watermark.ZIndex = 16
 
-		UICorner.CornerRadius = UDim.new(0, 4.55625)
+		UICorner.CornerRadius = UDim.new(0, 6)
 		UICorner.Parent = Watermark
 
 		UIListLayout.Parent = Watermark
@@ -6392,7 +6392,7 @@ function NeverLose:CreateWindow(Config)
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(Watermark , SlowyTween , {
-				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 24.96)
+				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 27.456)
 			})
 		end));
 
@@ -6430,7 +6430,7 @@ function NeverLose:CreateWindow(Config)
 			Frame.Parent = Watermark
 			Frame.BackgroundTransparency = 1
 			Frame.BorderSizePixel = 0
-			Frame.Size = UDim2.fromOffset(100, 24.96)
+			Frame.Size = UDim2.fromOffset(100, 27.456)
 
 
 			Icon.Parent = Frame
