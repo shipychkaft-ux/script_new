@@ -2522,8 +2522,8 @@ runFunction(function()
         local rankColor = donation == "OWNER" and "#CC434C" or "#FFFFFF"
         local safeName = tostring(plr.Name):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
         local safeDonation = tostring(donation):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
-        local plainText = tostring(donation) .. " " .. tostring(plr.Name) .. (showHP.Value and (" [" .. hpValue .. "]") or "")
-        text.Text = string.format("<font color='%s'>%s</font> <font color='#9B9BA0'>%s</font>%s", rankColor, safeDonation, safeName, showHP.Value and (" <font color='#9B9BA0'>[</font><font color='#CC434C'>" .. hpValue .. "</font><font color='#9B9BA0'>]</font>") or "")
+        local plainText = tostring(donation) .. "  " .. tostring(plr.Name) .. (showHP.Value and ("  [" .. hpValue .. "]") or "")
+        text.Text = string.format("<font color='%s'>%s</font>  <font color='#9B9BA0'>%s</font>%s", rankColor, safeDonation, safeName, showHP.Value and ("  <font color='#9B9BA0'>[</font><font color='#CC434C'>" .. hpValue .. "</font><font color='#9B9BA0'>]</font>") or "")
         local dotWidth = TextService:GetTextSize(dot.Text, dot.TextSize, dot.Font, Vector2.new(1000, 22)).X
         local bounds = TextService:GetTextSize(plainText, text.TextSize, text.Font, Vector2.new(1000, 22))
         local sidePadding = math.max(1, math.ceil(bounds.X * 0.025))
