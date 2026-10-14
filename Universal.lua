@@ -2456,9 +2456,12 @@ runFunction(function()
         layout.Padding = UDim.new(0, 0)
         layout.Parent = f
 
-        local left = addText(f, "LeftBracket", 14, gray, 8)
-        left.Text = "|"
-        local dot = addText(f, "DonationDot", 8, red, 8)
+        -- The pipes are only the outer borders: | 🔴 DONATION Nick [HP] |
+        local left = addText(f, "LeftBracket", 14, gray, 0)
+        left.AutomaticSize = Enum.AutomaticSize.X
+        left.Text = "| "
+        local dot = addText(f, "DonationDot", 18, red, 0)
+        dot.AutomaticSize = Enum.AutomaticSize.X
         dot.Text = "●"
         local rank = addText(f, "Donation", 14, donation == "OWNER" and red or white, 0)
         rank.AutomaticSize = Enum.AutomaticSize.X
@@ -2468,7 +2471,7 @@ runFunction(function()
         local hpLeft = addText(f, "HealthLeft", 14, gray, 0)
         hpLeft.AutomaticSize = Enum.AutomaticSize.X
         hpLeft.Text = " ["
-        local hp = addText(f, "Health", 14, gray, 0)
+        local hp = addText(f, "Health", 14, white, 0)
         hp.AutomaticSize = Enum.AutomaticSize.X
         local hpRight = addText(f, "HealthRight", 14, gray, 0)
         hpRight.AutomaticSize = Enum.AutomaticSize.X
@@ -2501,11 +2504,16 @@ runFunction(function()
         local rankWidth = TextService:GetTextSize(rank.Text, rank.TextSize, rank.Font, Vector2.new(1000, 22)).X
         local nickWidth = TextService:GetTextSize(nick.Text, nick.TextSize, nick.Font, Vector2.new(1000, 22)).X
         local hpWidth = showHP.Value and TextService:GetTextSize(hp.Text, hp.TextSize, hp.Font, Vector2.new(1000, 22)).X or 0
+        local leftWidth = TextService:GetTextSize(left.Text, left.TextSize, left.Font, Vector2.new(1000, 22)).X
+        local dotWidth = TextService:GetTextSize(dot.Text, dot.TextSize, dot.Font, Vector2.new(1000, 22)).X
+        local hpLeftWidth = showHP.Value and TextService:GetTextSize(hpLeft.Text, hpLeft.TextSize, hpLeft.Font, Vector2.new(1000, 22)).X or 0
+        local hpRightWidth = showHP.Value and TextService:GetTextSize(hpRight.Text, hpRight.TextSize, hpRight.Font, Vector2.new(1000, 22)).X or 0
+        local rightWidth = TextService:GetTextSize(right.Text, right.TextSize, right.Font, Vector2.new(1000, 22)).X
         rank.Size = UDim2.fromOffset(rankWidth + 1, 22)
         nick.Size = UDim2.fromOffset(nickWidth + 1, 22)
         hp.Size = UDim2.fromOffset(hpWidth + 1, 22)
-        local total = 8 + 8 + rankWidth + nickWidth + 8 + 21
-        if showHP.Value then total = total + hpWidth end
+        local total = leftWidth + dotWidth + rankWidth + nickWidth + rightWidth
+        if showHP.Value then total = total + hpLeftWidth + hpWidth + hpRightWidth end
         f.Size = UDim2.fromOffset(total, 22)
         g.Size = UDim2.fromOffset(total, 22)
         g.StudsOffset = Vector3.new(0, 3.2, 0)
