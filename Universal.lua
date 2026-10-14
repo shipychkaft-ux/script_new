@@ -2398,6 +2398,8 @@ runFunction(function()
     local nameTags = {Enabled = false}
     local showHP = {Value = true}
     local guis = {}
+    local oldFolder = CoreGui:FindFirstChild("NightixNameTags")
+    if oldFolder then pcall(function() oldFolder:Destroy() end) end
     local folder = Instance.new("Folder")
     folder.Name = "NightixNameTags"
     folder.Parent = CoreGui
@@ -2449,30 +2451,19 @@ runFunction(function()
         f.BorderSizePixel = 0
         f.Parent = g
 
-        local layout = Instance.new("UIListLayout")
-        layout.FillDirection = Enum.FillDirection.Horizontal
-        layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-        layout.VerticalAlignment = Enum.VerticalAlignment.Center
-        layout.Padding = UDim.new(0, 0)
-        layout.Parent = f
-
-        -- Exact format: ● DONATION Nick [HP]. No pipe characters are rendered.
-        local dot = addText(f, "DonationDot", 27, red, 0)
-        dot.AutomaticSize = Enum.AutomaticSize.X
-        dot.Text = "● "
-        local rank = addText(f, "Donation", 14, donation == "OWNER" and red or white, 0)
-        rank.AutomaticSize = Enum.AutomaticSize.X
-        rank.Text = donation
-        local nick = addText(f, "Nickname", 14, gray, 0)
-        nick.AutomaticSize = Enum.AutomaticSize.X
-        local hpLeft = addText(f, "HealthLeft", 14, gray, 0)
-        hpLeft.AutomaticSize = Enum.AutomaticSize.X
-        hpLeft.Text = " ["
-        local hp = addText(f, "Health", 14, white, 0)
-        hp.AutomaticSize = Enum.AutomaticSize.X
-        local hpRight = addText(f, "HealthRight", 14, gray, 0)
-        hpRight.AutomaticSize = Enum.AutomaticSize.X
-        hpRight.Text = "]"
+        -- One RichText label only: 🔴 DONATION Nick [HP]. No pipes or child labels.
+        local text = Instance.new("TextLabel")
+        text.Name = "NameTagText"
+        text.BackgroundTransparency = 1
+        text.Size = UDim2.fromScale(1, 1)
+        text.Font = guifont or Enum.Font.GothamMedium
+        text.TextSize = 14
+        text.TextColor3 = white
+        text.TextStrokeTransparency = 1
+        text.TextXAlignment = Enum.TextXAlignment.Left
+        text.TextYAlignment = Enum.TextYAlignment.Center
+        text.RichText = true
+        text.Parent = f
         guis[plr.Name] = g
         return g
     end
@@ -2483,31 +2474,19 @@ runFunction(function()
         if not g then return end
         g.Adornee = plr.Character:FindFirstChild("Head")
         local f = g:FindFirstChild("TagFrame")
-        local nick = f and f:FindFirstChild("Nickname")
-        local hp = f and f:FindFirstChild("Health")
+        local text = f and f:FindFirstChild("NameTagText")
         local h = getHumanoid(plr)
-        if not nick or not hp or not h then return end
-        nick.Text = " " .. plr.Name
-        hp.Text = showHP.Value and tostring(math.floor(h.Health)) or ""
-        local rank = f:FindFirstChild("Donation")
-        local hpLeft = f:FindFirstChild("HealthLeft")
-        local hpRight = f:FindFirstChild("HealthRight")
-        hp.Visible = showHP.Value
-        hpLeft.Visible = showHP.Value
-        hpRight.Visible = showHP.Value
-        local rankWidth = TextService:GetTextSize(rank.Text, rank.TextSize, rank.Font, Vector2.new(1000, 22)).X
-        local nickWidth = TextService:GetTextSize(nick.Text, nick.TextSize, nick.Font, Vector2.new(1000, 22)).X
-        local hpWidth = showHP.Value and TextService:GetTextSize(hp.Text, hp.TextSize, hp.Font, Vector2.new(1000, 22)).X or 0
-        local dotWidth = TextService:GetTextSize(dot.Text, dot.TextSize, dot.Font, Vector2.new(1000, 22)).X
-        local hpLeftWidth = showHP.Value and TextService:GetTextSize(hpLeft.Text, hpLeft.TextSize, hpLeft.Font, Vector2.new(1000, 22)).X or 0
-        local hpRightWidth = showHP.Value and TextService:GetTextSize(hpRight.Text, hpRight.TextSize, hpRight.Font, Vector2.new(1000, 22)).X or 0
-        rank.Size = UDim2.fromOffset(rankWidth + 1, 22)
-        nick.Size = UDim2.fromOffset(nickWidth + 1, 22)
-        hp.Size = UDim2.fromOffset(hpWidth + 1, 22)
-        local total = dotWidth + rankWidth + nickWidth
-        if showHP.Value then total = total + hpLeftWidth + hpWidth + hpRightWidth end
-        f.Size = UDim2.fromOffset(total, 22)
-        g.Size = UDim2.fromOffset(total, 22)
+        if not text or not h then return end
+        local hpValue = showHP.Value and tostring(math.floor(h.Health)) or ""
+        local donation = playerDonations[plr] or "ИГРОК"
+        local rankColor = donation == "OWNER" and "#CC434C" or "#FFFFFF"
+        local safeName = tostring(plr.Name):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+        local safeDonation = tostring(donation):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+        local plainText = "● " .. tostring(donation) .. " " .. tostring(plr.Name) .. (showHP.Value and (" [" .. hpValue .. "]") or "")
+        text.Text = string.format("<font color='#CC434C'>●</font> <font color='%s'>%s</font> <font color='#9B9BA0'>%s</font>%s", rankColor, safeDonation, safeName, showHP.Value and (" <font color='#9B9BA0'>[</font>" .. hpValue .. "<font color='#9B9BA0'>]</font>") or "")
+        local bounds = TextService:GetTextSize(plainText, text.TextSize, text.Font, Vector2.new(1000, 22))
+        f.Size = UDim2.fromOffset(bounds.X + 4, 22)
+        g.Size = UDim2.fromOffset(bounds.X + 4, 22)
         g.StudsOffset = Vector3.new(0, 3.2, 0)
     end
 
@@ -2520,7 +2499,9 @@ runFunction(function()
                 for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then make(p) end end
                 table.insert(conns, Players.PlayerRemoving:Connect(function(p) clear(p); playerDonations[p] = nil end))
                 RunLoops:BindToRenderStep("NameTags", function()
-                    for _, p in ipairs(Players:GetPlayers()) do if p ~= LocalPlayer then update(p) end end
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= LocalPlayer then pcall(update, p) end
+                    end
                 end)
             else
                 RunLoops:UnbindFromRenderStep("NameTags")
