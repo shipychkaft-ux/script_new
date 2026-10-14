@@ -2453,26 +2453,29 @@ runFunction(function()
         layout.FillDirection = Enum.FillDirection.Horizontal
         layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
         layout.VerticalAlignment = Enum.VerticalAlignment.Center
-        layout.Padding = UDim.new(0, 3)
+        layout.Padding = UDim.new(0, 0)
         layout.Parent = f
 
         local left = addText(f, "LeftBracket", 14, gray, 8)
         left.Text = "|"
-        local dot = addText(f, "DonationDot", 8, red, 9)
+        local dot = addText(f, "DonationDot", 8, red, 8)
         dot.Text = "●"
         local rank = addText(f, "Donation", 14, donation == "OWNER" and red or white, 0)
         rank.AutomaticSize = Enum.AutomaticSize.X
-        rank.Text = donation
+        rank.Text = " " .. donation
         local nick = addText(f, "Nickname", 14, gray, 0)
         nick.AutomaticSize = Enum.AutomaticSize.X
-        local hpLeft = addText(f, "HealthLeft", 14, gray, 8)
-        hpLeft.Text = "["
+        local hpLeft = addText(f, "HealthLeft", 14, gray, 0)
+        hpLeft.AutomaticSize = Enum.AutomaticSize.X
+        hpLeft.Text = " ["
         local hp = addText(f, "Health", 14, gray, 0)
         hp.AutomaticSize = Enum.AutomaticSize.X
-        local hpRight = addText(f, "HealthRight", 14, gray, 8)
+        local hpRight = addText(f, "HealthRight", 14, gray, 0)
+        hpRight.AutomaticSize = Enum.AutomaticSize.X
         hpRight.Text = "]"
-        local right = addText(f, "RightBracket", 14, gray, 8)
-        right.Text = "|"
+        local right = addText(f, "RightBracket", 14, gray, 0)
+        right.AutomaticSize = Enum.AutomaticSize.X
+        right.Text = " |"
         guis[plr.Name] = g
         return g
     end
@@ -2487,7 +2490,7 @@ runFunction(function()
         local hp = f and f:FindFirstChild("Health")
         local h = getHumanoid(plr)
         if not nick or not hp or not h then return end
-        nick.Text = plr.Name
+        nick.Text = " " .. plr.Name
         hp.Text = showHP.Value and tostring(math.floor(h.Health)) or ""
         local rank = f:FindFirstChild("Donation")
         local hpLeft = f:FindFirstChild("HealthLeft")
@@ -2501,8 +2504,8 @@ runFunction(function()
         rank.Size = UDim2.fromOffset(rankWidth + 1, 22)
         nick.Size = UDim2.fromOffset(nickWidth + 1, 22)
         hp.Size = UDim2.fromOffset(hpWidth + 1, 22)
-        local total = 8 + 9 + rankWidth + nickWidth + 8 + 8 + 21
-        if showHP.Value then total = total + 8 + hpWidth + 8 end
+        local total = 8 + 8 + rankWidth + nickWidth + 8 + 21
+        if showHP.Value then total = total + hpWidth end
         f.Size = UDim2.fromOffset(total, 22)
         g.Size = UDim2.fromOffset(total, 22)
         g.StudsOffset = Vector3.new(0, 3.2, 0)
