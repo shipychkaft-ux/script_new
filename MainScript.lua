@@ -88,6 +88,11 @@ end
 
 do
     function Functions:RunFile(filepath)
+        -- Prefer the explicitly synchronized local Mana copy. This prevents
+        -- an older raw.githubusercontent response from overwriting a newer module.
+        if betterisfile("Mana/" .. filepath) then
+            return loadstring(readfile("Mana/" .. filepath))()
+        end
         local req = requestfunc({
             Url = GitHubFileUrl(filepath),
             Method = "GET"
@@ -96,8 +101,6 @@ do
         if type(content) ~= "string" or #content < 20 then
             error("[Nightix]: failed to download " .. filepath)
         end
-        -- Always execute the freshly downloaded GitHub module and refresh Mana/.
-        -- This prevents stale local copies and raw.githubusercontent cache from winning.
         pcall(function() writefile("Mana/" .. filepath, content) end)
         return loadstring(content)()
     end
