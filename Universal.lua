@@ -1835,7 +1835,7 @@ runFunction(function()
     local circlePart; local circleSurfaceTop; local circleSurfaceBottom; local circleImageTop; local circleImageBottom
     local circleSize={Value=2.0}
     local diamonds={ ["1"]="113363639205880", ["2"]="132493106112220", ["3"]="108556924043797", ["4"]="139726405706582" }
-    local circleTextures={ ["1"]="107258187506657", ["2"]="88864906064603", ["3"]="127001857631043", ["4"]="107258187506657" }
+    local circleTextures={ ["1"]="107258187506657", ["3"]="127001857631043" }
 
     local function clearDiamond()
         if billboard then pcall(function() billboard:Destroy() end) end
@@ -1950,7 +1950,7 @@ runFunction(function()
     speed=targetESP:CreateSlider({Name="Скорость",Min=0,Max=720,Default=180,Round=0,Function=function(v) speed.Value=v end})
     alpha=targetESP:CreateSlider({Name="Прозрачность",Min=0,Max=1,Default=.2,Round=2,Function=function(v) alpha.Value=v end})
     color=targetESP:CreateColorSlider({Name="Цвет Target ESP",Default=Color3.fromRGB(123,131,243),Function=function(v) color.Value=v end})
-    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","2","3","4"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
+    circleVariant=targetESP:CreateDropdown({Name="Вариант круга",List={"1","3"},Default="1",Function=function(v) circleVariant.Value=v; clearCircle() end})
     circleSize=targetESP:CreateSlider({Name="Размер круга",Min=0.5,Max=4,Default=2,Round=2,Function=function(v) circleSize.Value=v end})
     vis(diamond,true); vis(size,true); vis(circleVariant,false); vis(circleSize,false)
 end)

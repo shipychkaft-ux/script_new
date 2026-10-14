@@ -6331,15 +6331,15 @@ function NeverLose:CreateWindow(Config)
 		Watermark.Parent = NeverLose.ScreenGui
 		Watermark.AnchorPoint = Vector2.new(1, 0)
 		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
-		Watermark.BackgroundTransparency = 0
+		Watermark.BackgroundTransparency = 0.4
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
 		Watermark.Position = UDim2.new(1, -10, 0, 10)
-		Watermark.Size = UDim2.new(0, 120, 0, 36)
+		Watermark.Size = UDim2.new(0, 120, 0, 32)
 		Watermark.ZIndex = 16
 
-		UICorner.CornerRadius = UDim.new(0, 12)
+		UICorner.CornerRadius = UDim.new(0, 6)
 		UICorner.Parent = Watermark
 
 		UIListLayout.Parent = Watermark
@@ -6392,7 +6392,7 @@ function NeverLose:CreateWindow(Config)
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
 			NeverLose.PlayAnimate(Watermark , SlowyTween , {
-				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 36)
+				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 32)
 			})
 		end));
 
@@ -6408,7 +6408,7 @@ function NeverLose:CreateWindow(Config)
 			Watermark_lb.Status = value;
 			WatermarkSignal:SetValue(value)
 			if value then
-				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0})
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.4})
 				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
 			else
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 1})
@@ -6430,14 +6430,14 @@ function NeverLose:CreateWindow(Config)
 			Frame.Parent = Watermark
 			Frame.BackgroundTransparency = 1
 			Frame.BorderSizePixel = 0
-			Frame.Size = UDim2.fromOffset(100, 36)
+			Frame.Size = UDim2.fromOffset(100, 32)
 
 
 			Icon.Parent = Frame
 			Icon.BackgroundTransparency = 1
 			Icon.Position = UDim2.new(0, 3, 0.5, 0)
 			Icon.AnchorPoint = Vector2.new(0, 0.5)
-			Icon.Size = UDim2.fromOffset(22, 22)
+			Icon.Size = UDim2.fromOffset(29, 29)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
 			Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
