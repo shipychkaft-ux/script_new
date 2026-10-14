@@ -2445,7 +2445,7 @@ runFunction(function()
         f.Name = "TagFrame"
         f.Size = UDim2.fromScale(1, 1)
         f.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-        f.BackgroundTransparency = 0.75
+        f.BackgroundTransparency = 0.5
         f.BorderSizePixel = 0
         f.Parent = g
 
