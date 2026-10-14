@@ -22,6 +22,10 @@ local startTick = tick()
 
 -- // GitHub repository to load files from
 local GitHubRepo = "https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/"
+local GitHubCacheKey = tostring(math.floor(tick()))
+local function GitHubFileUrl(filepath)
+    return GitHubRepo .. filepath .. "?v=" .. GitHubCacheKey
+end
 
 local UserInputService = game:GetService("UserInputService")
 local TextChatService = game:GetService("TextChatService")
@@ -85,24 +89,17 @@ end
 do
     function Functions:RunFile(filepath)
         local req = requestfunc({
-            Url = GitHubRepo .. filepath,
+            Url = GitHubFileUrl(filepath),
             Method = "GET"
         })
-        if betterisfile(filepath) then
-            return loadstring(readfile(filepath))()
-        elseif isfile("NewMana/"..filepath) and shared.ManaDeveloper then
-            return loadstring(readfile("NewMana/" .. filepath))()
-        elseif not betterisfile(filepath) and not shared.ManaDeveloper then -- auto update workspace files
-            local content = req.Body
-            writefile("Mana/"..filepath, content)
-            return loadstring(content)()
-        else
-            if isfile("Mana/" .. filepath) then
-                return loadstring(readfile("Mana/" .. filepath))()
-            else
-                return loadstring(game:HttpGet(GitHubRepo .. filepath))()
-            end
+        local content = req.Body
+        if type(content) ~= "string" or #content < 20 then
+            error("[Nightix]: failed to download " .. filepath)
         end
+        -- Always execute the freshly downloaded GitHub module and refresh Mana/.
+        -- This prevents stale local copies and raw.githubusercontent cache from winning.
+        pcall(function() writefile("Mana/" .. filepath, content) end)
+        return loadstring(content)()
     end
 end
 
@@ -593,7 +590,7 @@ LocalPlayer.OnTeleport:Connect(function(State)
             if shared.ManaDeveloper then 
                 loadstring(readfile("NewMana/MainScript.lua"))()
             else 
-                loadstring(game:HttpGet("]] .. GitHubRepo .. [[MainScript.lua"))()
+                loadstring(game:HttpGet("]] .. GitHubRepo .. [[MainScript.lua?v=]] .. tostring(math.floor(tick())) .. [["))()
             end
         ]]
         queueteleport(QueueTeleportFunction)
