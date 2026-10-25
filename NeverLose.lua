@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nightix]: NeverLose build 2026-10-25-hud8");
+print("[Nursultan]: NeverLose build 2026-10-25-nursultan1");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
@@ -4135,7 +4135,7 @@ function NeverLose:CreateWindow(Config)
 		Size = Config.Size,
 		ConfigFolder = Config.ConfigFolder,
 		EnableConfig = Config.EnableConfig,
-		Signal = NeverLose:CreateSignal(true),
+		Signal = NeverLose:CreateSignal(false),
 		Tabs = {},
 		CurrentTab = 1,
 		Keybind = Config.Keybind,
@@ -4186,18 +4186,19 @@ function NeverLose:CreateWindow(Config)
 
 	WindowFrame.Name = NeverLose.RandomString();
 	WindowFrame.Parent = NeverLose.ScreenGui;
+	WindowFrame.Visible = false
 	WindowFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 	WindowFrame.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
 	WindowFrame.BackgroundTransparency = 0.055
 	WindowFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	WindowFrame.BorderSizePixel = 0
 	WindowFrame.ClipsDescendants = true
-	WindowFrame.Position = UDim2.new(255, 0, 255, 0)
+	WindowFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 	WindowFrame.Size = Window.Size
 	WindowFrame.Active = true;
 
 	if not NeverLose.EnabledBlur then
-		WindowFrame.BackgroundTransparency = 0.0255
+		WindowFrame.BackgroundTransparency = 1
 	end;
 
 	local renderParentWindow = LPH_NO_VIRTUALIZE(function()
@@ -4231,6 +4232,7 @@ function NeverLose:CreateWindow(Config)
 
 	Window.SetRender = LPH_NO_VIRTUALIZE(function(self , value)
 		if value then
+			WindowFrame.Visible = true
 			NeverLose.PlayAnimate(WindowFrame , SlowyTween , {
 				BackgroundTransparency = (NeverLose.EnabledBlur and 0.055) or 0.0255,
 				Size = Window.Size
@@ -4317,7 +4319,7 @@ function NeverLose:CreateWindow(Config)
 			})
 
 		else
-
+			WindowFrame.Visible = false
 			NeverLose.PlayAnimate(WindowFrame , SlowyTween , {
 				BackgroundTransparency = 1,
 				Size = Window.Size + UDim2.fromOffset(-15,-15)
@@ -4406,12 +4408,12 @@ function NeverLose:CreateWindow(Config)
 		end;
 	end);
 
-	Window.Shadow = { Render = function() end };
+		Window.Shadow = { Render = function() end };
 
-	task.delay(0.25,function()
-		WindowFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-		Window:SetRender(true);
+		-- Start hidden and render only after an explicit open signal.
+		Window:SetRender(false)
 		NeverLose:AddSignal(Window.Signal:Connect(LPH_NO_VIRTUALIZE(function(...)
+
 			Window:SetRender(...);
 		end)))
 	end)
@@ -4514,7 +4516,7 @@ function NeverLose:CreateWindow(Config)
 	WindowName.Size = UDim2.new(0, 200, 0, 25)
 	WindowName.ZIndex = 7
 	WindowName.Font = Enum.Font.GothamBold
-	WindowName.Text = ""
+	WindowName.Text = Window.Name or "Nursultan"
 	WindowName.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowName.TextSize = 18.000
 	WindowName.TextXAlignment = Enum.TextXAlignment.Left
@@ -4529,7 +4531,8 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.Size = UDim2.new(0, 200, 0, 15)
 	WindowContent.ZIndex = 7
 	WindowContent.Font = Enum.Font.GothamBold
-	WindowContent.Text = "Nightix v.1.0.5"
+		WindowContent.Text = "Nursultan v.1.0.5"
+
 	WindowContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowContent.TextSize = 9.000
 	WindowContent.TextTransparency = 0.650
@@ -6438,6 +6441,7 @@ function NeverLose:CreateWindow(Config)
 			HudGroup.Size = UDim2.fromOffset(HudLayout.AbsoluteContentSize.X, 36)
 		end
 		InformationLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateInformationBarSize)
+		updateInformationBarSize()
 		InformationBar.Visible = false
 		local infoClock, infoFrames = 0, 0
 		NeverLose:AddSignal(RunService.RenderStepped:Connect(function(deltaTime)
@@ -6538,6 +6542,7 @@ function NeverLose:CreateWindow(Config)
 			value = value and true or false
 			Watermark_lb.Status = value;
 			WatermarkSignal:SetValue(value)
+			HudGroup.Visible = value
 			InformationBar.Visible = value
 			if value then
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.2})

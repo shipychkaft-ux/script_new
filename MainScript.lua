@@ -9,9 +9,9 @@ repeat task.wait() until game:IsLoaded()
 if shared.Mana then
     local previousMana = shared.Mana
     if previousMana.Loaded then
-        warn("[Nightix]: Reloading the existing client from the current build.")
+        warn("[Nursultan]: Reloading the existing client from the current build.")
     else
-        warn("[Nightix]: Recovering an incomplete previous load.")
+        warn("[Nursultan]: Recovering an incomplete previous load.")
     end
     pcall(function()
         if previousMana.GuiLibrary and previousMana.GuiLibrary.Destruct then
@@ -25,8 +25,8 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-hud8"
-print("[Nightix]: build " .. BUILD_TAG)
+local BUILD_TAG = "2026-10-25-nursultan3"
+print("[Nursultan]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
 local GitHubRepo = "https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/"
@@ -40,7 +40,7 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-hud8"
+local MODULE_CACHE_VERSION = "2026-10-25-nursultan3"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
@@ -50,9 +50,9 @@ if delfile then
     for _, filepath in ipairs(legacyModuleFiles) do
         pcall(delfile, cacheFolder .. "/" .. filepath)
     end
-    print("[Nightix]: cleared legacy Lua module cache")
+    print("[Nursultan]: cleared legacy Lua module cache")
 else
-    warn("[Nightix]: delfile unavailable; legacy cache will be bypassed")
+    warn("[Nursultan]: delfile unavailable; legacy cache will be bypassed")
 end
 local function moduleCachePath(filepath)
     local safeName = tostring(filepath):gsub("[/\\\\]", "__")
@@ -146,7 +146,7 @@ do
             pcall(function() writefile(cachePath, content) end)
             if delfile then pcall(delfile, legacyPath) end
             if shared.ManaDeveloper then pcall(writefile, legacyPath, content) end
-            print("[Nightix]: loaded " .. filepath .. " from GitHub")
+            print("[Nursultan]: loaded " .. filepath .. " from GitHub")
             return loadstring(content)()
         end
 
@@ -154,7 +154,7 @@ do
         if betterisfile(cachePath) then
             return loadstring(readfile(cachePath))()
         end
-        error("[Nightix]: failed to download " .. filepath .. " (no cached version " .. MODULE_CACHE_VERSION .. ")")
+        error("[Nursultan]: failed to download " .. filepath .. " (no cached version " .. MODULE_CACHE_VERSION .. ")")
     end
 end
 
@@ -218,17 +218,17 @@ Mana.Activated = true
 Mana.Whitelisted = false
 Mana.Loaded = false
 
--- // Nightix-style menu (ported from Nightix Minecraft client)
+-- // Nursultan menu (ported from the original client UI)
 local nightixOk, nightixErr = pcall(function()
-    local nightixMenu = Functions:RunFile("NightixMenu.lua")
-    nightixMenu(GuiLibrary, GuiLibrary.OptionFunctions or {}, Mana.Connections, UserInputService, game:GetService("TweenService"), game:GetService("TextService"), Mouse, function(func) return coroutine.wrap(func)() end)
+    local clientMenu = Functions:RunFile("NightixMenu.lua")
+    clientMenu(GuiLibrary, GuiLibrary.OptionFunctions or {}, Mana.Connections, UserInputService, game:GetService("TweenService"), game:GetService("TextService"), Mouse, function(func) return coroutine.wrap(func)() end)
 end)
 if not nightixOk then
-    error("[Nightix/MainScript.lua]: Failed to initialize NightixMenu before creating tabs: " .. tostring(nightixErr))
+    error("[Nursultan/MainScript.lua]: Failed to initialize menu before creating tabs: " .. tostring(nightixErr))
 end
 
 if type(GuiLibrary.CreateTab) ~= "function" or type(GuiLibrary.CreateOptionsTab) ~= "function" then
-    error("[Nightix/MainScript.lua]: NightixMenu did not register the tab API")
+    error("[Nursultan/MainScript.lua]: menu did not register the tab API")
 end
 
 GuiLibrary:CreateWindow()
@@ -342,14 +342,16 @@ runFunction(function()
         Name = "UI scale",
         Function = function(v)
             GuiLibrary.Scale = v
+            GuiLibrary.NursultanScale = v
             GuiLibrary.NightixScale = v
-            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
-                GuiLibrary.NightixMenu:SetNightixScale(v)
+            local clientMenu = GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu
+            if clientMenu and clientMenu.SetNursultanScale then
+                clientMenu:SetNursultanScale(v)
             elseif GuiLibrary.UIScale then
                 GuiLibrary.UIScale.Scale = v
             end
         end,
-        Min = 0.5, Max = 2, Default = tonumber(GuiLibrary.NightixScale or GuiLibrary.Scale or 1) or 1, Round = 2
+        Min = 0.5, Max = 2, Default = tonumber(GuiLibrary.NursultanScale or GuiLibrary.NightixScale or GuiLibrary.Scale or 1) or 1, Round = 2
     })
 
     Tabs.Settings:CreateButton({
@@ -357,9 +359,11 @@ runFunction(function()
         Function = function()
             local defaultScale = 1
             GuiLibrary.Scale = defaultScale
+            GuiLibrary.NursultanScale = defaultScale
             GuiLibrary.NightixScale = defaultScale
-            if GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.SetNightixScale then
-                GuiLibrary.NightixMenu:SetNightixScale(defaultScale)
+            local clientMenu = GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu
+            if clientMenu and clientMenu.SetNursultanScale then
+                clientMenu:SetNursultanScale(defaultScale)
             elseif GuiLibrary.UIScale then
                 GuiLibrary.UIScale.Scale = defaultScale
             end
@@ -371,7 +375,7 @@ runFunction(function()
         Name = "Icon",
         Default = true,
         Callback = function(v)
-            local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            local nl = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
             if nl then
                 nl.IconSettings = nl.IconSettings or {}
                 nl.IconSettings.Enabled = v
@@ -379,7 +383,7 @@ runFunction(function()
         end
     })
 
-    local nl = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+    local nl = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
     if nl then
         nl.IconSettings = nl.IconSettings or {}
         nl.IconSettings.Enabled = true
@@ -395,7 +399,7 @@ runFunction(function()
         List = {"Одиночный", "Двойной"},
         Default = "Двойной",
         Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            local nl2 = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
             if not nl2 then return end
             nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
             if nl2.IconSettings.Mode == "Single" and not nl2.IconSettings.SingleInitialized then
@@ -412,7 +416,7 @@ runFunction(function()
         Name = "Первый цвет",
         Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
         Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            local nl2 = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
             if nl2 then nl2.IconSettings.Color1 = v end
         end
     })
@@ -421,7 +425,7 @@ runFunction(function()
         Name = "Второй цвет",
         Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
         Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            local nl2 = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
             if nl2 then nl2.IconSettings.Color2 = v end
         end
     })
@@ -430,13 +434,13 @@ runFunction(function()
         Name = "Скорость переливания",
         Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.65, Round = 2,
         Function = function(v)
-            local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+            local nl2 = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
             if nl2 then nl2.IconSettings.Speed = v end
         end
     })
 
     local function applyTheme(v)
-        local nl2 = GuiLibrary.NightixMenu and GuiLibrary.NightixMenu.NeverLose
+        local nl2 = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
         local palette = GuiLibrary.GuiPallet
         if not nl2 or not palette then return end
 
@@ -626,7 +630,7 @@ runFunction(function()
 end)
 ]]
 
-print("[Nightix/MainScript.lua]: Loaded in " .. tostring(tick() - startTick) .. ".")
+print("[Nursultan/MainScript.lua]: Loaded in " .. tostring(tick() - startTick) .. ".")
 
 Functions:RunFile("Universal.lua")
 
@@ -635,7 +639,7 @@ local suc, res = pcall(function()
 end)
 
 if not suc then
-    warn("[Nightix/MainScript.lua]: an error occured while attempting to load game script: " .. res)
+    warn("[Nursultan/MainScript.lua]: an error occured while attempting to load game script: " .. res)
     GuiLibrary.CanLoadConfig = true
 end
 

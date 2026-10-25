@@ -168,8 +168,9 @@ local tweens = {
 guilibrary.Tweens = tweens
 
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
-ScreenGui.Name = "Nightix"
+ScreenGui.Name = "Nursultan"
 ScreenGui.DisplayOrder = 999
+ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.OnTopOfCoreBlur = true -- so if you even get kicked or banned you'll still see gui :)
 local ClickGui = Instance.new("Frame", ScreenGui)
@@ -290,10 +291,26 @@ local function sanitizeConfigName(name)
     return name
 end
 
-createFolder("Nightix")
-createFolder("Nightix/Configs")
-guilibrary.ConfigRoot = "Nightix/Configs"
+createFolder("Nursultan")
+createFolder("Nursultan/Configs")
+guilibrary.ConfigRoot = "Nursultan/Configs"
 guilibrary.CurrentConfig = nil
+
+-- Move existing user configs forward without deleting the old folder.
+pcall(function()
+    local oldConfigFolder = "Nightix/Configs"
+    if isfolder(oldConfigFolder) then
+        for _, filePath in ipairs(listfiles(oldConfigFolder)) do
+            local fileName = tostring(filePath):match("([^/\\\\]+)$")
+            if fileName and fileName:lower():sub(-5) == ".json" then
+                local destination = guilibrary.ConfigRoot .. "/" .. fileName
+                if not isfile(destination) then
+                    writefile(destination, readfile(filePath))
+                end
+            end
+        end
+    end
+end)
 
 -- Migrate legacy per-place configs into one shared config folder. Existing
 -- root configs win when names collide.

@@ -1,4 +1,4 @@
--- Nightix menu powered by the NeverLose UI library.
+-- Nursultan client menu powered by the NeverLose UI library.
 -- All Mana modules (Universal.lua) are exposed through the standard Mana API
 -- (CreateTab / CreateToggle / CreateSlider / ...). No module code is modified.
 
@@ -9,10 +9,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local localPlayer = game:GetService("Players").LocalPlayer
     local runService = game:GetService("RunService")
 
-    -- Load the NeverLose UI library (Nightix-style UI)
+    -- Load the NeverLose UI library for the Nursultan client.
     local NeverLose = Functions:RunFile("NeverLose.lua")
     if not (NeverLose and NeverLose.CreateWindow) then
-        error("[NightixMenu]: failed to load the NeverLose UI library")
+        error("[Nursultan]: failed to load the UI library")
     end
 
     -- ------------------------------------------------------------------
@@ -20,10 +20,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- ------------------------------------------------------------------
     local window = NeverLose:CreateWindow({
         Logo = "rbxassetid://106084104602244",
-        Name = "Nightix",
-        Content = "Nightix",
+        Name = "Nursultan",
+        Content = "Nursultan",
         Size = NeverLose.Scales.Default,
-        ConfigFolder = "NightixConfigs",
+        ConfigFolder = "NursultanConfigs",
         EnableConfig = false,
         Enable3DRenderer = false,
         Keybind = "None", -- the menu is toggled through GuiLibrary:Toggle() only
@@ -31,22 +31,26 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
     -- watermark
     local Watermark = window:Watermark()
-    shared.NightixWatermark = Watermark
+    shared.NursultanWatermark = Watermark
+    shared.NightixWatermark = Watermark -- legacy shared key kept for compatibility
     Watermark:AddBlock("rbxassetid://106084104602244", "Release")
+    Watermark:SetRender(true)
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
     Notification.new({
-        Title = "Nightix",
-        Content = "Nightix loaded",
+            Title = "Nursultan",
+            Content = "Nursultan loaded",
+
         Duration = 4,
     })
 
     -- guilibrary state
-    -- Preserve UI scale across Nightix menu rebuilds/restarts.
-    local savedNightixScale = tonumber(guilibrary.NightixScale or guilibrary.Scale or 1) or 1
-    guilibrary.NightixScale = savedNightixScale
-    guilibrary.UIScale = { Scale = savedNightixScale }
+    -- Preserve UI scale across Nursultan menu rebuilds/restarts.
+    local savedNursultanScale = tonumber(guilibrary.NursultanScale or guilibrary.NightixScale or guilibrary.Scale or 1) or 1
+    guilibrary.NursultanScale = savedNursultanScale
+    guilibrary.NightixScale = savedNursultanScale -- legacy property kept for existing settings
+    guilibrary.UIScale = { Scale = savedNursultanScale }
     guilibrary.GuiKeybind = guilibrary.GuiKeybind or "RightShift"
     guilibrary.Toggled = false
     local previousMouseBehavior
@@ -65,38 +69,37 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         local color = enabled and "#64EB7D" or "#FF5F69"
         local Notification = NeverLose:CreateNotification()
         Notification.new({
-            Title = "Nightix",
+            Title = "Nursultan",
             Content = tostring(name) .. " <font color=\"" .. color .. "\">" .. status .. "</font>",
             Duration = 2,
         })
     end
 
     guilibrary.CreateNotification = function() end
+    window.Signal:SetValue(false)
+    window:SetRender(false)
 
-    -- the library reveals the window ~0.25s after creation; hide it again
-    task.delay(0.4, function()
-        if not guilibrary.Toggled then
-            window.Signal:SetValue(false)
-        end
-    end)
+    -- Window starts hidden and is shown only by an explicit toggle.
 
     -- menu scale, adjustable through UserSettings
     local function scaleSize(scale)
         scale = tonumber(scale) or 1
         return UDim2.fromOffset(math.floor(640 * scale), math.floor(480 * scale))
     end
-    local menuScaleValue = savedNightixScale
+    local menuScaleValue = savedNursultanScale
     local menuScale = scaleSize(menuScaleValue)
 
-    function guilibrary:SetNightixScale(scale)
+    function guilibrary:SetNursultanScale(scale)
         menuScaleValue = clampValue(tonumber(scale) or 1, 0.5, 2)
-        guilibrary.NightixScale = menuScaleValue
+        guilibrary.NursultanScale = menuScaleValue
+        guilibrary.NightixScale = menuScaleValue -- legacy property kept for compatibility
         guilibrary.UIScale.Scale = menuScaleValue
         menuScale = scaleSize(menuScaleValue)
         if window and window.SetSize then
             window:SetSize(menuScale)
         end
     end
+    guilibrary.SetNightixScale = guilibrary.SetNursultanScale -- compatibility alias
 
     -- ------------------------------------------------------------------
     -- helpers
@@ -127,7 +130,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local function getSection(tabname)
         local st = tabStates[tabname]
         if not st then
-            error("[NightixMenu]: unknown tab '" .. tostring(tabname) .. "'")
+            error("[Nursultan]: unknown tab '" .. tostring(tabname) .. "'")
         end
         if not st.section then
             st.section = st.tab:AddSection({ Name = "Modules", Position = "Auto" })
@@ -1082,7 +1085,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         end
     end
 
-    table.insert(connections, userInputService.InputBegan:Connect(function(input)
+    table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
         -- CoreGui may mark RightShift as game-processed; still allow the menu
         -- hotkey so it remains available while Roblox UI has focus.
         if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == guilibrary.GuiKeybind then
@@ -1118,11 +1121,14 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         return createOptionsTab(argstable)
     end
 
-    guilibrary.NightixMenu = {
-        Version = 2,
+    guilibrary.NursultanMenu = {
+        Version = 3,
         Window = window,
         NeverLose = NeverLose,
+        SetNursultanScale = guilibrary.SetNursultanScale,
     }
+    guilibrary.NightixMenu = guilibrary.NursultanMenu -- compatibility alias
+
 
     return guilibrary
 end

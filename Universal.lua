@@ -4343,14 +4343,14 @@ runFunction(function()
 end)
 
 runFunction(function()
-    local hud = {Enabled = false}
+    local hud = {Enabled = true}
     hud = Tabs.Render:CreateToggle({
-        Name = "HUD",
-        HoverText = "Включает HUD Nightix с ватермарком.",
-        Default = false,
+        Name = "HUD Nursultan",
+        HoverText = "Включает HUD Nursultan с ватермарком и информационной панелью.",
+        Default = true,
         Callback = function(enabled)
             hud.Enabled = enabled
-            local watermark = shared.NightixWatermark
+            local watermark = shared.NursultanWatermark or shared.NightixWatermark
             if watermark and watermark.SetRender then
                 watermark:SetRender(enabled)
             end
