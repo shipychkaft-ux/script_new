@@ -25,7 +25,7 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-nursultan9"
+local BUILD_TAG = "2026-10-25-nursultan10"
 print("[Nursultan]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -40,7 +40,7 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-nursultan9"
+local MODULE_CACHE_VERSION = "2026-10-25-nursultan10"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
@@ -401,8 +401,16 @@ runFunction(function()
         nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
     end
 
+    -- Module toggles own an option window with Create* helpers. Fall back to the
+    -- tab itself if a stale/legacy toggle object is returned, so the client can
+    -- never crash on a missing method.
+    local themeOwner = themeFunction
+    if type(themeFunction.CreateDropdown) ~= "function" then
+        themeOwner = Tabs.Settings
+    end
+
     local themeColor2, themeSpeed
-    local themeMode = themeFunction:CreateDropdown({
+    local themeMode = themeOwner:CreateDropdown({
         Name = "Режим",
         List = {"Одиночный", "Двойной"},
         Default = "Двойной",
@@ -421,7 +429,7 @@ runFunction(function()
         end
     })
 
-    local themeColor1 = themeFunction:CreateColorSlider({
+    local themeColor1 = themeOwner:CreateColorSlider({
         Name = "Первый цвет",
         Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
         Function = function(v)
@@ -430,7 +438,7 @@ runFunction(function()
         end
     })
 
-    themeColor2 = themeFunction:CreateColorSlider({
+    themeColor2 = themeOwner:CreateColorSlider({
         Name = "Второй цвет",
         Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
         Function = function(v)
@@ -439,7 +447,7 @@ runFunction(function()
         end
     })
 
-    themeSpeed = themeFunction:CreateSlider({
+    themeSpeed = themeOwner:CreateSlider({
         Name = "Скорость переливания",
         Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.65, Round = 2,
         Function = function(v)
@@ -506,7 +514,7 @@ runFunction(function()
     end
 
     -- Presets are buttons: pressing one applies the palette immediately.
-    themeFunction:CreateButton({
+    themeOwner:CreateButton({
         Name = "Nursultan 1.16.5",
         Callback = function() applyTheme("Nursultan 1.16.5") end
     })
