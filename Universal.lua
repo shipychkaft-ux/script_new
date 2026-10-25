@@ -4343,6 +4343,96 @@ runFunction(function()
 end)
 
 runFunction(function()
+    local aura = {Enabled = true}
+    local auraColor = {Value = Color3.fromRGB(255, 140, 0)}
+    local auraEmitter
+    local auraAttachment
+    local auraCharacterConnection
+
+    local function removeAura()
+        if auraEmitter then auraEmitter:Destroy(); auraEmitter = nil end
+        if auraAttachment then auraAttachment:Destroy(); auraAttachment = nil end
+    end
+
+    local function applyAura()
+        if not aura.Enabled then
+            removeAura()
+            return
+        end
+
+        local character = LocalPlayer.Character
+        local root = character and character:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+
+        if not auraAttachment or auraAttachment.Parent ~= root then
+            removeAura()
+            auraAttachment = Instance.new("Attachment")
+            auraAttachment.Name = "NursultanGlowAura"
+            auraAttachment.Parent = root
+
+            auraEmitter = Instance.new("ParticleEmitter")
+            auraEmitter.Name = "GlowAura"
+            auraEmitter.Parent = auraAttachment
+            auraEmitter.Texture = "rbxassetid://7548285739"
+            auraEmitter.Enabled = true
+            auraEmitter.Rate = 10
+            auraEmitter.Lifetime = NumberRange.new(1.25, 1.25)
+            auraEmitter.Speed = NumberRange.new(3.5, 5.5)
+            auraEmitter.Rotation = NumberRange.new(-360, 360)
+            auraEmitter.RotSpeed = NumberRange.new(200, 200)
+            auraEmitter.SpreadAngle = Vector2.new(360, 360)
+            auraEmitter.LightEmission = 1
+            auraEmitter.LightInfluence = 0
+            auraEmitter.Brightness = 1
+            auraEmitter.ZOffset = -1.4
+            auraEmitter.Drag = 3.5
+            auraEmitter.LockedToPart = true
+            auraEmitter.EmissionDirection = Enum.NormalId.Top
+            auraEmitter.Shape = Enum.ParticleEmitterShape.Box
+            auraEmitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+            auraEmitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+            auraEmitter.ShapePartial = 1
+            auraEmitter.TimeScale = 1
+            auraEmitter.VelocityInheritance = 0
+            auraEmitter.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.05),
+                NumberSequenceKeypoint.new(0.7, 0.2),
+                NumberSequenceKeypoint.new(1, 1),
+            })
+        end
+
+        auraEmitter.Color = ColorSequence.new(auraColor.Value)
+    end
+
+    aura = Tabs.Render:CreateToggle({
+        Name = "Glow Aura",
+        HoverText = "Добавляет вокруг персонажа свечение частиц.",
+        Default = true,
+        Callback = function(enabled)
+            aura.Enabled = enabled
+            applyAura()
+        end
+    })
+
+    auraColor = aura:CreateColorSlider({
+        Name = "Цвет свечения",
+        Default = Color3.fromRGB(255, 140, 0),
+        Function = function(value)
+            auraColor.Value = value
+            applyAura()
+        end
+    })
+
+    auraCharacterConnection = LocalPlayer.CharacterAdded:Connect(function(character)
+        if not aura.Enabled then return end
+        local root = character:WaitForChild("HumanoidRootPart", 5)
+        if root then applyAura() end
+    end)
+
+    applyAura()
+end)
+
+runFunction(function()
     local hands = {Enabled = true}
     local handColor = {Value = Color3.fromRGB(255, 255, 255)}
     local handConnection
