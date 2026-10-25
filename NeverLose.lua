@@ -1131,8 +1131,10 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 
 	DepthOfField.Enabled = true;
 	DepthOfField.FarIntensity = 0;
-	DepthOfField.FocusDistance = 0;
-	DepthOfField.InFocusRadius = 1000;
+	-- Focus on the thin glass plane placed just beyond the camera near plane;
+	-- blur the scene behind it while keeping the ScreenGui text crisp.
+	DepthOfField.FocusDistance = 0.55;
+	DepthOfField.InFocusRadius = 0.05;
 	DepthOfField.NearIntensity = 1;
 	DepthOfField.Name = NeverLose.RandomString();
 
@@ -6331,7 +6333,7 @@ function NeverLose:CreateWindow(Config)
 		Watermark.Parent = NeverLose.ScreenGui
 		Watermark.AnchorPoint = Vector2.new(1, 0)
 		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
-		Watermark.BackgroundTransparency = 0.35
+		Watermark.BackgroundTransparency = 0.2
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
@@ -6408,7 +6410,7 @@ function NeverLose:CreateWindow(Config)
 			Watermark_lb.Status = value;
 			WatermarkSignal:SetValue(value)
 			if value then
-				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.35})
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.2})
 				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
 			else
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 1})

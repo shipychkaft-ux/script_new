@@ -88,21 +88,36 @@ end
 
 do
     function Functions:RunFile(filepath)
-        -- Prefer the explicitly synchronized local Mana copy. This prevents
-        -- an older raw.githubusercontent response from overwriting a newer module.
-        if betterisfile("Mana/" .. filepath) then
-            return loadstring(readfile("Mana/" .. filepath))()
+        local cachePath = "Mana/" .. filepath
+
+        -- Developer mode intentionally uses the local working copy.
+        if shared.ManaDeveloper and betterisfile(cachePath) then
+            return loadstring(readfile(cachePath))()
         end
-        local req = requestfunc({
-            Url = GitHubFileUrl(filepath),
-            Method = "GET"
-        })
-        local content = req.Body
-        if type(content) ~= "string" or #content < 20 then
-            error("[Nightix]: failed to download " .. filepath)
+
+        -- In normal mode, refresh from GitHub first so cached modules cannot
+        -- hide updates published to the repository.
+        local ok, req = pcall(function()
+            return requestfunc({
+                Url = GitHubFileUrl(filepath),
+                Method = "GET",
+                Headers = { ["Cache-Control"] = "no-cache" }
+            })
+        end)
+        local content
+        if ok and req and (req.StatusCode == nil or req.StatusCode < 400) then
+            content = req.Body
         end
-        pcall(function() writefile("Mana/" .. filepath, content) end)
-        return loadstring(content)()
+        if type(content) == "string" and #content >= 20 then
+            pcall(function() writefile(cachePath, content) end)
+            return loadstring(content)()
+        end
+
+        -- If GitHub is unavailable, keep the last working local copy usable.
+        if betterisfile(cachePath) then
+            return loadstring(readfile(cachePath))()
+        end
+        error("[Nightix]: failed to download " .. filepath)
     end
 end
 
