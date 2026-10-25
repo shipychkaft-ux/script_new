@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nursultan]: NeverLose build 2026-10-25-nursultan10");
+print("[Nursultan]: NeverLose build 2026-10-25-nursultan11");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
@@ -1333,12 +1333,24 @@ end;
 
 local SharedOptionWindowPosition = nil
 
+local function findMainWindowFrame(instance)
+    local current = instance
+    while current do
+        if current:GetAttribute("NursultanMainWindow") then
+            return current
+        end
+        current = current.Parent
+    end
+    return nil
+end
+
 function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 	Zindex = Zindex or 9;
 
 	local Window = {
 		Signal = NeverLose:CreateSignal(false),
 	};
+	local MainWindowFrame = findMainWindowFrame(Frame)
 
 	local OptionHandler = Instance.new("Frame")
 	local UICorner = Instance.new("UICorner")
@@ -1445,21 +1457,29 @@ function NeverLose:CreateOptionWindow(Frame: Frame , Zindex)
 		end
 	end)
 	local SetPosition = LPH_NO_VIRTUALIZE(function()
-		if NeverLose:MoreThanHalfY(Frame.AbsolutePosition.Y + 65) then
-			OptionHandler.AnchorPoint = Vector2.new(0,1)
-		else
-			OptionHandler.AnchorPoint = Vector2.new(0,0)
-		end;
+		-- Side panels use a top-left origin. The old top/bottom anchor logic
+		-- caused the panel to overlap the menu when it opened from a lower row.
+		OptionHandler.AnchorPoint = Vector2.new(0, 0)
 
-		if SharedOptionWindowPosition then
-			OptionHandler.Position = SharedOptionWindowPosition
-			return
-		end
 		if ManualPosition then return end
-		-- The first opened options window establishes the shared position.
-		-- Every other module options window then opens at exactly that position
-		-- instead of jumping back next to its own feature row.
-		SharedOptionWindowPosition = UDim2.fromOffset(Frame.AbsolutePosition.X + 18 , Frame.AbsolutePosition.Y + 65)
+		-- Open beside the complete main menu, not beside the small gear row.
+		-- This keeps the option window visually separate from the menu and gives
+		-- color pickers enough room to open without covering the Settings tab.
+		if MainWindowFrame and MainWindowFrame.Parent then
+			local menuPosition = MainWindowFrame.AbsolutePosition
+			local menuSize = MainWindowFrame.AbsoluteSize
+			local viewport = CurrentCamera.ViewportSize
+			local gap = 12
+			local x = menuPosition.X + menuSize.X + gap
+			local y = menuPosition.Y
+			local width = OptionHandler.AbsoluteSize.X > 0 and OptionHandler.AbsoluteSize.X or 260
+			local height = OptionHandler.AbsoluteSize.Y > 0 and OptionHandler.AbsoluteSize.Y or 180
+			if x + width > viewport.X then x = math.max(8, menuPosition.X - width - gap) end
+			if y + height > viewport.Y then y = math.max(8, viewport.Y - height - 8) end
+			SharedOptionWindowPosition = UDim2.fromOffset(x, y)
+		else
+			SharedOptionWindowPosition = UDim2.fromOffset(Frame.AbsolutePosition.X + 18, Frame.AbsolutePosition.Y + 65)
+		end
 		OptionHandler.Position = SharedOptionWindowPosition;
 	end);
 
@@ -1549,9 +1569,11 @@ function NeverLose:CreateColorPicker(HandleFrame: Frame)
 	ColorPickerHandler.BorderColor3 = Color3.fromRGB(0, 0, 0)
 	ColorPickerHandler.BorderSizePixel = 0
 	ColorPickerHandler.ClipsDescendants = true
-	ColorPickerHandler.Position = UDim2.new(255, 0, 255, 20)
-	ColorPickerHandler.Size = UDim2.new(0, 200, 0, 240)
-	ColorPickerHandler.ZIndex = ZIndex + 125
+		ColorPickerHandler.Position = UDim2.new(255, 0, 255, 20)
+		ColorPickerHandler.Size = UDim2.new(0, 200, 0, 240)
+		ColorPickerHandler.ZIndex = ZIndex + 125
+		ColorPickerHandler:SetAttribute("NightixColorPicker", true)
+
 
 	NeverLose:AddSignal(ColorPickerHandler:GetPropertyChangedSignal('BackgroundTransparency'):Connect(LPH_NO_VIRTUALIZE(function()
 		if ColorPickerHandler.BackgroundTransparency > 0.9 then
@@ -2484,7 +2506,14 @@ function NeverLose:RegisiterHandler(Handler: Frame , Signal)
 
 			reciveSignal = UserInputService.InputBegan:Connect(function(Input)
 				if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-					if not NeverLose:IsMouseOverFrame(Window.Root) and not NeverLose:IsMouseOverFrame(Option) then
+			local overColorPicker = false
+					for _, candidate in ipairs(NeverLose.ScreenGui:GetChildren()) do
+						if candidate:GetAttribute("NightixColorPicker") and candidate.Visible and NeverLose:IsMouseOverFrame(candidate) then
+							overColorPicker = true
+							break
+						end
+					end
+					if not NeverLose:IsMouseOverFrame(Window.Root) and not NeverLose:IsMouseOverFrame(Option) and not overColorPicker then
 						if reciveSignal then
 							reciveSignal:Disconnect();
 							reciveSignal = nil;	
@@ -4427,6 +4456,7 @@ function NeverLose:CreateWindow(Config)
 		local Frame = Instance.new("Frame")
 
 		Frame.Parent = WindowFrame
+		WindowFrame:SetAttribute("NursultanMainWindow", true)
 		Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 		Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Frame.BorderSizePixel = 0
@@ -6357,16 +6387,20 @@ function NeverLose:CreateWindow(Config)
 		InformationBar.ClipsDescendants = true
 		InformationBar.LayoutOrder = 2
 		InformationBar.Position = UDim2.fromOffset(0, 0)
-		InformationBar.Size = UDim2.fromOffset(0, 27)
+		InformationBar.Size = UDim2.fromOffset(0, 32)
 		InformationBar.ZIndex = 16
-		InformationCorner.CornerRadius = UDim.new(0, 6)
+		InformationCorner.CornerRadius = UDim.new(0, 7)
 		InformationCorner.Parent = InformationBar
 		InformationLayout.Parent = InformationBar
 		InformationLayout.FillDirection = Enum.FillDirection.Horizontal
 		InformationLayout.SortOrder = Enum.SortOrder.LayoutOrder
 		InformationLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 		InformationLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-		InformationLayout.Padding = UDim.new(0, 5)
+		InformationLayout.Padding = UDim.new(0, 8)
+		local InformationPadding = Instance.new("UIPadding")
+		InformationPadding.PaddingLeft = UDim.new(0, 10)
+		InformationPadding.PaddingRight = UDim.new(0, 10)
+		InformationPadding.Parent = InformationBar
 
 		local function addInfoItem(iconId, text, order)
 			local item = Instance.new("Frame")
@@ -6375,15 +6409,15 @@ function NeverLose:CreateWindow(Config)
 			item.BackgroundTransparency = 1
 			item.BorderSizePixel = 0
 			item.LayoutOrder = order
-			item.Size = UDim2.fromOffset(0, 25)
+			item.Size = UDim2.fromOffset(0, 30)
 			item.ZIndex = 17
 
 			local icon = Instance.new("ImageLabel")
 			icon.Name = NeverLose.RandomString()
 			icon.Parent = item
 			icon.BackgroundTransparency = 1
-			icon.Position = UDim2.fromOffset(0, 4)
-			icon.Size = UDim2.fromOffset(17, 17)
+			icon.Position = UDim2.fromOffset(0, 5)
+			icon.Size = UDim2.fromOffset(20, 20)
 			icon.ZIndex = 18
 			icon.Image = "rbxassetid://" .. tostring(iconId)
 			icon.ImageColor3 = Color3.fromRGB(235, 235, 242)
@@ -6393,20 +6427,20 @@ function NeverLose:CreateWindow(Config)
 			label.Name = NeverLose.RandomString()
 			label.Parent = item
 			label.BackgroundTransparency = 1
-			label.Position = UDim2.fromOffset(22, 0)
-			label.Size = UDim2.fromOffset(1, 25)
+			label.Position = UDim2.fromOffset(25, 0)
+			label.Size = UDim2.fromOffset(1, 30)
 			label.ZIndex = 18
 			label.Font = Enum.Font.GothamMedium
 			label.Text = text
 			label.TextColor3 = Color3.fromRGB(235, 235, 242)
-			label.TextSize = 12
+			label.TextSize = 13
 			label.TextXAlignment = Enum.TextXAlignment.Left
 			label.TextYAlignment = Enum.TextYAlignment.Center
 
 			local function updateItemSize()
 				local textSize = TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(math.huge, math.huge))
-				label.Size = UDim2.fromOffset(textSize.X + 1, 25)
-				item.Size = UDim2.fromOffset(textSize.X + 23, 25)
+				label.Size = UDim2.fromOffset(textSize.X + 1, 30)
+				item.Size = UDim2.fromOffset(textSize.X + 26, 30)
 			end
 			updateItemSize()
 			return item, label, updateItemSize
@@ -6418,28 +6452,28 @@ function NeverLose:CreateWindow(Config)
 		separatorOne.Parent = InformationBar
 		separatorOne.BackgroundTransparency = 1
 		separatorOne.LayoutOrder = 2
-		separatorOne.Size = UDim2.fromOffset(5, 25)
+		separatorOne.Size = UDim2.fromOffset(8, 30)
 		separatorOne.ZIndex = 18
 		separatorOne.Font = Enum.Font.GothamMedium
 		separatorOne.Text = "|"
 		separatorOne.TextColor3 = Color3.fromRGB(110, 110, 118)
-		separatorOne.TextSize = 13
+		separatorOne.TextSize = 12
 		local fpsItem, fpsLabel = addInfoItem(102861011917370, "0 FPS", 3)
 		local separatorTwo = Instance.new("TextLabel")
 		separatorTwo.Parent = InformationBar
 		separatorTwo.BackgroundTransparency = 1
 		separatorTwo.LayoutOrder = 4
-		separatorTwo.Size = UDim2.fromOffset(5, 25)
+		separatorTwo.Size = UDim2.fromOffset(8, 30)
 		separatorTwo.ZIndex = 18
 		separatorTwo.Font = Enum.Font.GothamMedium
 		separatorTwo.Text = "|"
 		separatorTwo.TextColor3 = Color3.fromRGB(110, 110, 118)
-		separatorTwo.TextSize = 13
+		separatorTwo.TextSize = 12
 		local clockItem, clockLabel = addInfoItem(130024052947500, "00:00", 5)
 
 		local function updateInformationBarSize()
-			InformationBar.Size = UDim2.fromOffset(InformationLayout.AbsoluteContentSize.X + 14, 27)
-			HudGroup.Size = UDim2.fromOffset(HudLayout.AbsoluteContentSize.X, 36)
+			InformationBar.Size = UDim2.fromOffset(InformationLayout.AbsoluteContentSize.X + 20, 32)
+			HudGroup.Size = UDim2.fromOffset(HudLayout.AbsoluteContentSize.X, 40)
 		end
 		InformationLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateInformationBarSize)
 		updateInformationBarSize()
@@ -6468,11 +6502,11 @@ function NeverLose:CreateWindow(Config)
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
-		Watermark.Size = UDim2.new(0, 120, 0, 27.456)
+			Watermark.Size = UDim2.new(0, 120, 0, 32)
 		Watermark.ZIndex = 16
 
-		UICorner.CornerRadius = UDim.new(0, 6)
-		UICorner.Parent = Watermark
+			UICorner.CornerRadius = UDim.new(0, 7)
+			UICorner.Parent = Watermark
 
 		UIListLayout.Parent = Watermark
 		UIListLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -6523,11 +6557,11 @@ function NeverLose:CreateWindow(Config)
 		end));
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
-			Watermark.Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 27.456)
-			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 36)
+			Watermark.Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 16, 0, 32)
+			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 40)
 		end));
 		HudLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
-			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 36)
+			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 40)
 		end)
 
 		Watermark_lb.InformationBar = InformationBar
@@ -6571,9 +6605,9 @@ function NeverLose:CreateWindow(Config)
 
 			Icon.Parent = Frame
 			Icon.BackgroundTransparency = 1
-			Icon.Position = UDim2.new(0, -6, 0.5, 0)
+			Icon.Position = UDim2.new(0, 8, 0.5, 0)
 			Icon.AnchorPoint = Vector2.new(0, 0.5)
-			Icon.Size = UDim2.fromOffset(29, 29)
+			Icon.Size = UDim2.fromOffset(20, 20)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
 			Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
@@ -6602,10 +6636,10 @@ function NeverLose:CreateWindow(Config)
 			Separator.Parent = Frame
 			Separator.BackgroundTransparency = 1
 			Separator.AnchorPoint = Vector2.new(0, 0.5)
-			Separator.Size = UDim2.fromOffset(5, 20)
+			Separator.Size = UDim2.fromOffset(16, 20)
 			Separator.ZIndex = 17
 			Separator.Font = Enum.Font.GothamMedium
-			Separator.Text = "|"
+			Separator.Text = "|  "
 			Separator.TextColor3 = Color3.fromRGB(110, 110, 118)
 			Separator.TextSize = 14
 			Separator.TextTransparency = 0
@@ -6657,12 +6691,13 @@ function NeverLose:CreateWindow(Config)
 
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
-				local separatorX = 24
-				local contentX = separatorX + 7
+				-- Equal visual gaps: icon -> separator and separator -> Release.
+				local separatorX = 34
+				local contentX = 50
 				Content.Position = UDim2.new(0, contentX, 0.5, 0)
 				Content.Size = UDim2.fromOffset(a.X + 1, 20)
 				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
-				Frame.Size = UDim2.fromOffset(contentX + a.X + 16, 36)
+				Frame.Size = UDim2.fromOffset(contentX + a.X + 10, 32)
 			end
 			updateSize()
 

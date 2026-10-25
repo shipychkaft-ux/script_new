@@ -25,7 +25,7 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-nursultan10"
+local BUILD_TAG = "2026-10-25-nursultan11"
 print("[Nursultan]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -40,17 +40,29 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-nursultan10"
+local MODULE_CACHE_VERSION = "2026-10-25-nursultan11"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
     "Scripts/" .. tostring(game.PlaceId) .. ".lua"
 }
 if delfile then
+    -- Remove every cached Lua module, not only the old fixed filenames. This
+    -- prevents a previous Theme preset (including 1.21.11) from surviving
+    -- under a versioned filename after an update.
+    if listfiles then
+        pcall(function()
+            for _, cachedPath in ipairs(listfiles(cacheFolder)) do
+                if tostring(cachedPath):lower():sub(-4) == ".lua" then
+                    pcall(delfile, cachedPath)
+                end
+            end
+        end)
+    end
     for _, filepath in ipairs(legacyModuleFiles) do
         pcall(delfile, cacheFolder .. "/" .. filepath)
     end
-    print("[Nursultan]: cleared legacy Lua module cache")
+    print("[Nursultan]: cleared all Lua module cache")
 else
     warn("[Nursultan]: delfile unavailable; legacy cache will be bypassed")
 end
@@ -401,13 +413,13 @@ runFunction(function()
         nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
     end
 
-    -- Module toggles own an option window with Create* helpers. Fall back to the
-    -- tab itself if a stale/legacy toggle object is returned, so the client can
-    -- never crash on a missing method.
-    local themeOwner = themeFunction
+    -- Theme controls belong to the Theme function's gear window only. Never
+    -- fall back to the Settings tab: that would render color controls inside
+    -- the main menu and make the option window appear empty.
     if type(themeFunction.CreateDropdown) ~= "function" then
-        themeOwner = Tabs.Settings
+        error("[Nursultan]: Theme is not a module toggle; refresh the client build and clear the old cache", 0)
     end
+    local themeOwner = themeFunction
 
     local themeColor2, themeSpeed
     local themeMode = themeOwner:CreateDropdown({
