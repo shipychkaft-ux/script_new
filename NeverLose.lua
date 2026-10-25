@@ -1141,8 +1141,18 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 	Part.Name = NeverLose.RandomString();
 
 	local disconnect;
+	local UpdateFunction;
+	local pendingUpdate = false;
+	local function requestUpdate()
+		if pendingUpdate or not UpdateFunction then return end
+		pendingUpdate = true
+		task.defer(function()
+			pendingUpdate = false
+			if Frame and Frame.Parent then pcall(UpdateFunction) end
+		end)
+	end
 
-	local UpdateFunction = function()
+	UpdateFunction = function()
 		local IsWindowActive = Signal:GetValue();
 
 		if IsWindowActive and not NeverLose.Global3DRenderMode then
@@ -1185,6 +1195,8 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 		end;
 	end));
 
+	Frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(requestUpdate)
+	Frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(requestUpdate)
 	local THREAD = task.spawn(function()
 		while true do task.wait(0.1)
 			pcall(UpdateFunction);
@@ -6308,16 +6320,151 @@ function NeverLose:CreateWindow(Config)
 		local UICorner = Instance.new("UICorner")
 		local UIListLayout = Instance.new("UIListLayout")
 		local WatermarkSignal = NeverLose:CreateSignal(false)
+		local HudGroup = Instance.new("Frame")
+		local HudLayout = Instance.new("UIListLayout")
+
+		HudGroup.Name = NeverLose.RandomString()
+		HudGroup.Parent = NeverLose.ScreenGui
+		HudGroup.BackgroundTransparency = 1
+		HudGroup.BorderSizePixel = 0
+		HudGroup.Position = UDim2.fromOffset(10, 40)
+		HudGroup.Size = UDim2.fromOffset(0, 36)
+		HudGroup.ClipsDescendants = false
+		HudGroup.ZIndex = 16
+		HudGroup.Active = true
+
+		HudLayout.Parent = HudGroup
+		HudLayout.FillDirection = Enum.FillDirection.Horizontal
+		HudLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		HudLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+		HudLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		HudLayout.Padding = UDim.new(0, 6)
+
+		local InformationBar = Instance.new("Frame")
+		local InformationCorner = Instance.new("UICorner")
+		local InformationLayout = Instance.new("UIListLayout")
+		InformationBar.Name = NeverLose.RandomString()
+		InformationBar.Parent = HudGroup
+		InformationBar.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
+		InformationBar.BackgroundTransparency = 0.2
+		InformationBar.BorderSizePixel = 0
+		InformationBar.ClipsDescendants = true
+		InformationBar.LayoutOrder = 2
+		InformationBar.Position = UDim2.fromOffset(0, 0)
+		InformationBar.Size = UDim2.fromOffset(0, 27)
+		InformationBar.ZIndex = 16
+		InformationCorner.CornerRadius = UDim.new(0, 6)
+		InformationCorner.Parent = InformationBar
+		InformationLayout.Parent = InformationBar
+		InformationLayout.FillDirection = Enum.FillDirection.Horizontal
+		InformationLayout.SortOrder = Enum.SortOrder.LayoutOrder
+		InformationLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+		InformationLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+		InformationLayout.Padding = UDim.new(0, 5)
+
+		local function addInfoItem(iconId, text, order)
+			local item = Instance.new("Frame")
+			item.Name = NeverLose.RandomString()
+			item.Parent = InformationBar
+			item.BackgroundTransparency = 1
+			item.BorderSizePixel = 0
+			item.LayoutOrder = order
+			item.Size = UDim2.fromOffset(0, 25)
+			item.ZIndex = 17
+
+			local icon = Instance.new("ImageLabel")
+			icon.Name = NeverLose.RandomString()
+			icon.Parent = item
+			icon.BackgroundTransparency = 1
+			icon.Position = UDim2.fromOffset(0, 4)
+			icon.Size = UDim2.fromOffset(17, 17)
+			icon.ZIndex = 18
+			icon.Image = "rbxassetid://" .. tostring(iconId)
+			icon.ImageColor3 = Color3.fromRGB(235, 235, 242)
+			icon.ScaleType = Enum.ScaleType.Fit
+
+			local label = Instance.new("TextLabel")
+			label.Name = NeverLose.RandomString()
+			label.Parent = item
+			label.BackgroundTransparency = 1
+			label.Position = UDim2.fromOffset(22, 0)
+			label.Size = UDim2.fromOffset(1, 25)
+			label.ZIndex = 18
+			label.Font = Enum.Font.GothamMedium
+			label.Text = text
+			label.TextColor3 = Color3.fromRGB(235, 235, 242)
+			label.TextSize = 12
+			label.TextXAlignment = Enum.TextXAlignment.Left
+			label.TextYAlignment = Enum.TextYAlignment.Center
+
+			local function updateItemSize()
+				local textSize = TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(math.huge, math.huge))
+				label.Size = UDim2.fromOffset(textSize.X + 1, 25)
+				item.Size = UDim2.fromOffset(textSize.X + 23, 25)
+			end
+			updateItemSize()
+			return item, label, updateItemSize
+		end
+
+		local userItem, userLabel, updateUserSize = addInfoItem(88404474731870, localPlayer.Name, 1)
+		local separatorOne = Instance.new("TextLabel")
+		separatorOne.Parent = InformationBar
+		separatorOne.BackgroundTransparency = 1
+		separatorOne.LayoutOrder = 2
+		separatorOne.Size = UDim2.fromOffset(5, 25)
+		separatorOne.ZIndex = 18
+		separatorOne.Font = Enum.Font.GothamMedium
+		separatorOne.Text = "|"
+		separatorOne.TextColor3 = Color3.fromRGB(110, 110, 118)
+		separatorOne.TextSize = 13
+		local fpsItem, fpsLabel = addInfoItem(102861011917370, "0 FPS", 3)
+		local separatorTwo = Instance.new("TextLabel")
+		separatorTwo.Parent = InformationBar
+		separatorTwo.BackgroundTransparency = 1
+		separatorTwo.LayoutOrder = 4
+		separatorTwo.Size = UDim2.fromOffset(5, 25)
+		separatorTwo.ZIndex = 18
+		separatorTwo.Font = Enum.Font.GothamMedium
+		separatorTwo.Text = "|"
+		separatorTwo.TextColor3 = Color3.fromRGB(110, 110, 118)
+		separatorTwo.TextSize = 13
+		local clockItem, clockLabel = addInfoItem(130024052947500, "00:00", 5)
+
+		local function updateInformationBarSize()
+			InformationBar.Size = UDim2.fromOffset(InformationLayout.AbsoluteContentSize.X + 14, 27)
+			HudGroup.Size = UDim2.fromOffset(HudLayout.AbsoluteContentSize.X, 36)
+		end
+		InformationLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateInformationBarSize)
+		local infoVisible = false
+		local infoClock, infoFrames = 0, 0
+		NeverLose:AddSignal(RunService.RenderStepped:Connect(function(deltaTime)
+			infoClock = infoClock + deltaTime
+			infoFrames = infoFrames + 1
+			if infoClock < 0.25 then return end
+			local fps = math.floor(infoFrames / infoClock + 0.5)
+			infoClock, infoFrames = 0, 0
+			fpsLabel.Text = tostring(fps) .. " FPS"
+			clockLabel.Text = DateTime.now():FormatLocalTime("HH:mm:ss", "en-us")
+			updateUserSize()
+			updateInformationBarSize()
+			local newVisible = Watermark_lb.Status
+			if newVisible ~= infoVisible then
+				infoVisible = newVisible
+				InformationBar.Visible = newVisible
+			end
+		end))
+		InformationBar.Visible = false
 
 		Watermark.Name = NeverLose.RandomString();
-		Watermark.Parent = NeverLose.ScreenGui
-		Watermark.AnchorPoint = Vector2.new(1, 0)
+		Watermark.Parent = HudGroup
+		Watermark.LayoutOrder = 1
+		Watermark.AnchorPoint = Vector2.new(0, 0)
+		Watermark.Position = UDim2.fromOffset(0, 4)
 		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
 		Watermark.BackgroundTransparency = 0.2
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
-		Watermark.Position = UDim2.new(1, -10, 0, 10)
 		Watermark.Size = UDim2.new(0, 120, 0, 27.456)
 		Watermark.ZIndex = 16
 
@@ -6337,8 +6484,8 @@ function NeverLose:CreateWindow(Config)
 				draggingWatermark = true
 				dragStart = input.Position
 				Watermark.AnchorPoint = Vector2.new(0, 0)
-				watermarkStart = UDim2.fromOffset(Watermark.AbsolutePosition.X, Watermark.AbsolutePosition.Y)
-				Watermark.Position = watermarkStart
+				watermarkStart = UDim2.fromOffset(HudGroup.AbsolutePosition.X, HudGroup.AbsolutePosition.Y)
+				HudGroup.Position = watermarkStart
 			end
 		end)
 		Watermark.InputEnded:Connect(function(input)
@@ -6353,12 +6500,12 @@ function NeverLose:CreateWindow(Config)
 			local viewport = CurrentCamera.ViewportSize
 			local x = watermarkStart.X.Offset + delta.X
 			local y = watermarkStart.Y.Offset + delta.Y
-			local w = Watermark.AbsoluteSize.X
-			local h = Watermark.AbsoluteSize.Y
+			local w = HudGroup.AbsoluteSize.X
+			local h = HudGroup.AbsoluteSize.Y
 			x = math.clamp(x, 0, math.max(0, viewport.X - w))
 			y = math.clamp(y, 0, math.max(0, viewport.Y - h))
-			Watermark.AnchorPoint = Vector2.new(0, 0)
-			Watermark.Position = UDim2.fromOffset(x, y)
+			HudGroup.AnchorPoint = Vector2.new(0, 0)
+			HudGroup.Position = UDim2.fromOffset(x, y)
 		end))
 
 
@@ -6367,23 +6514,25 @@ function NeverLose:CreateWindow(Config)
 				Watermark.Visible = false;
 				Watermark.Parent = nil;
 			else
-				Watermark.Parent = NeverLose.ScreenGui
+				Watermark.Parent = HudGroup
 				Watermark.Visible = true;
 			end;
 		end));
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
-			NeverLose.PlayAnimate(Watermark , SlowyTween , {
-				Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 27.456)
-			})
+			Watermark.Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 10, 0, 27.456)
+			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 36)
 		end));
+		HudLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
+			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 36)
+		end)
 
 		NeverLose.__WatermarkCache = Watermark_lb;
 		Watermark_lb.Renders = {};
 		Watermark_lb.Status = false;
 		WatermarkSignal:SetValue(false)
 		if NeverLose.EnabledBlur then
-			NeverLose:CreateBlurModule(Watermark, WatermarkSignal)
+			NeverLose:CreateBlurModule(HudGroup, WatermarkSignal)
 		end
 
 		function Watermark_lb:SetRender(value)
