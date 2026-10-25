@@ -729,8 +729,8 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
 
         if isOptionsTab then
             function tabtable:CreateToggle(argstable)
-                -- Settings -> Icon is a full function so its controls are opened from the gear.
-                if tabname == "Settings" and tostring(argstable.Name or "") == "Icon" then
+                -- Settings -> Theme is a full function so its controls are opened from the gear.
+                if tabname == "Settings" and tostring(argstable.Name or "") == "Theme" then
                     return createModuleToggle(tabname, argstable)
                 end
                 return createOptionToggle(getSection(tabname), argstable, nil, tabname)
