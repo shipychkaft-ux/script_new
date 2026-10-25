@@ -6406,7 +6406,7 @@ function NeverLose:CreateWindow(Config)
 			return item, label, updateItemSize
 		end
 
-		local userItem, userLabel, updateUserSize = addInfoItem(88404474731870, localPlayer.Name, 1)
+		local userItem, userLabel, updateUserSize = addInfoItem(88404474731870, LocalPlayer.Name, 1)
 		local separatorOne = Instance.new("TextLabel")
 		separatorOne.Parent = InformationBar
 		separatorOne.BackgroundTransparency = 1
