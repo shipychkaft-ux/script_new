@@ -4343,6 +4343,53 @@ runFunction(function()
 end)
 
 runFunction(function()
+    local hands = {Enabled = true}
+    local handColor = {Value = Color3.fromRGB(255, 255, 255)}
+    local handConnection
+
+    local function applyHandColor()
+        if not hands.Enabled then return end
+        local camera = workspace.CurrentCamera
+        local hand = camera and camera:FindFirstChild("Hand")
+        if not hand or not hand:IsA("BasePart") then return end
+
+        hand.Color = handColor.Value
+        local mesh = hand:FindFirstChildOfClass("SpecialMesh")
+        if mesh then
+            mesh.VertexColor = Vector3.new(handColor.Value.R, handColor.Value.G, handColor.Value.B)
+        end
+    end
+
+    hands = Tabs.Render:CreateToggle({
+        Name = "Hands",
+        HoverText = "Окрашивает кастомную руку от первого лица.",
+        Default = true,
+        Callback = function(enabled)
+            hands.Enabled = enabled
+            if enabled then
+                applyHandColor()
+            end
+        end
+    })
+
+    handColor = hands:CreateColorSlider({
+        Name = "Цвет рук",
+        Default = Color3.fromRGB(255, 255, 255),
+        Function = function(value)
+            handColor.Value = value
+            applyHandColor()
+        end
+    })
+
+    handConnection = RunService.RenderStepped:Connect(function()
+        if hands.Enabled then
+            applyHandColor()
+        end
+    end)
+
+end)
+
+runFunction(function()
     local hud = {Enabled = true}
     hud = Tabs.Render:CreateToggle({
         Name = "HUD Nursultan",
