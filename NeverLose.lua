@@ -1130,12 +1130,12 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 	Part.Color = Color3.fromRGB(0,0,0);
 
 	DepthOfField.Enabled = true;
-	DepthOfField.FarIntensity = 0;
 	-- Focus on the thin glass plane placed just beyond the camera near plane;
-	-- blur the scene behind it while keeping the ScreenGui text crisp.
+	-- blur the world behind that plane, not objects between it and the camera.
 	DepthOfField.FocusDistance = 0.55;
 	DepthOfField.InFocusRadius = 0.05;
-	DepthOfField.NearIntensity = 1;
+	DepthOfField.NearIntensity = 0;
+	DepthOfField.FarIntensity = 1;
 	DepthOfField.Name = NeverLose.RandomString();
 
 	Part.Name = NeverLose.RandomString();
@@ -1146,33 +1146,6 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 		local IsWindowActive = Signal:GetValue();
 
 		if IsWindowActive and not NeverLose.Global3DRenderMode then
-
-			NeverLose.PlayAnimate(DepthOfField,TweenInfo.new(0.1),{
-				NearIntensity = 1
-			})
-
-			NeverLose.PlayAnimate(Part,TweenInfo.new(0.1),{
-				Transparency = 0.97,
-				Size = Vector3.new(1, 1, 1) * 0.01;
-			})
-
-			Part.Parent = NeverLose.BlurModuleParent;
-		else
-			NeverLose.PlayAnimate(DepthOfField,TweenInfo.new(0.1),{
-				NearIntensity = 0
-			})
-
-			NeverLose.PlayAnimate(Part,TweenInfo.new(0.1),{
-				Size = Vector3.zero,
-				Transparency = 1.5,
-			})
-
-			Part.Parent = nil;
-
-			return false;
-		end;
-
-		if IsWindowActive then
 			local corner0 = Frame.AbsolutePosition;
 			local corner1 = corner0 + Frame.AbsoluteSize;
 
@@ -1180,21 +1153,28 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 			local ray1 = CurrentCamera.ScreenPointToRay(CurrentCamera,corner1.X, corner1.Y, 1);
 
 			local planeOrigin = CurrentCamera.CFrame.Position + CurrentCamera.CFrame.LookVector * (0.05 - CurrentCamera.NearPlaneZ);
-
 			local planeNormal = CurrentCamera.CFrame.LookVector;
-
 			local pos0 = NeverLose.GetCalculatePosition(planeOrigin, planeNormal, ray0.Origin, ray0.Direction);
 			local pos1 = NeverLose.GetCalculatePosition(planeOrigin, planeNormal, ray1.Origin, ray1.Direction);
-
 			pos0 = CurrentCamera.CFrame:PointToObjectSpace(pos0);
 			pos1 = CurrentCamera.CFrame:PointToObjectSpace(pos1);
 
-			local size   = pos1 - pos0;
+			local size = pos1 - pos0;
 			local center = (pos0 + pos1) / 2;
-
 			BlockMesh.Offset = center
-			BlockMesh.Scale  = size / 0.0101;
+			BlockMesh.Scale = size / 0.0101;
 			Part.CFrame = CurrentCamera.CFrame;
+			Part.Size = Vector3.new(1, 1, 1) * 0.01;
+			Part.Transparency = 0.97;
+			Part.Parent = NeverLose.BlurModuleParent;
+			DepthOfField.Enabled = true;
+			DepthOfField.FarIntensity = 1;
+		else
+			DepthOfField.FarIntensity = 0;
+			Part.Transparency = 1;
+			Part.Size = Vector3.zero;
+			Part.Parent = nil;
+			return false;
 		end;
 	end;
 
