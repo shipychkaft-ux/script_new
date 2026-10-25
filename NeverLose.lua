@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nursultan]: NeverLose build 2026-10-25-nursultan8");
+print("[Nursultan]: NeverLose build 2026-10-25-nursultan9");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
@@ -1094,7 +1094,9 @@ NeverLose.ProcessParams = LPH_NO_VIRTUALIZE(function(self , Params , Fixed)
 	return k;
 end);
 
-NeverLose.EnabledBlur = true;
+-- DepthOfField is a global Lighting effect in Roblox, so it blurs the whole
+-- screen rather than only a GUI rectangle. Keep it disabled for the client.
+NeverLose.EnabledBlur = false;
 NeverLose.BlurModuleParent = workspace.CurrentCamera;
 
 NeverLose.GetCalculatePosition = LPH_NO_VIRTUALIZE(function(planePos, planeNormal, rayOrigin, rayDirection)
@@ -4530,7 +4532,7 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.Size = UDim2.new(0, 200, 0, 15)
 	WindowContent.ZIndex = 7
 	WindowContent.Font = Enum.Font.GothamBold
-	WindowContent.Text = "Nursultan"
+	WindowContent.Text = ""
 
 	WindowContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowContent.TextSize = 9.000
