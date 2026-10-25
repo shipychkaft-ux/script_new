@@ -6506,7 +6506,7 @@ function NeverLose:CreateWindow(Config)
 				Content.Position = UDim2.new(0, contentX, 0.5, 0)
 				Content.Size = UDim2.fromOffset(a.X + 1, 20)
 				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
-				Frame.Size = UDim2.fromOffset(contentX + a.X + 11, 36)
+				Frame.Size = UDim2.fromOffset(contentX + a.X + 16, 36)
 			end
 			updateSize()
 
