@@ -25,7 +25,7 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-nursultan7"
+local BUILD_TAG = "2026-10-25-nursultan8"
 print("[Nursultan]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -40,7 +40,7 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-nursultan7"
+local MODULE_CACHE_VERSION = "2026-10-25-nursultan8"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
@@ -457,24 +457,6 @@ runFunction(function()
         -- already-created UI objects. A custom theme can therefore be replaced
         -- instantly without changing any separate theme state.
         local themes = {
-            ["Nursultan 1.21.11"] = {
-                Color1 = Color3.fromRGB(14, 14, 23),
-                Color2 = Color3.fromRGB(47, 48, 64),
-                Color3 = Color3.fromRGB(66, 68, 66),
-                Color4 = Color3.fromRGB(49, 51, 64),
-                Color5 = Color3.fromRGB(20, 20, 20),
-                Color6 = Color3.fromRGB(200, 200, 200),
-                ToggleColor = Color3.fromRGB(0, 0, 0),
-                ToggleColor2 = Color3.fromRGB(123, 131, 243),
-                TextColor = Color3.fromRGB(255, 255, 255),
-                PlaceholderColor = Color3.fromRGB(220, 220, 220),
-                PlaceholderColor2 = Color3.fromRGB(200, 200, 200),
-                InfoColor = Color3.fromRGB(180, 180, 180),
-                WarningColor = Color3.fromRGB(198, 205, 64),
-                ErrorColor = Color3.fromRGB(205, 64, 78),
-                Icon1 = Color3.fromRGB(216, 148, 245),
-                Icon2 = Color3.fromRGB(123, 131, 243),
-            },
             ["Nursultan 1.16.5"] = {
                 Color1 = Color3.fromRGB(14, 14, 23),
                 Color2 = Color3.fromRGB(47, 48, 64),
@@ -520,10 +502,6 @@ runFunction(function()
     end
 
     -- Presets are buttons: pressing one applies the palette immediately.
-    iconFunction:CreateButton({
-        Name = "Nursultan 1.21.11",
-        Callback = function() applyTheme("Nursultan 1.21.11") end
-    })
     iconFunction:CreateButton({
         Name = "Nursultan 1.16.5",
         Callback = function() applyTheme("Nursultan 1.16.5") end

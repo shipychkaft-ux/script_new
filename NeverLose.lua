@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nursultan]: NeverLose build 2026-10-25-nursultan7");
+print("[Nursultan]: NeverLose build 2026-10-25-nursultan8");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
@@ -1180,8 +1180,11 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 			Part.Transparency = 0.97;
 			Part.Parent = NeverLose.BlurModuleParent;
 			DepthOfField.Enabled = true;
+			DepthOfField.Enabled = true;
 			DepthOfField.FarIntensity = 1;
 		else
+			-- No blur is active when the associated watermark/window is hidden.
+			DepthOfField.Enabled = false;
 			DepthOfField.FarIntensity = 0;
 			Part.Transparency = 1;
 			Part.Size = Vector3.zero;
@@ -1190,6 +1193,8 @@ NeverLose.CreateBlurModule = LPH_NO_VIRTUALIZE(function(self , Frame , Signal)
 		end;
 	end;
 
+	-- The effect belongs to the watermark background only. It is created with
+	-- the watermark signal and remains disabled while the menu is closed.
 	local rbxsignal = NeverLose:AddSignal(CurrentCamera:GetPropertyChangedSignal('CFrame'):Connect(UpdateFunction))
 	local loopThread = NeverLose:AddSignal(UserInputService.InputChanged:Connect(function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch then
@@ -4416,10 +4421,6 @@ function NeverLose:CreateWindow(Config)
 			Window:SetRender(...);
 		end)))
 
-	if NeverLose.EnabledBlur then
-		NeverLose:CreateBlurModule(WindowFrame,Window.Signal);
-	end;
-
 	do
 		local Frame = Instance.new("Frame")
 
@@ -4529,7 +4530,7 @@ function NeverLose:CreateWindow(Config)
 	WindowContent.Size = UDim2.new(0, 200, 0, 15)
 	WindowContent.ZIndex = 7
 	WindowContent.Font = Enum.Font.GothamBold
-		WindowContent.Text = "Nursultan v.1.0.5"
+	WindowContent.Text = "Nursultan"
 
 	WindowContent.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowContent.TextSize = 9.000

@@ -88,6 +88,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     local menuScaleValue = savedNursultanScale
     local menuScale = scaleSize(menuScaleValue)
 
+    local function clampValue(v, min, max)
+        return math.max(min, math.min(max, v))
+    end
+
     function guilibrary:SetNursultanScale(scale)
         menuScaleValue = clampValue(tonumber(scale) or 1, 0.5, 2)
         guilibrary.NursultanScale = menuScaleValue
@@ -103,10 +107,6 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- ------------------------------------------------------------------
     -- helpers
     -- ------------------------------------------------------------------
-    local function clampValue(v, min, max)
-        return math.max(min, math.min(max, v))
-    end
-
     local function roundValue(v, round)
         round = round or 0
         return math.floor(v * (10 ^ round) + 0.5) / (10 ^ round)
