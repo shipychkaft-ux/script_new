@@ -378,9 +378,9 @@ runFunction(function()
         end
     })
 
-    -- Icon is a real function. All appearance controls live inside its option window.
-    local iconFunction = Tabs.Settings:CreateToggle({
-        Name = "Icon",
+    -- Theme is a real function. All appearance controls live inside its option window.
+    local themeFunction = Tabs.Settings:CreateToggle({
+        Name = "Theme",
         Default = true,
         Callback = function(v)
             local nl = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
@@ -401,8 +401,8 @@ runFunction(function()
         nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
     end
 
-    local iconColor2, iconSpeed
-    local iconMode = iconFunction:CreateDropdown({
+    local themeColor2, themeSpeed
+    local themeMode = themeFunction:CreateDropdown({
         Name = "Режим",
         List = {"Одиночный", "Двойной"},
         Default = "Двойной",
@@ -410,17 +410,18 @@ runFunction(function()
             local nl2 = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
             if not nl2 then return end
             nl2.IconSettings.Mode = (v == "Одиночный") and "Single" or "Double"
+            nl2.IconSettings.SingleInitialized = false
             if nl2.IconSettings.Mode == "Single" and not nl2.IconSettings.SingleInitialized then
                 nl2.IconSettings.Color1 = Color3.fromRGB(255, 255, 255)
                 nl2.IconSettings.SingleInitialized = true
             end
             local double = nl2.IconSettings.Mode == "Double"
-            if iconColor2 and iconColor2.Container then iconColor2.Container.Visible = double end
-            if iconSpeed and iconSpeed.Container then iconSpeed.Container.Visible = double end
+            if themeColor2 and themeColor2.Container then themeColor2.Container.Visible = double end
+            if themeSpeed and themeSpeed.Container then themeSpeed.Container.Visible = double end
         end
     })
 
-    local iconColor1 = iconFunction:CreateColorSlider({
+    local themeColor1 = themeFunction:CreateColorSlider({
         Name = "Первый цвет",
         Default = (nl and nl.IconSettings and nl.IconSettings.Color1) or Color3.fromRGB(216, 148, 245),
         Function = function(v)
@@ -429,7 +430,7 @@ runFunction(function()
         end
     })
 
-    iconColor2 = iconFunction:CreateColorSlider({
+    themeColor2 = themeFunction:CreateColorSlider({
         Name = "Второй цвет",
         Default = (nl and nl.IconSettings and nl.IconSettings.Color2) or Color3.fromRGB(123, 131, 243),
         Function = function(v)
@@ -438,7 +439,7 @@ runFunction(function()
         end
     })
 
-    iconSpeed = iconFunction:CreateSlider({
+    themeSpeed = themeFunction:CreateSlider({
         Name = "Скорость переливания",
         Min = 0.05, Max = 1.5, Default = (nl and nl.IconSettings and nl.IconSettings.Speed) or 0.65, Round = 2,
         Function = function(v)
@@ -492,25 +493,28 @@ runFunction(function()
         nl2.IconSettings.Speed = 0.65
         -- Update the visible controls too; changing the preset must not leave
         -- stale picker swatches from the previous theme.
-        pcall(function() iconColor1:SetValue(theme.Icon1) end)
-        pcall(function() iconColor2:SetValue(theme.Icon2) end)
-        pcall(function() iconSpeed:SetValue(0.65) end)
-        pcall(function() iconMode:Select("Двойной") end)
+        local h1, s1, v1 = theme.Icon1:ToHSV()
+        local h2, s2, v2 = theme.Icon2:ToHSV()
+        pcall(function() themeColor1:Set(h1, s1, v1, false) end)
+        pcall(function() themeColor2:Set(h2, s2, v2, false) end)
+        pcall(function() themeSpeed:Set(0.65) end)
+        pcall(function() themeMode:Select("Двойной") end)
         if nl2.RefreshNightixTheme then
             nl2:RefreshNightixTheme()
         end
+
     end
 
     -- Presets are buttons: pressing one applies the palette immediately.
-    iconFunction:CreateButton({
+    themeFunction:CreateButton({
         Name = "Nursultan 1.16.5",
         Callback = function() applyTheme("Nursultan 1.16.5") end
     })
 
     -- The function itself starts with the default client theme.
-    iconMode:Select("Двойной")
-    if iconColor2.Container then iconColor2.Container.Visible = true end
-    if iconSpeed.Container then iconSpeed.Container.Visible = true end
+    themeMode:Select("Двойной")
+    if themeColor2.Container then themeColor2.Container.Visible = true end
+    if themeSpeed.Container then themeSpeed.Container.Visible = true end
 end)
 
 -- Confings tab

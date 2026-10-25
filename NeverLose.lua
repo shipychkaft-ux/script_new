@@ -4517,7 +4517,7 @@ function NeverLose:CreateWindow(Config)
 	WindowName.Size = UDim2.new(0, 200, 0, 25)
 	WindowName.ZIndex = 7
 	WindowName.Font = Enum.Font.GothamBold
-	WindowName.Text = Window.Name or "Nursultan"
+	WindowName.Text = ""
 	WindowName.TextColor3 = Color3.fromRGB(255, 255, 255)
 	WindowName.TextSize = 18.000
 	WindowName.TextXAlignment = Enum.TextXAlignment.Left
