@@ -1,4 +1,4 @@
-﻿--[[
+--[[
                           Neverlose.cc UI Library
     Author: 4lpaca
 	License: MIT
@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nursultan]: NeverLose build 2026-10-25-nursultan4");
+print("[Nursultan]: NeverLose build 2026-10-25-nursultan6");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
