@@ -6331,7 +6331,7 @@ function NeverLose:CreateWindow(Config)
 		Watermark.Parent = NeverLose.ScreenGui
 		Watermark.AnchorPoint = Vector2.new(1, 0)
 		Watermark.BackgroundColor3 = Color3.fromRGB(8, 8, 13)
-		Watermark.BackgroundTransparency = 0.2
+		Watermark.BackgroundTransparency = 0.35
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
@@ -6408,7 +6408,7 @@ function NeverLose:CreateWindow(Config)
 			Watermark_lb.Status = value;
 			WatermarkSignal:SetValue(value)
 			if value then
-				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.2})
+				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.35})
 				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
 			else
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 1})
@@ -6422,8 +6422,6 @@ function NeverLose:CreateWindow(Config)
 			local Icon = Instance.new("ImageLabel")
 			local Content = Instance.new("TextLabel")
 			local Separator = Instance.new("TextLabel")
-			local Separator2 = Instance.new("TextLabel")
-			local UID = Instance.new("TextLabel")
 			local IconGradient = Instance.new("UIGradient")
 			local ReleaseGradient = Instance.new("UIGradient")
 
@@ -6446,12 +6444,7 @@ function NeverLose:CreateWindow(Config)
 			IconGradient.Parent = Icon
 			IconGradient.Rotation = 0
 
-			local releaseText, uidText = tostring(Name or "Release"), ""
-			local split = releaseText:find("|", 1, true)
-			if split then
-				uidText = releaseText:sub(split + 1):gsub("^%s+", "")
-				releaseText = releaseText:sub(1, split - 1):gsub("%s+$", "")
-			end
+			local releaseText = tostring(Name or "Release"):match("^[^|]*"):gsub("%s+$", "")
 
 			Content.Parent = Frame
 			Content.BackgroundTransparency = 1
@@ -6478,30 +6471,6 @@ function NeverLose:CreateWindow(Config)
 			Separator.TextColor3 = Color3.fromRGB(110, 110, 118)
 			Separator.TextSize = 14
 			Separator.TextTransparency = 0
-
-			Separator2.Parent = Frame
-			Separator2.BackgroundTransparency = 1
-			Separator2.AnchorPoint = Vector2.new(0, 0.5)
-			Separator2.Size = UDim2.fromOffset(5, 20)
-			Separator2.ZIndex = 17
-			Separator2.Font = Enum.Font.GothamMedium
-			Separator2.Text = "|"
-			Separator2.TextColor3 = Color3.fromRGB(110, 110, 118)
-			Separator2.TextSize = 14
-			Separator2.TextTransparency = 0
-
-
-			UID.Parent = Frame
-			UID.BackgroundTransparency = 1
-			UID.AnchorPoint = Vector2.new(0, 0.5)
-			UID.Size = UDim2.fromOffset(1, 20)
-			UID.ZIndex = 17
-			UID.Font = Enum.Font.GothamBold
-			UID.Text = uidText
-			UID.TextColor3 = Color3.fromRGB(255, 255, 255)
-			UID.TextSize = 15
-			UID.TextTransparency = 0
-			UID.TextXAlignment = Enum.TextXAlignment.Left
 
 			local function getWatermarkColors(phase)
 				local cfg = NeverLose.IconSettings or {}
@@ -6544,26 +6513,18 @@ function NeverLose:CreateWindow(Config)
 						Icon.ImageColor3 = Color3.fromRGB(255,255,255)
 						Content.TextColor3 = Color3.fromRGB(255,255,255)
 					end
-					UID.TextColor3 = Color3.fromRGB(255,255,255)
 					task.wait(0.033)
 				end
 			end)
 
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
-				local b = TextService:GetTextSize(UID.Text, UID.TextSize, UID.Font, Vector2.new(math.huge,math.huge))
-				local separatorX = 27
+				local separatorX = 24
 				local contentX = separatorX + 7
-				local separator2X = contentX + a.X + 5
-				local uidX = separator2X + 7
-				local trailingSeparatorX = uidX + b.X
 				Content.Position = UDim2.new(0, contentX, 0.5, 0)
 				Content.Size = UDim2.fromOffset(a.X + 1, 20)
 				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
-				Separator2.Position = UDim2.new(0, separator2X, 0.5, 0)
-				UID.Position = UDim2.new(0, uidX, 0.5, 0)
-				UID.Size = UDim2.fromOffset(b.X + 1, 20)
-				Frame.Size = UDim2.fromOffset(trailingSeparatorX + 6, 36)
+				Frame.Size = UDim2.fromOffset(contentX + a.X + 6, 36)
 			end
 			updateSize()
 
@@ -6577,10 +6538,8 @@ function NeverLose:CreateWindow(Config)
 			InnerBlock.SetRender = function(value)
 				local alpha = (value and InnerBlock.Visible) and 0 or 1
 				NeverLose.PlayAnimate(Content,SlowyTween,{TextTransparency = alpha})
-				NeverLose.PlayAnimate(UID,SlowyTween,{TextTransparency = alpha})
 				NeverLose.PlayAnimate(Icon,SlowyTween,{ImageTransparency = alpha})
 				NeverLose.PlayAnimate(Separator,SlowyTween,{TextTransparency = alpha})
-				NeverLose.PlayAnimate(Separator2,SlowyTween,{TextTransparency = alpha})
 			end
 			function InnerBlock:SetText(t)
 				Content.Text = tostring(t or "")

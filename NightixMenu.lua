@@ -32,7 +32,7 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     -- watermark
     local Watermark = window:Watermark()
     shared.NightixWatermark = Watermark
-    Watermark:AddBlock("rbxassetid://106084104602244", "Release | UID: " .. tostring(localPlayer.UserId))
+    Watermark:AddBlock("rbxassetid://106084104602244", "Release")
 
     -- load notification
     local Notification = NeverLose:CreateNotification()
