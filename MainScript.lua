@@ -22,7 +22,7 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-hud2"
+local BUILD_TAG = "2026-10-25-cache5"
 print("[Nightix]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -30,6 +30,30 @@ local GitHubRepo = "https://raw.githubusercontent.com/shipychkaft-ux/script_new/
 local GitHubCacheKey = tostring(math.floor(tick()))
 local function GitHubFileUrl(filepath)
     return GitHubRepo .. filepath .. "?v=" .. GitHubCacheKey
+end
+
+-- Clear legacy Lua module cache files at startup without deleting Mana assets
+-- or user data. Versioned filenames prevent stale files being reused even on
+-- executors that do not expose delfile.
+local cacheFolder = "Mana"
+if makefolder then pcall(makefolder, cacheFolder) end
+local MODULE_CACHE_VERSION = "2026-10-25-cache5"
+local legacyModuleFiles = {
+    "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
+    "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
+    "Scripts/" .. tostring(game.PlaceId) .. ".lua"
+}
+if delfile then
+    for _, filepath in ipairs(legacyModuleFiles) do
+        pcall(delfile, cacheFolder .. "/" .. filepath)
+    end
+    print("[Nightix]: cleared legacy Lua module cache")
+else
+    warn("[Nightix]: delfile unavailable; legacy cache will be bypassed")
+end
+local function moduleCachePath(filepath)
+    local safeName = tostring(filepath):gsub("[/\\\\]", "__")
+    return cacheFolder .. "/" .. MODULE_CACHE_VERSION .. "_" .. safeName
 end
 
 local UserInputService = game:GetService("UserInputService")
@@ -93,11 +117,13 @@ end
 
 do
     function Functions:RunFile(filepath)
-        local cachePath = "Mana/" .. filepath
+        local cachePath = moduleCachePath(filepath)
 
-        -- Developer mode intentionally uses the local working copy.
-        if shared.ManaDeveloper and betterisfile(cachePath) then
-            return loadstring(readfile(cachePath))()
+        -- Normal mode must never execute legacy local modules. They are being
+        -- removed above when delfile is available; versioned cache is fallback.
+        local legacyPath = "Mana/" .. filepath
+        if shared.ManaDeveloper and betterisfile(legacyPath) then
+            return loadstring(readfile(legacyPath))()
         end
 
         -- In normal mode, refresh from GitHub first so cached modules cannot
@@ -115,6 +141,8 @@ do
         end
         if type(content) == "string" and #content >= 20 then
             pcall(function() writefile(cachePath, content) end)
+            if delfile then pcall(delfile, legacyPath) end
+            print("[Nightix]: loaded " .. filepath .. " from GitHub")
             return loadstring(content)()
         end
 
@@ -122,7 +150,7 @@ do
         if betterisfile(cachePath) then
             return loadstring(readfile(cachePath))()
         end
-        error("[Nightix]: failed to download " .. filepath)
+        error("[Nightix]: failed to download " .. filepath .. " (no cached version " .. MODULE_CACHE_VERSION .. ")")
     end
 end
 
