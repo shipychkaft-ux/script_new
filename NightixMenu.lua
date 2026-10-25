@@ -76,10 +76,9 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
     end
 
     guilibrary.CreateNotification = function() end
-    window.Signal:SetValue(false)
-    window:SetRender(false)
 
-    -- Window starts hidden and is shown only by an explicit toggle.
+    -- The window is created hidden (signal false + Visible false) and only
+    -- opens on an explicit toggle, so nothing flashes on injection.
 
     -- menu scale, adjustable through UserSettings
     local function scaleSize(scale)

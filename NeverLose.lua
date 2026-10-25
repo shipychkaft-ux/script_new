@@ -1,4 +1,4 @@
---[[
+﻿--[[
                           Neverlose.cc UI Library
     Author: 4lpaca
 	License: MIT
@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nursultan]: NeverLose build 2026-10-25-nursultan1");
+print("[Nursultan]: NeverLose build 2026-10-25-nursultan4");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
@@ -4410,8 +4410,8 @@ function NeverLose:CreateWindow(Config)
 
 		Window.Shadow = { Render = function() end };
 
-		-- Start hidden and render only after an explicit open signal.
-		Window:SetRender(false)
+		-- The window stays hidden through WindowFrame.Visible and is rendered
+		-- only on an explicit open signal, once every UI element exists.
 		NeverLose:AddSignal(Window.Signal:Connect(LPH_NO_VIRTUALIZE(function(...)
 
 			Window:SetRender(...);
