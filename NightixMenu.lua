@@ -1082,8 +1082,10 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         end
     end
 
-    table.insert(connections, userInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == guilibrary.GuiKeybind then
+    table.insert(connections, userInputService.InputBegan:Connect(function(input)
+        -- CoreGui may mark RightShift as game-processed; still allow the menu
+        -- hotkey so it remains available while Roblox UI has focus.
+        if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode.Name == guilibrary.GuiKeybind then
             guilibrary:Toggle()
         end
     end))

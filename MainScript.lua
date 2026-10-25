@@ -7,22 +7,25 @@
 repeat task.wait() until game:IsLoaded()
 
 if shared.Mana then
-    local Mana = shared.Mana
-    if shared.ManaDeveloper then
-        Mana.GuiLibrary:Destruct()
-        warn("[Nightix]: Already loaded but developer mode is enabled, so reinjecting.")
+    local previousMana = shared.Mana
+    if previousMana.Loaded then
+        warn("[Nightix]: Reloading the existing client from the current build.")
     else
-        warn("[Nightix]: Already loaded.")
-        Mana.GuiLibrary:playsound("rbxassetid://421058925", 1)
-        return
+        warn("[Nightix]: Recovering an incomplete previous load.")
     end
+    pcall(function()
+        if previousMana.GuiLibrary and previousMana.GuiLibrary.Destruct then
+            previousMana.GuiLibrary:Destruct()
+        end
+    end)
+    shared.Mana = nil
 end
 
 local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-cache5"
+local BUILD_TAG = "2026-10-25-hud8"
 print("[Nightix]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -37,7 +40,7 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-cache5"
+local MODULE_CACHE_VERSION = "2026-10-25-hud8"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
@@ -142,6 +145,7 @@ do
         if type(content) == "string" and #content >= 20 then
             pcall(function() writefile(cachePath, content) end)
             if delfile then pcall(delfile, legacyPath) end
+            if shared.ManaDeveloper then pcall(writefile, legacyPath, content) end
             print("[Nightix]: loaded " .. filepath .. " from GitHub")
             return loadstring(content)()
         end

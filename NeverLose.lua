@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nightix]: NeverLose build 2026-10-25-hud2");
+print("[Nightix]: NeverLose build 2026-10-25-hud8");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
@@ -6329,7 +6329,7 @@ function NeverLose:CreateWindow(Config)
 		HudGroup.Parent = NeverLose.ScreenGui
 		HudGroup.BackgroundTransparency = 1
 		HudGroup.BorderSizePixel = 0
-		HudGroup.Position = UDim2.fromOffset(10, 40)
+		HudGroup.Position = UDim2.fromOffset(10, 80)
 		HudGroup.Size = UDim2.fromOffset(0, 36)
 		HudGroup.ClipsDescendants = false
 		HudGroup.ZIndex = 16
@@ -6438,9 +6438,10 @@ function NeverLose:CreateWindow(Config)
 			HudGroup.Size = UDim2.fromOffset(HudLayout.AbsoluteContentSize.X, 36)
 		end
 		InformationLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(updateInformationBarSize)
-		local infoVisible = false
+		InformationBar.Visible = false
 		local infoClock, infoFrames = 0, 0
 		NeverLose:AddSignal(RunService.RenderStepped:Connect(function(deltaTime)
+			if not Watermark_lb.Status then return end
 			infoClock = infoClock + deltaTime
 			infoFrames = infoFrames + 1
 			if infoClock < 0.25 then return end
@@ -6450,13 +6451,7 @@ function NeverLose:CreateWindow(Config)
 			clockLabel.Text = DateTime.now():FormatLocalTime("HH:mm:ss", "en-us")
 			updateUserSize()
 			updateInformationBarSize()
-			local newVisible = Watermark_lb.Status
-			if newVisible ~= infoVisible then
-				infoVisible = newVisible
-				InformationBar.Visible = newVisible
-			end
 		end))
-		InformationBar.Visible = false
 
 		Watermark.Name = NeverLose.RandomString();
 		Watermark.Parent = HudGroup
@@ -6530,6 +6525,7 @@ function NeverLose:CreateWindow(Config)
 			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 36)
 		end)
 
+		Watermark_lb.InformationBar = InformationBar
 		NeverLose.__WatermarkCache = Watermark_lb;
 		Watermark_lb.Renders = {};
 		Watermark_lb.Status = false;
@@ -6539,8 +6535,10 @@ function NeverLose:CreateWindow(Config)
 		end
 
 		function Watermark_lb:SetRender(value)
+			value = value and true or false
 			Watermark_lb.Status = value;
 			WatermarkSignal:SetValue(value)
+			InformationBar.Visible = value
 			if value then
 				NeverLose.PlayAnimate(Watermark,SlowyTween , {BackgroundTransparency = 0.2})
 				for i,v in next , Watermark_lb.Renders do pcall(v,true); end;
