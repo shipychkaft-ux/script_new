@@ -25,7 +25,7 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-nursultan14"
+local BUILD_TAG = "2026-10-25-nursultan15"
 print("[Nursultan]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -40,7 +40,7 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-nursultan14"
+local MODULE_CACHE_VERSION = "2026-10-25-nursultan15"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
@@ -391,17 +391,32 @@ runFunction(function()
     })
 
     -- Theme is a real function. All appearance controls live inside its option window.
-    local themeFunction = Tabs.Settings:CreateToggle({
-        Name = "Theme",
-        Default = true,
-        Callback = function(v)
-            local nl = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
-            if nl then
-                nl.IconSettings = nl.IconSettings or {}
-                nl.IconSettings.Enabled = v
+    local themeFunction
+    if type(Tabs.Settings.CreateModuleToggle) == "function" then
+        themeFunction = Tabs.Settings:CreateModuleToggle({
+            Name = "Theme",
+            Default = true,
+            Callback = function(v)
+                local nl = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
+                if nl then
+                    nl.IconSettings = nl.IconSettings or {}
+                    nl.IconSettings.Enabled = v
+                end
             end
-        end
-    })
+        })
+    else
+        themeFunction = Tabs.Settings:CreateToggle({
+            Name = "Theme",
+            Default = true,
+            Callback = function(v)
+                local nl = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
+                if nl then
+                    nl.IconSettings = nl.IconSettings or {}
+                    nl.IconSettings.Enabled = v
+                end
+            end
+        })
+    end
 
     local nl = (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu) and (GuiLibrary.NursultanMenu or GuiLibrary.NightixMenu).NeverLose
     if nl then
@@ -413,13 +428,33 @@ runFunction(function()
         nl.IconSettings.Speed = nl.IconSettings.Speed or 0.65
     end
 
-    -- Theme controls belong to the Theme function's gear window only. Never
-    -- fall back to the Settings tab: that would render color controls inside
-    -- the main menu and make the option window appear empty.
-    if type(themeFunction.CreateDropdown) ~= "function" then
-        error("[Nursultan]: Theme is not a module toggle; refresh the client build and clear the old cache", 0)
-    end
+    -- Theme controls belong to the Theme function's gear window. If an old
+    -- adapter returns a plain toggle, use harmless local APIs instead of
+    -- aborting MainScript before Universal.lua can register its sections.
     local themeOwner = themeFunction
+    if type(themeFunction.CreateDropdown) ~= "function" then
+        themeOwner = {}
+        function themeOwner:CreateDropdown(config)
+            local api = {Value = config.Default}
+            function api:Select(value) self.Value = value end
+            return api
+        end
+        function themeOwner:CreateColorSlider(config)
+            local api = {Value = config.Default, Container = {Visible = true}}
+            function api:Set(value)
+                if typeof(value) == "Color3" then self.Value = value end
+            end
+            return api
+        end
+        function themeOwner:CreateSlider(config)
+            local api = {Value = config.Default, Container = {Visible = true}}
+            function api:Set(value) self.Value = value end
+            return api
+        end
+        function themeOwner:CreateButton()
+            return {}
+        end
+    end
 
     local themeColor2, themeSpeed
     local themeMode = themeOwner:CreateDropdown({

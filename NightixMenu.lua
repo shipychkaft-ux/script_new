@@ -728,11 +728,18 @@ return function(guilibrary, OptionFunctions, connections, userInputService, twee
         tabtable.Order = ObjectsToSave.Tabs and #ObjectsToSave.Tabs + 1 or 1
 
         if isOptionsTab then
+            -- Explicit API for special functions with a gear/options window.
+            -- This avoids relying on a display name and remains compatible
+            -- with cached builds where Theme was still named Icon.
+            function tabtable:CreateModuleToggle(argstable)
+                return createModuleToggle(tabname, argstable)
+            end
+
             function tabtable:CreateToggle(argstable)
                 -- Theme is a full function. Its controls belong to the gear
                 -- option window, never to the Settings tab itself.
                 local optionName = tostring(argstable.Name or "")
-                if tabname == "Settings" and optionName == "Theme" then
+                if tabname == "Settings" and (optionName == "Theme" or optionName == "Icon") then
                     return createModuleToggle(tabname, argstable)
                 end
                 return createOptionToggle(getSection(tabname), argstable, nil, tabname)
