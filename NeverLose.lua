@@ -6416,8 +6416,8 @@ function NeverLose:CreateWindow(Config)
 			icon.Name = NeverLose.RandomString()
 			icon.Parent = item
 			icon.BackgroundTransparency = 1
-			icon.Position = UDim2.fromOffset(0, 2)
-			icon.Size = UDim2.fromOffset(26, 26)
+			icon.Position = UDim2.fromOffset(0, 5)
+			icon.Size = UDim2.fromOffset(20, 20)
 			icon.ZIndex = 18
 			icon.Image = "rbxassetid://" .. tostring(iconId)
 			icon.ImageColor3 = Color3.fromRGB(235, 235, 242)
@@ -6427,7 +6427,7 @@ function NeverLose:CreateWindow(Config)
 			label.Name = NeverLose.RandomString()
 			label.Parent = item
 			label.BackgroundTransparency = 1
-			label.Position = UDim2.fromOffset(31, 0)
+			label.Position = UDim2.fromOffset(25, 0)
 			label.Size = UDim2.fromOffset(1, 30)
 			label.ZIndex = 18
 			label.Font = Enum.Font.GothamMedium
@@ -6439,8 +6439,8 @@ function NeverLose:CreateWindow(Config)
 
 			local function updateItemSize()
 				local textSize = TextService:GetTextSize(label.Text, label.TextSize, label.Font, Vector2.new(math.huge, math.huge))
-				label.Size = UDim2.fromOffset(textSize.X + 8, 30)
-				item.Size = UDim2.fromOffset(textSize.X + 39, 30)
+				label.Size = UDim2.fromOffset(textSize.X + 1, 30)
+				item.Size = UDim2.fromOffset(textSize.X + 26, 30)
 			end
 			updateItemSize()
 			return item, label, updateItemSize
@@ -6452,25 +6452,23 @@ function NeverLose:CreateWindow(Config)
 		separatorOne.Parent = InformationBar
 		separatorOne.BackgroundTransparency = 1
 		separatorOne.LayoutOrder = 2
-		separatorOne.Size = UDim2.fromOffset(20, 30)
+		separatorOne.Size = UDim2.fromOffset(8, 30)
 		separatorOne.ZIndex = 18
 		separatorOne.Font = Enum.Font.GothamMedium
 		separatorOne.Text = "|"
 		separatorOne.TextColor3 = Color3.fromRGB(110, 110, 118)
 		separatorOne.TextSize = 12
-		separatorOne.TextXAlignment = Enum.TextXAlignment.Center
 		local fpsItem, fpsLabel, updateFpsSize = addInfoItem(102861011917370, "0 FPS", 3)
 		local separatorTwo = Instance.new("TextLabel")
 		separatorTwo.Parent = InformationBar
 		separatorTwo.BackgroundTransparency = 1
 		separatorTwo.LayoutOrder = 4
-		separatorTwo.Size = UDim2.fromOffset(20, 30)
+		separatorTwo.Size = UDim2.fromOffset(8, 30)
 		separatorTwo.ZIndex = 18
 		separatorTwo.Font = Enum.Font.GothamMedium
 		separatorTwo.Text = "|"
 		separatorTwo.TextColor3 = Color3.fromRGB(110, 110, 118)
 		separatorTwo.TextSize = 12
-		separatorTwo.TextXAlignment = Enum.TextXAlignment.Center
 		local clockItem, clockLabel, updateClockSize = addInfoItem(130024052947500, "00:00", 5)
 
 		local function updateInformationBarSize()
@@ -6510,7 +6508,7 @@ function NeverLose:CreateWindow(Config)
 		Watermark.BorderColor3 = Color3.fromRGB(0, 0, 0)
 		Watermark.BorderSizePixel = 0
 		Watermark.ClipsDescendants = true
-			Watermark.Size = UDim2.new(0, 140, 0, 40)
+			Watermark.Size = UDim2.new(0, 120, 0, 32)
 		Watermark.ZIndex = 16
 
 			UICorner.CornerRadius = UDim.new(0, 7)
@@ -6565,7 +6563,7 @@ function NeverLose:CreateWindow(Config)
 		end));
 
 		UIListLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(LPH_NO_VIRTUALIZE(function()
-			Watermark.Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 16, 0, 40)
+			Watermark.Size = UDim2.new(0, UIListLayout.AbsoluteContentSize.X + 16, 0, 32)
 			HudGroup.Size = UDim2.new(0, HudLayout.AbsoluteContentSize.X, 0, 40)
 		end));
 		HudLayout:GetPropertyChangedSignal('AbsoluteContentSize'):Connect(function()
@@ -6608,14 +6606,14 @@ function NeverLose:CreateWindow(Config)
 			Frame.Parent = Watermark
 			Frame.BackgroundTransparency = 1
 			Frame.BorderSizePixel = 0
-			Frame.Size = UDim2.fromOffset(140, 40)
+			Frame.Size = UDim2.fromOffset(100, 27.456)
 
 
 			Icon.Parent = Frame
 			Icon.BackgroundTransparency = 1
 			Icon.Position = UDim2.new(0, 8, 0.5, 0)
 			Icon.AnchorPoint = Vector2.new(0, 0.5)
-			Icon.Size = UDim2.fromOffset(35, 35)
+			Icon.Size = UDim2.fromOffset(20, 20)
 			Icon.ZIndex = 17
 			Icon.Image = IconStr
 			Icon.ImageColor3 = Color3.fromRGB(255, 255, 255)
@@ -6700,12 +6698,12 @@ function NeverLose:CreateWindow(Config)
 			local function updateSize()
 				local a = TextService:GetTextSize(Content.Text, Content.TextSize, Content.Font, Vector2.new(math.huge,math.huge))
 				-- Equal visual gaps: icon -> separator and separator -> Release.
-				local separatorX = 45
-				local contentX = 63
+				local separatorX = 34
+				local contentX = 50
 				Content.Position = UDim2.new(0, contentX, 0.5, 0)
 				Content.Size = UDim2.fromOffset(a.X + 1, 20)
 				Separator.Position = UDim2.new(0, separatorX, 0.5, 0)
-				Frame.Size = UDim2.fromOffset(contentX + a.X + 10, 40)
+				Frame.Size = UDim2.fromOffset(contentX + a.X + 10, 32)
 			end
 			updateSize()
 
