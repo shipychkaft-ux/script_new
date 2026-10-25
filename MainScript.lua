@@ -25,7 +25,7 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-nursultan4"
+local BUILD_TAG = "2026-10-25-nursultan5"
 print("[Nursultan]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -40,7 +40,7 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-nursultan4"
+local MODULE_CACHE_VERSION = "2026-10-25-nursultan5"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",
@@ -126,7 +126,11 @@ do
         -- removed above when delfile is available; versioned cache is fallback.
         local legacyPath = "Mana/" .. filepath
         if shared.ManaDeveloper and betterisfile(legacyPath) then
-            return loadstring(readfile(legacyPath))()
+            local devChunk, devError = loadstring(readfile(legacyPath))
+            if not devChunk then
+                error("[Nursultan]: compile error in local " .. filepath .. ": " .. tostring(devError), 0)
+            end
+            return devChunk()
         end
 
         -- In normal mode, refresh from GitHub first so cached modules cannot
@@ -146,8 +150,12 @@ do
             pcall(function() writefile(cachePath, content) end)
             if delfile then pcall(delfile, legacyPath) end
             if shared.ManaDeveloper then pcall(writefile, legacyPath, content) end
+            local chunk, compileError = loadstring(content)
+            if not chunk then
+                error("[Nursultan]: compile error in " .. filepath .. ": " .. tostring(compileError), 0)
+            end
             print("[Nursultan]: loaded " .. filepath .. " from GitHub")
-            return loadstring(content)()
+            return chunk()
         end
 
         -- If GitHub is unavailable, keep the last working local copy usable.
