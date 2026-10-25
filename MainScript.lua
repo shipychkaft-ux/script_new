@@ -25,7 +25,7 @@ local startTick = tick()
 
 -- // Bump on every published change so the console shows whether the fresh
 -- // build is actually running instead of a cached copy.
-local BUILD_TAG = "2026-10-25-nursultan12"
+local BUILD_TAG = "2026-10-25-nursultan13"
 print("[Nursultan]: build " .. BUILD_TAG)
 
 -- // GitHub repository to load files from
@@ -40,7 +40,7 @@ end
 -- executors that do not expose delfile.
 local cacheFolder = "Mana"
 if makefolder then pcall(makefolder, cacheFolder) end
-local MODULE_CACHE_VERSION = "2026-10-25-nursultan12"
+local MODULE_CACHE_VERSION = "2026-10-25-nursultan13"
 local legacyModuleFiles = {
     "GuiLibrary.lua", "playersHandler.lua", "toolHandler.lua", "espLibrary.lua",
     "NightixMenu.lua", "NeverLose.lua", "Universal.lua",

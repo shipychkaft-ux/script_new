@@ -151,7 +151,7 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
-print("[Nursultan]: NeverLose build 2026-10-25-nursultan12");
+print("[Nursultan]: NeverLose build 2026-10-25-nursultan13");
 
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
@@ -6416,8 +6416,10 @@ function NeverLose:CreateWindow(Config)
 			icon.Name = NeverLose.RandomString()
 			icon.Parent = item
 			icon.BackgroundTransparency = 1
-			icon.Position = UDim2.fromOffset(0, 5)
-			icon.Size = UDim2.fromOffset(20, 20)
+			-- Compact only the three information-panel icons; the main watermark
+			-- icon below remains at its original 20x20 size.
+			icon.Position = UDim2.fromOffset(0, 7)
+			icon.Size = UDim2.fromOffset(15, 15)
 			icon.ZIndex = 18
 			icon.Image = "rbxassetid://" .. tostring(iconId)
 			icon.ImageColor3 = Color3.fromRGB(235, 235, 242)
