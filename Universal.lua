@@ -4346,11 +4346,15 @@ runFunction(function()
     local aura = {Enabled = true}
     local auraColor = {Value = Color3.fromRGB(255, 140, 0)}
     local auraEmitter
+    local auraEmitter1
+    local auraEmitter2
     local auraAttachment
     local auraCharacterConnection
 
     local function removeAura()
         if auraEmitter then auraEmitter:Destroy(); auraEmitter = nil end
+        if auraEmitter1 then auraEmitter1:Destroy(); auraEmitter1 = nil end
+        if auraEmitter2 then auraEmitter2:Destroy(); auraEmitter2 = nil end
         if auraAttachment then auraAttachment:Destroy(); auraAttachment = nil end
     end
 
@@ -4399,9 +4403,58 @@ runFunction(function()
                 NumberSequenceKeypoint.new(0.7, 0.2),
                 NumberSequenceKeypoint.new(1, 1),
             })
+
+            auraEmitter1 = Instance.new("ParticleEmitter")
+            auraEmitter1.Name = "ParticleGlow1"
+            auraEmitter1.Parent = auraAttachment
+            auraEmitter1.Texture = "rbxassetid://3916186365"
+            auraEmitter1.Enabled = true
+            auraEmitter1.Rate = 10
+            auraEmitter1.Lifetime = NumberRange.new(1.25, 1.25)
+            auraEmitter1.Speed = NumberRange.new(3.5, 5.5)
+            auraEmitter1.Rotation = NumberRange.new(-360, 360)
+            auraEmitter1.RotSpeed = NumberRange.new(200, 200)
+            auraEmitter1.SpreadAngle = Vector2.new(360, 360)
+            auraEmitter1.LightEmission = 1
+            auraEmitter1.LightInfluence = 0
+            auraEmitter1.Brightness = 1
+            auraEmitter1.ZOffset = 1.2
+            auraEmitter1.Orientation = Enum.ParticleOrientation.VelocityParallel
+            auraEmitter1.LockedToPart = true
+            auraEmitter1.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.075),
+                NumberSequenceKeypoint.new(0.7, 0.4),
+                NumberSequenceKeypoint.new(1, 1),
+            })
+
+            auraEmitter2 = Instance.new("ParticleEmitter")
+            auraEmitter2.Name = "ParticleGlow2"
+            auraEmitter2.Parent = auraAttachment
+            auraEmitter2.Texture = "rbxassetid://7103657950"
+            auraEmitter2.Enabled = true
+            auraEmitter2.Rate = 10
+            auraEmitter2.Lifetime = NumberRange.new(1.25, 1.25)
+            auraEmitter2.Speed = NumberRange.new(3.5, 5.5)
+            auraEmitter2.Rotation = NumberRange.new(-360, 360)
+            auraEmitter2.RotSpeed = NumberRange.new(200, 200)
+            auraEmitter2.SpreadAngle = Vector2.new(360, 360)
+            auraEmitter2.LightEmission = 1
+            auraEmitter2.LightInfluence = 0
+            auraEmitter2.Brightness = 1
+            auraEmitter2.ZOffset = 1.5
+            auraEmitter2.Orientation = Enum.ParticleOrientation.FacingCamera
+            auraEmitter2.LockedToPart = true
+            auraEmitter2.Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0.1),
+                NumberSequenceKeypoint.new(0.6, 0.35),
+                NumberSequenceKeypoint.new(1, 1),
+            })
         end
 
-        auraEmitter.Color = ColorSequence.new(auraColor.Value)
+        local colorSequence = ColorSequence.new(auraColor.Value)
+        auraEmitter.Color = colorSequence
+        auraEmitter1.Color = colorSequence
+        auraEmitter2.Color = colorSequence
     end
 
     aura = Tabs.Render:CreateToggle({
