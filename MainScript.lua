@@ -20,6 +20,11 @@ end
 
 local startTick = tick()
 
+-- // Bump on every published change so the console shows whether the fresh
+-- // build is actually running instead of a cached copy.
+local BUILD_TAG = "2026-10-25-hud2"
+print("[Nightix]: build " .. BUILD_TAG)
+
 -- // GitHub repository to load files from
 local GitHubRepo = "https://raw.githubusercontent.com/shipychkaft-ux/script_new/main/"
 local GitHubCacheKey = tostring(math.floor(tick()))

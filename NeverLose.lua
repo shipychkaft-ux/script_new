@@ -151,6 +151,8 @@ isfile = isfile or getgenv().isfile;
 
 local NeverLose = {};
 
+print("[Nightix]: NeverLose build 2026-10-25-hud2");
+
 NeverLose.BuiltInRegular = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Regular,Enum.FontStyle.Normal);
 NeverLose.BuiltInBold = Font.new('rbxasset://LuaPackages/Packages/_Index/BuilderIcons/BuilderIcons/BuilderIcons.json',Enum.FontWeight.Bold,Enum.FontStyle.Normal);
 NeverLose.GlobalSignals = {};
@@ -6406,7 +6408,8 @@ function NeverLose:CreateWindow(Config)
 			return item, label, updateItemSize
 		end
 
-		local userItem, userLabel, updateUserSize = addInfoItem(88404474731870, LocalPlayer.Name, 1)
+		local playerName = (LocalPlayer and LocalPlayer.Name) or "Player"
+		local userItem, userLabel, updateUserSize = addInfoItem(88404474731870, playerName, 1)
 		local separatorOne = Instance.new("TextLabel")
 		separatorOne.Parent = InformationBar
 		separatorOne.BackgroundTransparency = 1
