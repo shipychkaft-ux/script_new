@@ -4344,18 +4344,32 @@ end)
 
 runFunction(function()
     local aura = {Enabled = true}
-    local auraColor = {Value = Color3.fromRGB(255, 140, 0)}
-    local auraEmitter
-    local auraEmitter1
-    local auraEmitter2
+    local auraColor = {Value = Color3.fromRGB(255, 0, 186)}
     local auraAttachment
+    local curveAttachment
+    local circularAura
+    local circularAura2
+    local curvedAura
     local auraCharacterConnection
 
     local function removeAura()
-        if auraEmitter then auraEmitter:Destroy(); auraEmitter = nil end
-        if auraEmitter1 then auraEmitter1:Destroy(); auraEmitter1 = nil end
-        if auraEmitter2 then auraEmitter2:Destroy(); auraEmitter2 = nil end
         if auraAttachment then auraAttachment:Destroy(); auraAttachment = nil end
+        if curveAttachment then curveAttachment:Destroy(); curveAttachment = nil end
+        circularAura = nil
+        circularAura2 = nil
+        curvedAura = nil
+    end
+
+    local function configureEmitter(emitter)
+        emitter.Enabled = true
+        emitter.LightEmission = 1
+        emitter.LightInfluence = 0
+        emitter.Brightness = 1
+        emitter.LockedToPart = true
+        emitter.VelocityInheritance = 0
+        emitter.Shape = Enum.ParticleEmitterShape.Box
+        emitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
+        emitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
     end
 
     local function applyAura()
@@ -4365,101 +4379,89 @@ runFunction(function()
         end
 
         local character = LocalPlayer.Character
-        local root = character and character:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+        local torso = character and (character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso"))
+        if not torso then return end
 
-        if not auraAttachment or auraAttachment.Parent ~= root then
+        if not auraAttachment or auraAttachment.Parent ~= torso or not curveAttachment or curveAttachment.Parent ~= torso then
             removeAura()
+
             auraAttachment = Instance.new("Attachment")
-            auraAttachment.Name = "NursultanGlowAura"
-            auraAttachment.Parent = root
+            auraAttachment.Name = "AuraAttach"
+            auraAttachment.Position = Vector3.new(0, 0, 0)
+            auraAttachment.Parent = torso
 
-            auraEmitter = Instance.new("ParticleEmitter")
-            auraEmitter.Name = "GlowAura"
-            auraEmitter.Parent = auraAttachment
-            auraEmitter.Texture = "rbxassetid://7548285739"
-            auraEmitter.Enabled = true
-            auraEmitter.Rate = 10
-            auraEmitter.Lifetime = NumberRange.new(1.25, 1.25)
-            auraEmitter.Speed = NumberRange.new(3.5, 5.5)
-            auraEmitter.Rotation = NumberRange.new(-360, 360)
-            auraEmitter.RotSpeed = NumberRange.new(200, 200)
-            auraEmitter.SpreadAngle = Vector2.new(360, 360)
-            auraEmitter.LightEmission = 1
-            auraEmitter.LightInfluence = 0
-            auraEmitter.Brightness = 1
-            auraEmitter.ZOffset = -1.4
-            auraEmitter.Drag = 3.5
-            auraEmitter.LockedToPart = true
-            auraEmitter.EmissionDirection = Enum.NormalId.Top
-            auraEmitter.Shape = Enum.ParticleEmitterShape.Box
-            auraEmitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Outward
-            auraEmitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
-            auraEmitter.ShapePartial = 1
-            auraEmitter.TimeScale = 1
-            auraEmitter.VelocityInheritance = 0
-            auraEmitter.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.05),
-                NumberSequenceKeypoint.new(0.7, 0.2),
-                NumberSequenceKeypoint.new(1, 1),
-            })
+            curveAttachment = Instance.new("Attachment")
+            curveAttachment.Name = "CurveAura"
+            curveAttachment.Position = Vector3.new(0, -0.0251, 0)
+            curveAttachment.Orientation = Vector3.new(90, 0, 0)
+            curveAttachment.Parent = torso
 
-            auraEmitter1 = Instance.new("ParticleEmitter")
-            auraEmitter1.Name = "ParticleGlow1"
-            auraEmitter1.Parent = auraAttachment
-            auraEmitter1.Texture = "rbxassetid://3916186365"
-            auraEmitter1.Enabled = true
-            auraEmitter1.Rate = 10
-            auraEmitter1.Lifetime = NumberRange.new(1.25, 1.25)
-            auraEmitter1.Speed = NumberRange.new(3.5, 5.5)
-            auraEmitter1.Rotation = NumberRange.new(-360, 360)
-            auraEmitter1.RotSpeed = NumberRange.new(200, 200)
-            auraEmitter1.SpreadAngle = Vector2.new(360, 360)
-            auraEmitter1.LightEmission = 1
-            auraEmitter1.LightInfluence = 0
-            auraEmitter1.Brightness = 1
-            auraEmitter1.ZOffset = 1.2
-            auraEmitter1.Orientation = Enum.ParticleOrientation.VelocityParallel
-            auraEmitter1.LockedToPart = true
-            auraEmitter1.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.075),
-                NumberSequenceKeypoint.new(0.7, 0.4),
-                NumberSequenceKeypoint.new(1, 1),
-            })
+            circularAura = Instance.new("ParticleEmitter")
+            circularAura.Name = "CircularAura"
+            circularAura.Parent = auraAttachment
+            circularAura.Texture = "rbxassetid://7875457606"
+            circularAura.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+            circularAura.EmissionDirection = Enum.NormalId.Bottom
+            circularAura.Lifetime = NumberRange.new(0.75, 0.75)
+            circularAura.Rate = 8
+            circularAura.Rotation = NumberRange.new(0, 200)
+            circularAura.RotSpeed = NumberRange.new(-300, 300)
+            circularAura.Speed = NumberRange.new(0.05, 0.05)
+            circularAura.SpreadAngle = Vector2.new(360, -360)
+            circularAura.Drag = 0
+            circularAura.TimeScale = 1
+            circularAura.ZOffset = 0
+            configureEmitter(circularAura)
 
-            auraEmitter2 = Instance.new("ParticleEmitter")
-            auraEmitter2.Name = "ParticleGlow2"
-            auraEmitter2.Parent = auraAttachment
-            auraEmitter2.Texture = "rbxassetid://7103657950"
-            auraEmitter2.Enabled = true
-            auraEmitter2.Rate = 10
-            auraEmitter2.Lifetime = NumberRange.new(1.25, 1.25)
-            auraEmitter2.Speed = NumberRange.new(3.5, 5.5)
-            auraEmitter2.Rotation = NumberRange.new(-360, 360)
-            auraEmitter2.RotSpeed = NumberRange.new(200, 200)
-            auraEmitter2.SpreadAngle = Vector2.new(360, 360)
-            auraEmitter2.LightEmission = 1
-            auraEmitter2.LightInfluence = 0
-            auraEmitter2.Brightness = 1
-            auraEmitter2.ZOffset = 1.5
-            auraEmitter2.Orientation = Enum.ParticleOrientation.FacingCamera
-            auraEmitter2.LockedToPart = true
-            auraEmitter2.Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.1),
-                NumberSequenceKeypoint.new(0.6, 0.35),
-                NumberSequenceKeypoint.new(1, 1),
-            })
+            circularAura2 = Instance.new("ParticleEmitter")
+            circularAura2.Name = "CircularAura2"
+            circularAura2.Parent = auraAttachment
+            circularAura2.Texture = "rbxassetid://7875480752"
+            circularAura2.Orientation = Enum.ParticleOrientation.VelocityPerpendicular
+            circularAura2.EmissionDirection = Enum.NormalId.Bottom
+            circularAura2.Lifetime = NumberRange.new(0.5, 0.5)
+            circularAura2.Rate = 8
+            circularAura2.Rotation = NumberRange.new(0, 200)
+            circularAura2.RotSpeed = NumberRange.new(-300, 300)
+            circularAura2.Speed = NumberRange.new(0.05, 0.05)
+            circularAura2.SpreadAngle = Vector2.new(360, -360)
+            circularAura2.Drag = 0
+            circularAura2.TimeScale = 1
+            circularAura2.ZOffset = 0
+            configureEmitter(circularAura2)
+
+            curvedAura = Instance.new("ParticleEmitter")
+            curvedAura.Name = "CurvedAura"
+            curvedAura.Parent = curveAttachment
+            curvedAura.Texture = "rbxassetid://7901211952"
+            curvedAura.Orientation = Enum.ParticleOrientation.VelocityParallel
+            curvedAura.EmissionDirection = Enum.NormalId.Top
+            curvedAura.Lifetime = NumberRange.new(0.75, 0.75)
+            curvedAura.Rate = 60
+            curvedAura.Rotation = NumberRange.new(0, 0)
+            curvedAura.RotSpeed = NumberRange.new(0, 0)
+            curvedAura.Speed = NumberRange.new(-30, -30)
+            curvedAura.SpreadAngle = Vector2.new(20, 20)
+            curvedAura.Acceleration = Vector3.new(0, 100, 0)
+            curvedAura.Drag = 2
+            curvedAura.TimeScale = 0.3
+            curvedAura.ZOffset = 0
+            configureEmitter(curvedAura)
         end
 
-        local colorSequence = ColorSequence.new(auraColor.Value)
-        auraEmitter.Color = colorSequence
-        auraEmitter1.Color = colorSequence
-        auraEmitter2.Color = colorSequence
+        local primary = auraColor.Value
+        local secondary = primary:Lerp(Color3.fromRGB(114, 0, 255), 0.6)
+        circularAura.Color = ColorSequence.new(primary)
+        circularAura2.Color = ColorSequence.new(secondary)
+        curvedAura.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, secondary),
+            ColorSequenceKeypoint.new(1, primary),
+        })
     end
 
     aura = Tabs.Render:CreateToggle({
         Name = "Glow Aura",
-        HoverText = "Добавляет вокруг персонажа свечение частиц.",
+        HoverText = "Аура из CircularAura и CurvedAura вокруг персонажа.",
         Default = true,
         Callback = function(enabled)
             aura.Enabled = enabled
@@ -4469,7 +4471,7 @@ runFunction(function()
 
     auraColor = aura:CreateColorSlider({
         Name = "Цвет свечения",
-        Default = Color3.fromRGB(255, 140, 0),
+        Default = Color3.fromRGB(255, 0, 186),
         Function = function(value)
             auraColor.Value = value
             applyAura()
@@ -4478,8 +4480,8 @@ runFunction(function()
 
     auraCharacterConnection = LocalPlayer.CharacterAdded:Connect(function(character)
         if not aura.Enabled then return end
-        local root = character:WaitForChild("HumanoidRootPart", 5)
-        if root then applyAura() end
+        local torso = character:WaitForChild("UpperTorso", 5) or character:WaitForChild("Torso", 5)
+        if torso then applyAura() end
     end)
 
     applyAura()
